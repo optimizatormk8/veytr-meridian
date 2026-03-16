@@ -199,7 +199,7 @@ details .inner p{margin-bottom:12px}
   <p class="sub">Deploy a VLESS+Reality proxy server that's invisible to censorship systems. Fully automated. Takes 2 minutes.</p>
   <div class="actions">
     <a href="#setup" class="btn btn-p">Get started ↓</a>
-    <a href="https://github.com/rmbk/meridian" class="btn btn-s" target="_blank">GitHub</a>
+    <a href="https://github.com/uburuntu/meridian" class="btn btn-s" target="_blank">GitHub</a>
   </div>
 </div>
 </section>
@@ -212,21 +212,21 @@ details .inner p{margin-bottom:12px}
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash</pre>
+    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
   </div>
 
   <p style="font-size:.85rem;color:var(--t2)">The script asks for your server IP, installs dependencies, configures the proxy, and outputs a QR code. Or pass the IP directly:</p>
 
   <div class="oneliner" style="margin-top:12px">
     <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span></pre>
+    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span></pre>
   </div>
 
   <div class="or-sep">or with a domain (adds a decoy website)</div>
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span> --domain <span class="st">example.com</span></pre>
+    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span> --domain <span class="st">example.com</span></pre>
   </div>
 </div>
 </section>
@@ -286,7 +286,7 @@ details .inner p{margin-bottom:12px}
     <summary>Relay chain (IP whitelist bypass) <span></span></summary>
     <div class="inner">
       <p>If direct foreign connections are blocked (IP whitelisting), use a two-server chain: a domestic relay on a whitelisted IP forwards traffic to the exit server abroad.</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/rmbk/meridian.git && cd meridian
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/uburuntu/meridian.git && cd meridian
 cp inventory-chain.yml.example inventory-chain.yml
 <span class="cm"># Edit inventory-chain.yml with both server IPs</span>
 ansible-playbook -i inventory-chain.yml playbook-chain.yml</div>
@@ -298,7 +298,7 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml</div>
     <summary>Manual Ansible setup (full control) <span></span></summary>
     <div class="inner">
       <p>If you prefer to manage inventory and variables yourself:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/rmbk/meridian.git && cd meridian
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/uburuntu/meridian.git && cd meridian
 pip3 install ansible
 ansible-galaxy collection install -r requirements.yml
 <span class="cm"># Edit inventory.yml with your server IP</span>
@@ -321,7 +321,7 @@ ansible-playbook playbook.yml</div>
 <footer class="foot">
 <div class="w">
   <p style="margin-bottom:6px">Open source. No tracking. No accounts.</p>
-  <a href="https://github.com/rmbk/meridian" target="_blank">GitHub</a> · <a href="https://github.com/rmbk/meridian/issues" target="_blank">Issues</a>
+  <a href="https://github.com/uburuntu/meridian" target="_blank">GitHub</a> · <a href="https://github.com/uburuntu/meridian/issues" target="_blank">Issues</a>
 </div>
 </footer>
 

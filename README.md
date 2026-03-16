@@ -56,19 +56,19 @@ Chain mode (bypass IP whitelisting):
 One command. It installs dependencies, configures the server, and outputs a QR code.
 
 ```bash
-curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash
+curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash
 ```
 
 Or pass the server IP directly:
 
 ```bash
-curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- 203.0.113.42
+curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 203.0.113.42
 ```
 
 With a domain (adds a decoy website + CDN fallback):
 
 ```bash
-curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- 203.0.113.42 --domain example.com
+curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 203.0.113.42 --domain example.com
 ```
 
 The script outputs an HTML file with a QR code. Send it to whoever needs it — they scan, connect, done.
@@ -78,7 +78,7 @@ The script outputs an HTML file with a QR code. Send it to whoever needs it — 
 If you prefer managing the Ansible project directly:
 
 ```bash
-git clone https://github.com/rmbk/meridian.git && cd meridian
+git clone https://github.com/uburuntu/meridian.git && cd meridian
 pip3 install ansible
 ansible-galaxy collection install -r requirements.yml
 # Edit inventory.yml with your server IP
@@ -90,7 +90,7 @@ ansible-playbook playbook.yml
 Two-server relay chain for when direct foreign connections are blocked:
 
 ```bash
-git clone https://github.com/rmbk/meridian.git && cd meridian
+git clone https://github.com/uburuntu/meridian.git && cd meridian
 cp inventory-chain.yml.example inventory-chain.yml
 # Edit with both server IPs (exit abroad + relay domestic)
 ansible-playbook -i inventory-chain.yml playbook-chain.yml

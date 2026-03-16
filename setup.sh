@@ -3,9 +3,9 @@
 # One-command proxy server setup
 #
 # Usage:
-#   curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash
-#   curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- 1.2.3.4
-#   curl -sS https://raw.githubusercontent.com/rmbk/meridian/main/setup.sh | bash -s -- 1.2.3.4 --domain example.com
+#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash
+#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 1.2.3.4
+#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 1.2.3.4 --domain example.com
 # =============================================================================
 set -euo pipefail
 
@@ -109,9 +109,9 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 info "Downloading playbook..."
 if command -v curl &>/dev/null; then
-  curl -sL "https://github.com/rmbk/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
+  curl -sL "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
 elif command -v wget &>/dev/null; then
-  wget -qO- "https://github.com/rmbk/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
+  wget -qO- "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
 else
   fail "curl or wget is required"
 fi
