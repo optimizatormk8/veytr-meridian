@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meridian — Deploy a Censorship-Resistant Proxy</title>
+<title>Meridian — Censorship-Resistant Proxy</title>
 <meta name="description" content="One command deploys a fully configured, undetectable proxy server. Open source.">
+<link rel="canonical" href="https://meridian.msu.rocks">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,181 +23,95 @@
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  font-family:var(--sans);background:var(--bg);color:var(--t1);
-  line-height:1.6;-webkit-font-smoothing:antialiased;
-}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);line-height:1.6;-webkit-font-smoothing:antialiased}
 ::selection{background:var(--ac);color:var(--bg)}
-
 .w{max-width:660px;margin:0 auto;padding:0 20px}
-
-/* --- hero --- */
-.hero{padding:min(18vh,140px) 0 80px;position:relative}
-.hero::before{
-  content:'';position:absolute;top:-30%;left:10%;
-  width:80%;height:80%;
-  background:radial-gradient(ellipse at 40% 50%,#d4a24e08,transparent 70%);
-  pointer-events:none;
-}
-.chip{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ac);background:var(--ac2);border:1px solid #d4a24e44;
-  border-radius:99px;padding:5px 14px;margin-bottom:28px;
-}
-.chip i{width:5px;height:5px;border-radius:50%;background:var(--ac);animation:blink 2s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-h1{
-  font-family:var(--serif);font-size:clamp(2.4rem,6vw,3.8rem);
-  font-weight:400;line-height:1.12;letter-spacing:-.01em;margin-bottom:20px;
-}
-h1 em{font-style:italic;color:var(--ac)}
-.sub{font-size:1.05rem;color:var(--t2);max-width:480px;margin-bottom:36px}
-.actions{display:flex;gap:10px;flex-wrap:wrap}
-.btn{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:12px 24px;border-radius:var(--r);font-family:var(--sans);
-  font-size:.9rem;font-weight:500;text-decoration:none;border:none;cursor:pointer;
-  transition:filter .06s,transform .06s;
-}
-.btn-p{background:var(--ac);color:var(--bg)}
-.btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
-.btn-s{background:var(--s1);color:var(--t1);border:1px solid var(--b1)}
-.btn-s:hover{border-color:var(--b2);background:var(--s2)}
-
-/* --- sections --- */
 section{padding:64px 0}
 .label{font-size:.7rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--ac);margin-bottom:10px}
 h2{font-family:var(--serif);font-size:clamp(1.6rem,3.5vw,2.2rem);font-weight:400;line-height:1.2;margin-bottom:12px}
 .desc{color:var(--t2);font-size:.95rem;max-width:480px;margin-bottom:32px}
 
-/* --- the one-liner --- */
-.oneliner{
-  background:var(--s1);border:1px solid var(--b1);border-radius:12px;
-  padding:24px 28px;margin:24px 0;position:relative;
-}
-.oneliner pre{
-  font-family:var(--mono);font-size:.88rem;line-height:1.5;
-  color:var(--t1);white-space:pre-wrap;word-break:break-all;padding-right:60px;
-}
-.oneliner .cp{
-  position:absolute;top:12px;right:12px;
-  background:var(--s2);border:1px solid var(--b1);color:var(--t2);
-  font-family:var(--mono);font-size:.68rem;padding:5px 12px;border-radius:6px;
-  cursor:pointer;transition:all .06s;
-}
-.oneliner .cp:hover{color:var(--t1);border-color:var(--b2)}
-.oneliner .cp.ok{color:var(--ok);border-color:var(--ok)}
-.or-sep{
-  text-align:center;color:var(--t3);font-size:.8rem;margin:16px 0;
-  display:flex;align-items:center;gap:16px;
-}
+/* hero */
+.hero{padding:min(18vh,140px) 0 80px;position:relative}
+.hero::before{content:'';position:absolute;top:-30%;left:10%;width:80%;height:80%;background:radial-gradient(ellipse at 40% 50%,#d4a24e08,transparent 70%);pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--ac);background:var(--ac2);border:1px solid #d4a24e44;border-radius:99px;padding:5px 14px;margin-bottom:28px}
+.chip i{width:5px;height:5px;border-radius:50%;background:var(--ac);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+h1{font-family:var(--serif);font-size:clamp(2.4rem,6vw,3.8rem);font-weight:400;line-height:1.12;letter-spacing:-.01em;margin-bottom:20px}
+h1 em{font-style:italic;color:var(--ac)}
+.sub{font-size:1.05rem;color:var(--t2);max-width:480px;margin-bottom:36px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:12px 24px;border-radius:var(--r);font-family:var(--sans);font-size:.9rem;font-weight:500;text-decoration:none;border:none;cursor:pointer;transition:filter .06s,transform .06s}
+.btn-p{background:var(--ac);color:var(--bg)}
+.btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-s{background:var(--s1);color:var(--t1);border:1px solid var(--b1)}
+.btn-s:hover{border-color:var(--b2);background:var(--s2)}
+
+/* code blocks */
+.oneliner{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:24px 28px;margin:24px 0;position:relative}
+.oneliner pre{font-family:var(--mono);font-size:.88rem;line-height:1.5;color:var(--t1);white-space:pre-wrap;word-break:break-all;padding-right:60px}
+.oneliner .cp,.code .cp{position:absolute;background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-family:var(--mono);font-size:.68rem;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .06s}
+.oneliner .cp{top:12px;right:12px}
+.code .cp{top:6px;right:6px;font-size:.65rem;padding:3px 8px;border-radius:4px}
+.oneliner .cp:hover,.code .cp:hover{color:var(--t1);border-color:var(--b2)}
+.oneliner .cp.ok,.code .cp.ok{color:var(--ok);border-color:var(--ok)}
+.or-sep{text-align:center;color:var(--t3);font-size:.8rem;margin:16px 0;display:flex;align-items:center;gap:16px}
 .or-sep::before,.or-sep::after{content:'';flex:1;height:1px;background:var(--b1)}
 
-/* --- what happens --- */
+/* timeline */
 .timeline{margin:24px 0}
-.tl-item{
-  display:flex;gap:16px;padding:14px 0;
-  border-bottom:1px solid var(--b1);
-  font-size:.9rem;
-}
+.tl-item{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--b1);font-size:.9rem}
 .tl-item:last-child{border-bottom:none}
-.tl-n{
-  width:24px;height:24px;border-radius:50%;
-  background:var(--ac2);color:var(--ac);
-  font-family:var(--mono);font-size:.7rem;font-weight:500;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  margin-top:1px;
-}
+.tl-n{width:24px;height:24px;border-radius:50%;background:var(--ac2);color:var(--ac);font-family:var(--mono);font-size:.7rem;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .tl-text{color:var(--t2)}
 .tl-text strong{color:var(--t1);font-weight:500}
 
-/* --- options --- */
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
-@media(max-width:540px){.opts{grid-template-columns:1fr}}
-.opt{
-  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
-  padding:20px;transition:border-color .06s;
-}
-.opt:hover{border-color:var(--b2)}
-.opt h4{font-size:.9rem;font-weight:500;margin-bottom:4px}
-.opt p{font-size:.82rem;color:var(--t2);line-height:1.5}
-.opt-tag{
-  display:inline-block;font-size:.65rem;font-weight:600;text-transform:uppercase;
-  letter-spacing:.04em;padding:2px 7px;border-radius:4px;margin-bottom:10px;
-}
-.opt-tag-a{background:var(--ok2);color:var(--ok)}
-.opt-tag-b{background:#60a5fa18;color:#60a5fa}
-
-/* --- apps grid --- */
+/* apps */
 .apps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}
 @media(max-width:540px){.apps{grid-template-columns:1fr 1fr}}
-.app{
-  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
-  padding:14px;text-align:center;font-size:.82rem;
-  text-decoration:none;color:var(--t1);transition:border-color .06s;
-}
+.app{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:14px;text-align:center;font-size:.82rem;text-decoration:none;color:var(--t1);transition:border-color .06s}
 .app:hover{border-color:var(--b2)}
 .app span{display:block;font-size:.72rem;color:var(--t3);margin-top:2px}
 
-/* --- callout --- */
-.note{
-  background:var(--ac2);border:1px solid #d4a24e33;border-radius:var(--r);
-  padding:14px 18px;margin:20px 0;font-size:.85rem;color:var(--ac);
-  display:flex;gap:10px;line-height:1.5;
-}
+/* callout */
+.note{background:var(--ac2);border:1px solid #d4a24e33;border-radius:var(--r);padding:14px 18px;margin:20px 0;font-size:.85rem;color:var(--ac);display:flex;gap:10px;line-height:1.5}
 
-/* --- advanced section --- */
-details{
-  background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
-  margin:12px 0;overflow:hidden;
-}
-details summary{
-  padding:16px 20px;cursor:pointer;font-size:.9rem;font-weight:500;
-  list-style:none;display:flex;justify-content:space-between;align-items:center;
-  transition:background .06s;
-}
+/* details/accordion */
+details{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);margin:12px 0;overflow:hidden}
+details summary{padding:16px 20px;cursor:pointer;font-size:.9rem;font-weight:500;list-style:none;display:flex;justify-content:space-between;align-items:center;transition:background .06s}
 details summary:hover{background:var(--s2)}
 details summary::after{content:'↓';color:var(--t3);transition:transform .08s}
 details[open] summary::after{transform:rotate(180deg)}
 details .inner{padding:0 20px 20px;font-size:.88rem;color:var(--t2);line-height:1.7}
 details .inner p{margin-bottom:12px}
-.code{
-  background:var(--bg);border:1px solid var(--b1);border-radius:6px;
-  padding:12px 16px;margin:10px 0;font-family:var(--mono);font-size:.8rem;
-  line-height:1.6;overflow-x:auto;position:relative;white-space:pre;
-}
-.code .cp{
-  position:absolute;top:6px;right:6px;
-  background:var(--s2);border:1px solid var(--b1);color:var(--t3);
-  font-family:var(--mono);font-size:.65rem;padding:3px 8px;border-radius:4px;
-  cursor:pointer;transition:all .06s;
-}
-.code .cp:hover{color:var(--t1);border-color:var(--b2)}
-.code .cp.ok{color:var(--ok);border-color:var(--ok)}
-.cm{color:var(--t3)}
-.st{color:var(--ac)}
+.code{background:var(--bg);border:1px solid var(--b1);border-radius:6px;padding:12px 16px;margin:10px 0;font-family:var(--mono);font-size:.8rem;line-height:1.6;overflow-x:auto;position:relative;white-space:pre}
+.cm{color:var(--t3)}.st{color:var(--ac)}
 
-/* --- footer --- */
-.foot{
-  padding:40px 0;border-top:1px solid var(--b1);
-  text-align:center;color:var(--t3);font-size:.8rem;
-}
+/* table */
+.tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:.84rem}
+.tbl th{text-align:left;color:var(--t3);font-weight:500;padding:8px 12px;border-bottom:1px solid var(--b1)}
+.tbl td{padding:8px 12px;border-bottom:1px solid var(--b1);color:var(--t2)}
+.tbl td:first-child{color:var(--t1);font-family:var(--mono);font-size:.78rem}
+.tbl tr:last-child td{border-bottom:none}
+
+/* footer */
+.foot{padding:40px 0;border-top:1px solid var(--b1);text-align:center;color:var(--t3);font-size:.8rem}
 .foot a{color:var(--t2);text-decoration:none;transition:color .06s}
 .foot a:hover{color:var(--ac)}
 
-/* --- reveal --- */
+/* reveal */
 .rv{opacity:0;transform:translateY(10px);transition:opacity .08s,transform .08s}
 .rv.v{opacity:1;transform:translateY(0)}
 </style>
 </head>
 <body>
 
+<!-- HERO -->
 <section class="hero">
 <div class="w">
   <div class="chip"><i></i> Open Source</div>
   <h1>Undetectable proxy,<br><em>one command</em></h1>
-  <p class="sub">Deploy a VLESS+Reality proxy server that's invisible to censorship systems. Fully automated. Takes 2 minutes.</p>
+  <p class="sub">Deploy a VLESS+Reality proxy server that's invisible to censorship systems. Fully automated. Takes 2&nbsp;minutes.</p>
   <div class="actions">
     <a href="#setup" class="btn btn-p">Get started ↓</a>
     <a href="https://github.com/uburuntu/meridian" class="btn btn-s" target="_blank">GitHub</a>
@@ -204,25 +119,26 @@ details .inner p{margin-bottom:12px}
 </div>
 </section>
 
+<!-- SETUP -->
 <section class="rv" id="setup">
 <div class="w">
   <p class="label">Setup</p>
   <h2>One command</h2>
-  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH access) and a terminal. That's it.</p>
+  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. The script installs everything else automatically.</p>
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
     <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
   </div>
 
-  <p style="font-size:.85rem;color:var(--t2)">The script asks for your server IP, installs dependencies, configures the proxy, and outputs a QR code. Or pass the IP directly:</p>
+  <p style="font-size:.85rem;color:var(--t2)">It asks for your server IP, configures the proxy, and outputs a QR code. Or pass the IP directly:</p>
 
   <div class="oneliner" style="margin-top:12px">
     <button class="cp" onclick="copyEl(this)">Copy</button>
     <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span></pre>
   </div>
 
-  <div class="or-sep">or with a domain (adds a decoy website)</div>
+  <div class="or-sep">with a domain (adds a decoy website + CDN fallback)</div>
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
@@ -231,93 +147,150 @@ details .inner p{margin-bottom:12px}
 </div>
 </section>
 
+<!-- WHAT HAPPENS -->
 <section class="rv">
 <div class="w">
   <p class="label">What happens</p>
   <h2>Under the hood</h2>
   <div class="timeline">
     <div class="tl-item"><div class="tl-n">1</div><div class="tl-text"><strong>Installs Ansible &amp; qrencode</strong> if not already present</div></div>
-    <div class="tl-item"><div class="tl-n">2</div><div class="tl-text"><strong>Downloads the playbook</strong> from GitHub (no git needed)</div></div>
+    <div class="tl-item"><div class="tl-n">2</div><div class="tl-text"><strong>Downloads the playbook</strong> from GitHub (no git clone needed)</div></div>
     <div class="tl-item"><div class="tl-n">3</div><div class="tl-text"><strong>Hardens the server</strong> — firewall, SSH keys only, BBR congestion control</div></div>
     <div class="tl-item"><div class="tl-n">4</div><div class="tl-text"><strong>Deploys VLESS+Reality</strong> via Docker — looks like microsoft.com to any probe</div></div>
     <div class="tl-item"><div class="tl-n">5</div><div class="tl-text"><strong>Outputs a QR code</strong> and saves an HTML file you can send to anyone</div></div>
   </div>
   <div class="note">
     <span>⏱</span>
-    <span>Safe to re-run at any time. The script is fully idempotent — it picks up where it left off.</span>
+    <span>Safe to re-run at any time. Fully idempotent — picks up where it left off.</span>
   </div>
 </div>
 </section>
 
+<!-- CONNECT -->
 <section class="rv">
 <div class="w">
   <p class="label">Connect</p>
   <h2>Scan and go</h2>
-  <p class="desc">After the script finishes, you get an HTML file with a QR code. Send it to whoever needs it. They scan it, connect, done.</p>
-
+  <p class="desc">The script generates an HTML file with a QR code and an "Open in App" deep link. Send it to whoever needs it — they tap once and connect.</p>
   <div class="apps">
     <a class="app" href="https://apps.apple.com/app/v2raytun/id6476628951" target="_blank">v2RayTun<span>iOS</span></a>
     <a class="app" href="https://play.google.com/store/apps/details?id=com.v2ray.ang" target="_blank">v2rayNG<span>Android</span></a>
     <a class="app" href="https://github.com/hiddify/hiddify-app/releases/latest" target="_blank">Hiddify<span>All platforms</span></a>
     <a class="app" href="https://github.com/2dust/v2rayN/releases/latest" target="_blank">v2rayN<span>Windows</span></a>
   </div>
-
   <div class="note">
     <span>⚠</span>
-    <span>The device clock must be accurate within 30 seconds or the connection will fail. Enable automatic date/time in settings.</span>
+    <span>Device clock must be accurate within 30 seconds. Enable automatic date/time.</span>
   </div>
 </div>
 </section>
 
+<!-- ARCHITECTURE -->
 <section class="rv">
 <div class="w">
-  <p class="label">Advanced</p>
-  <h2>More options</h2>
+  <p class="label">Architecture</p>
+  <h2>How it works</h2>
 
-  <details>
-    <summary>Add a decoy website (domain mode) <span></span></summary>
+  <details open>
+    <summary>Standalone mode <span></span></summary>
     <div class="inner">
-      <p>If you have a domain, the server also serves a fake business website and supports CDN fallback through Cloudflare. Pass <code>--domain</code> to the setup command.</p>
-      <p>The server uses HAProxy to route traffic by SNI — censors see a legitimate website, your traffic goes through Reality.</p>
+      <p>Single server. VLESS+Reality on port 443 — traffic looks like a normal HTTPS connection to microsoft.com. Censors and probes see a legitimate TLS certificate.</p>
+      <p>With a domain: HAProxy routes by TLS SNI on port 443 without terminating encryption. Reality traffic goes to Xray, domain traffic goes to Caddy (decoy website + CDN fallback via Cloudflare).</p>
     </div>
   </details>
 
   <details>
-    <summary>Relay chain (IP whitelist bypass) <span></span></summary>
+    <summary>Chain mode (IP whitelist bypass) <span></span></summary>
     <div class="inner">
-      <p>If direct foreign connections are blocked (IP whitelisting), use a two-server chain: a domestic relay on a whitelisted IP forwards traffic to the exit server abroad.</p>
+      <p>Two servers for when direct foreign connections are blocked. A domestic relay on a whitelisted IP accepts VLESS+TCP and forwards everything abroad via VLESS+Reality+XHTTP.</p>
       <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/uburuntu/meridian.git && cd meridian
 cp inventory-chain.yml.example inventory-chain.yml
 <span class="cm"># Edit inventory-chain.yml with both server IPs</span>
 ansible-playbook -i inventory-chain.yml playbook-chain.yml</div>
-      <p>The relay accepts plain VLESS+TCP (no TLS needed for domestic traffic) and forwards everything abroad via VLESS+Reality+XHTTP. Local sites are routed directly.</p>
+      <p>Local sites are routed directly from the relay. The exit node also keeps a direct Reality+TCP fallback on port 8444.</p>
+    </div>
+  </details>
+</div>
+</section>
+
+<!-- REFERENCE -->
+<section class="rv">
+<div class="w">
+  <p class="label">Reference</p>
+  <h2>Configuration &amp; operations</h2>
+
+  <details>
+    <summary>Customization (group_vars/all.yml) <span></span></summary>
+    <div class="inner">
+      <table class="tbl">
+        <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+        <tr><td>reality_sni</td><td>www.microsoft.com</td><td>Site that Reality impersonates</td></tr>
+        <tr><td>utls_fingerprint</td><td>chrome</td><td>TLS client fingerprint</td></tr>
+        <tr><td>client_limit_ip</td><td>2</td><td>Max simultaneous IPs per client</td></tr>
+        <tr><td>threexui_version</td><td>2.6.0</td><td>Pinned 3x-ui Docker image version</td></tr>
+        <tr><td>ssh_disable_password</td><td>true</td><td>Disable SSH password auth</td></tr>
+        <tr><td>bbr_enabled</td><td>true</td><td>TCP BBR congestion control</td></tr>
+      </table>
+      <p>For optimal stealth, use <a href="https://github.com/XTLS/RealiTLScanner" style="color:var(--ac)">RealiTLScanner</a> to find an SNI target near your server's datacenter.</p>
     </div>
   </details>
 
   <details>
-    <summary>Manual Ansible setup (full control) <span></span></summary>
+    <summary>Cloudflare CDN setup (domain mode) <span></span></summary>
     <div class="inner">
-      <p>If you prefer to manage inventory and variables yourself:</p>
+      <p><strong>Follow this order</strong> to avoid TLS certificate issues:</p>
+      <p>1. Add domain in Cloudflare, create A record to server IP<br>
+         2. Keep cloud icon <strong>grey</strong> ("DNS only") — don't proxy yet<br>
+         3. Run the playbook — Caddy gets the TLS cert automatically<br>
+         4. Switch to <strong>orange cloud</strong> (Proxied)<br>
+         5. SSL/TLS → <strong>Full (Strict)</strong>, Network → <strong>Enable WebSockets</strong></p>
+      <p>Caddy obtains certs via HTTP-01 on port 80. If Cloudflare's "Always Use HTTPS" is active, it breaks the challenge. Disable it or add a page rule for <code>/.well-known/acme-challenge/*</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Update &amp; maintenance <span></span></summary>
+    <div class="inner">
+      <p>Update Xray and 3x-ui:</p>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>ssh root@YOUR_SERVER
+cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
+      <p>Or re-run the setup command — it's safe to repeat. Add more users via the 3x-ui panel (access through SSH tunnel).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Manual Ansible setup <span></span></summary>
+    <div class="inner">
+      <p>For full control over inventory and variables:</p>
       <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>git clone https://github.com/uburuntu/meridian.git && cd meridian
 pip3 install ansible
 ansible-galaxy collection install -r requirements.yml
 <span class="cm"># Edit inventory.yml with your server IP</span>
 ansible-playbook playbook.yml</div>
-      <p>See <code>group_vars/all.yml</code> for all configurable variables (SNI target, ports, client limits, etc.).</p>
     </div>
   </details>
 
   <details>
-    <summary>How to update <span></span></summary>
+    <summary>Troubleshooting <span></span></summary>
     <div class="inner">
-      <p>SSH into the server and run:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
-      <p>Or re-run the setup command — it's safe to run repeatedly.</p>
+      <p><strong>Connection fails immediately:</strong> Check device clock is accurate within 30 seconds. Enable "Set Automatically" in date/time settings.</p>
+      <p><strong>Connection stops after days:</strong> Server IP may have been blocked. Switch to CDN fallback, or get a new IP and re-run.</p>
+      <p><strong>Slow speeds:</strong> Some hosting IP ranges are throttled. Try a different provider or datacenter (Finland, Netherlands, Sweden).</p>
+      <p><strong>Do NOT</strong> run other protocols (OpenVPN, WireGuard) on the same server — it flags the IP.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Security notes <span></span></summary>
+    <div class="inner">
+      <p>Credentials are saved locally in <code>credentials/</code> (git-ignored, mode 0600). The panel binds to localhost — access via SSH tunnel only. SSH password auth is disabled. UFW allows only ports 22 and 443. Automatic security updates are enabled.</p>
+      <p>The 3x-ui Docker image is pinned to a tested version. All secrets use <code>no_log: true</code> in Ansible output.</p>
     </div>
   </details>
 </div>
 </section>
 
+<!-- FOOTER -->
 <footer class="foot">
 <div class="w">
   <p style="margin-bottom:6px">Open source. No tracking. No accounts.</p>
@@ -330,14 +303,11 @@ function copyEl(btn){
   const block=btn.closest('.oneliner,.code');
   const pre=block.querySelector('pre')||block;
   const text=(pre.innerText||block.innerText).replace(/^Copy\n?/,'').trim();
-  navigator.clipboard.writeText(text).then(()=>{
-    btn.textContent='Copied';btn.classList.add('ok');
-    setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200);
-  });
+  if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>flash(btn))}
+  else{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);flash(btn)}
 }
-const obs=new IntersectionObserver(es=>{
-  es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('v')})
-},{threshold:.15});
+function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('v')})},{threshold:.15});
 document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
 </script>
 </body>
