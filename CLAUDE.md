@@ -87,3 +87,6 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - XHTTP transport doesn't support `xtls-rprx-vision` flow (must be empty string)
 - Docker compose errors include `rescue` blocks with container logs and common fix suggestions
 - DNS resolution check for domain mode fails hard (override with `-e skip_dns_check=true`)
+- Use `ansible_facts['distribution']` not `ansible_distribution` (deprecated in 2.24)
+- Docker role removes conflicting `docker.io` / `containerd` / `runc` packages only when `docker-ce` is not already installed AND no containers are running
+- **Always use context7 MCP to check up-to-date docs** before writing Ansible tasks, Docker configs, or Caddy configs — stale patterns cause real deployment failures

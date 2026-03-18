@@ -6,3 +6,4 @@ credentials/
 
 # macOS
 .DS_Store
+.claude/

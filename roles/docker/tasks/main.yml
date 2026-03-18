@@ -1,5 +1,6 @@
 ---
 # Install Docker CE from the official repository.
+# Handles Ubuntu/Debian servers that may have the conflicting docker.io package.
 # CRITICAL: Skips installation entirely if Docker is already running with containers,
 # to avoid disrupting existing workloads.
 
@@ -25,15 +26,38 @@
 - name: Show Docker status
   ansible.builtin.debug:
     msg: >-
-      Docker {{ 'is installed with running containers - skipping installation'
+      Docker {{ 'is installed with running containers — skipping installation'
       if docker_has_containers | bool
       else ('is installed but has no containers' if docker_version_check.rc == 0
       else 'is not installed') }}
 
 # -- Install Docker only when safe to do so --
+- name: Check if docker-ce is already the installed package
+  ansible.builtin.command: dpkg-query -W -f='${Status}' docker-ce
+  register: docker_ce_check
+  changed_when: false
+  failed_when: false
+
 - name: Install Docker (when not running with containers)
   when: not (docker_has_containers | bool)
   block:
+    # Remove conflicting Ubuntu/Debian docker packages (docker.io, containerd, etc.)
+    # Only needed if docker-ce is NOT already installed.
+    # Safe: this block only runs when there are no running containers.
+    - name: Remove conflicting Docker packages
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - docker-compose
+          - docker-doc
+          - podman-docker
+          - containerd
+          - runc
+        state: absent
+        purge: false
+      failed_when: false
+      when: docker_ce_check.rc != 0
+
     - name: Install Docker prerequisite packages
       ansible.builtin.apt:
         name:
@@ -50,17 +74,17 @@
 
     - name: Add Docker GPG key
       ansible.builtin.get_url:
-        url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+        url: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
 
     - name: Add Docker apt repository
       ansible.builtin.apt_repository:
         repo: >-
-          deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
+          deb [arch={{ ansible_facts['architecture'] | replace('x86_64', 'amd64') | replace('aarch64', 'arm64') }}
           signed-by=/etc/apt/keyrings/docker.asc]
-          https://download.docker.com/linux/{{ ansible_distribution | lower }}
-          {{ ansible_distribution_release }} stable
+          https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}
+          {{ ansible_facts['distribution_release'] }} stable
         filename: docker
         state: present
 
