@@ -93,8 +93,11 @@ if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
   printf "\n"
   printf "  ${B}Where is the server?${R}\n\n"
 
+  # Auto-detect current machine's public IP as a default suggestion
+  DETECTED_IP=$(curl -s --max-time 3 https://ifconfig.me 2>/dev/null || true)
+
   while true; do
-    prompt SERVER_IP "IP address"
+    prompt SERVER_IP "IP address" "$DETECTED_IP"
     if [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       break
     fi
