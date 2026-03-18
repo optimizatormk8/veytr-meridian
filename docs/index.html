@@ -107,6 +107,16 @@ details .inner p{margin-bottom:12px}
 .foot a{color:var(--t2);text-decoration:none;transition:color .06s}
 .foot a:hover{color:var(--ac)}
 
+/* builder */
+.btab{flex:1;padding:11px 8px;background:none;border:none;border-bottom:2px solid transparent;color:var(--t3);font-family:var(--sans);font-size:.78rem;font-weight:500;cursor:pointer;transition:color .06s,border-color .06s}
+.btab:hover{color:var(--t2)}
+.btab.active{color:var(--ac);border-bottom-color:var(--ac)}
+.bf{margin-bottom:12px}
+.bl{display:flex;align-items:center;font-size:.8rem;font-weight:500;color:var(--t1);margin-bottom:5px;user-select:none}
+.bi{background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.82rem;padding:9px 12px;border-radius:var(--r);outline:none;transition:border-color .06s;width:100%}
+.bi:focus{border-color:var(--b2)}
+.bh{display:block;font-size:.72rem;color:var(--t3);margin-top:3px;line-height:1.4}
+
 /* reveal */
 .rv{opacity:0;transform:translateY(10px);transition:opacity .08s,transform .08s}
 .rv.v{opacity:1;transform:translateY(0)}
@@ -132,32 +142,63 @@ details .inner p{margin-bottom:12px}
 <div class="w">
   <p class="label">Setup</p>
   <h2>One command</h2>
-  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. The script walks you through everything interactively.</p>
+  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. Run it directly or build a command below.</p>
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
     <pre>curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
   </div>
 
-  <p style="font-size:.85rem;color:var(--t2);margin-top:16px">The script asks for your server IP, configures the proxy, and outputs a QR code. Or build a command with your settings:</p>
+  <p style="font-size:.82rem;color:var(--t2);margin-top:16px">The interactive wizard asks for everything. Or configure your command:</p>
 
   <!-- Command builder -->
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:24px;margin:20px 0">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <input id="f-ip" type="text" placeholder="Server IP" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
-      <input id="f-user" type="text" placeholder="SSH user" value="root" style="width:100px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
+  <div id="builder" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;margin:20px 0;overflow:hidden">
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid var(--b1)">
+      <button class="btab active" onclick="setTab('install')">Install</button>
+      <button class="btab" onclick="setTab('check')">Pre-flight</button>
+      <button class="btab" onclick="setTab('diag')">Diagnostics</button>
+      <button class="btab" onclick="setTab('uninstall')">Uninstall</button>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <label style="font-size:.84rem;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
-        <input id="f-domain-on" type="checkbox" onchange="document.getElementById('f-domain').style.display=this.checked?'block':'none';buildCmd()" style="accent-color:var(--ac)"> Add domain
-      </label>
-      <input id="f-domain" type="text" placeholder="example.com" style="display:none;flex:1;min-width:140px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
+    <div style="padding:20px 24px 24px">
+      <!-- Tab descriptions -->
+      <p id="tab-desc" style="font-size:.78rem;color:var(--t3);margin-bottom:16px">Deploy VLESS+Reality proxy. Configures Docker, Xray, firewall, and TLS automatically.</p>
+
+      <!-- Fields -->
+      <div id="fields">
+        <div class="bf" id="row-ip">
+          <label class="bl">Server IP</label>
+          <input id="f-ip" type="text" placeholder="123.45.67.89" class="bi" oninput="buildCmd()">
+          <span class="bh" id="ip-hint">Your VPS public IPv4 address. Leave empty for interactive mode.</span>
+        </div>
+        <div class="bf" id="row-user">
+          <label class="bl">SSH user</label>
+          <input id="f-user" type="text" value="root" placeholder="root" class="bi" style="width:120px" oninput="buildCmd()">
+          <span class="bh">Default: root. Non-root users get sudo automatically.</span>
+        </div>
+        <div class="bf" id="row-domain">
+          <label class="bl" style="cursor:pointer"><input id="f-domain-on" type="checkbox" onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px">Domain</label>
+          <input id="f-domain" type="text" placeholder="example.com" class="bi" oninput="buildCmd()" style="display:none">
+          <span class="bh">Optional. Adds decoy website, CDN fallback via Cloudflare, and web panel access.</span>
+        </div>
+        <div class="bf" id="row-sni">
+          <label class="bl" style="cursor:pointer"><input id="f-sni-on" type="checkbox" onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px">Custom SNI</label>
+          <input id="f-sni" type="text" placeholder="www.microsoft.com" class="bi" oninput="buildCmd()" style="display:none">
+          <span class="bh">Site that Reality impersonates. Default: www.microsoft.com. Use <a href="https://github.com/XTLS/RealiTLScanner" style="color:var(--ac)">RealiTLScanner</a> to find optimal targets.</span>
+        </div>
+        <div class="bf" id="row-yes">
+          <label class="bl" style="cursor:pointer"><input id="f-yes" type="checkbox" onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px">Skip prompts</label>
+          <span class="bh">Add --yes flag. For CI/automation or non-interactive SSH sessions.</span>
+        </div>
+      </div>
+
+      <!-- Output -->
+      <div class="oneliner" style="margin:16px 0 0;padding:16px 20px">
+        <button class="cp" onclick="copyEl(this)">Copy</button>
+        <pre id="cmd-pre" style="padding-right:60px">curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
+      </div>
+      <p id="cmd-hint" style="font-size:.78rem;color:var(--t3);margin-top:8px"></p>
     </div>
-    <div id="cmd-out" class="oneliner" style="margin:16px 0 0;padding:16px 20px">
-      <button class="cp" onclick="copyEl(this)">Copy</button>
-      <pre id="cmd-pre" style="padding-right:60px">curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
-    </div>
-    <p id="cmd-hint" style="font-size:.78rem;color:var(--t3);margin-top:8px"></p>
   </div>
 </div>
 </section>
@@ -389,28 +430,69 @@ function copyEl(btn){
   else{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);flash(btn)}
 }
 function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
+var curTab='install';
+var tabConfig={
+  install:{desc:'Deploy VLESS+Reality proxy. Configures Docker, Xray, firewall, and TLS automatically.',show:['ip','user','domain','sni','yes'],flag:''},
+  check:{desc:'Test if your server is compatible — checks SNI, ports, DNS, OS, disk. Installs nothing.',show:['ip','user','domain'],flag:'--check'},
+  diag:{desc:'Collect system diagnostics for bug reports. Secrets are auto-redacted.',show:['ip','user'],flag:'--rage'},
+  uninstall:{desc:'Remove proxy container, configs, and firewall rules. Docker and system packages are kept.',show:['ip','user','yes'],flag:'--uninstall'}
+};
+function setTab(t){
+  curTab=t;
+  document.querySelectorAll('.btab').forEach(function(b,i){b.classList.toggle('active',['install','check','diag','uninstall'][i]===t)});
+  var cfg=tabConfig[t];
+  document.getElementById('tab-desc').textContent=cfg.desc;
+  ['ip','user','domain','sni','yes'].forEach(function(f){
+    var r=document.getElementById('row-'+f);
+    if(r)r.style.display=cfg.show.indexOf(f)>=0?'block':'none';
+  });
+  buildCmd();
+}
 function buildCmd(){
-  const base='curl -sS https://meridian.msu.rocks/setup.sh | bash';
-  const ip=document.getElementById('f-ip').value.trim();
-  const user=document.getElementById('f-user').value.trim()||'root';
-  const domOn=document.getElementById('f-domain-on').checked;
-  const dom=document.getElementById('f-domain').value.trim();
-  const hint=document.getElementById('cmd-hint');
-  let cmd=base;
-  const args=[];
+  var base='curl -sS https://meridian.msu.rocks/setup.sh | bash';
+  var ip=document.getElementById('f-ip').value.trim();
+  var user=document.getElementById('f-user').value.trim()||'root';
+  var domOn=document.getElementById('f-domain-on').checked;
+  var dom=document.getElementById('f-domain').value.trim();
+  var sniOn=document.getElementById('f-sni-on').checked;
+  var sni=document.getElementById('f-sni').value.trim();
+  var yes=document.getElementById('f-yes').checked;
+  var hint=document.getElementById('cmd-hint');
+  var cfg=tabConfig[curTab];
+  // Toggle conditional inputs
+  document.getElementById('f-domain').style.display=domOn?'block':'none';
+  document.getElementById('f-sni').style.display=sniOn?'block':'none';
+  var args=[];
   if(ip){
     if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)){
-      hint.textContent='Enter a valid IP address';hint.style.color='#f87171';return;
+      hint.textContent='Enter a valid IPv4 address';hint.style.color='#f87171';
+      document.getElementById('cmd-pre').textContent=base;return;
     }
     args.push(ip);
   }
   if(user&&user!=='root')args.push('--user '+user);
-  if(domOn&&dom)args.push('--domain '+dom);
+  if(cfg.show.indexOf('domain')>=0&&domOn&&dom)args.push('--domain '+dom);
+  if(cfg.show.indexOf('sni')>=0&&sniOn&&sni&&sni!=='www.microsoft.com')args.push('--sni '+sni);
+  if(cfg.show.indexOf('yes')>=0&&yes)args.push('--yes');
+  if(cfg.flag)args.push(cfg.flag);
+  var cmd=base;
   if(args.length)cmd+=' -s -- '+args.join(' ');
   document.getElementById('cmd-pre').textContent=cmd;
-  if(!ip){hint.textContent='Enter your server IP above, or just run the command — the script will ask interactively.';hint.style.color='var(--t3)';}
-  else if(domOn&&!dom){hint.textContent='Enter a domain or uncheck to skip.';hint.style.color='var(--t3)';}
-  else{hint.textContent=domOn?'Deploys Reality + CDN fallback + decoy site.':'Deploys Reality-only mode (fastest, no domain needed).';hint.style.color='var(--ok)';}
+  // Hints
+  if(curTab==='install'){
+    if(!ip){hint.textContent='Enter your server IP, or just run the base command — the interactive wizard will ask.';hint.style.color='var(--t3)';}
+    else if(domOn&&!dom){hint.textContent='Enter a domain or uncheck to skip.';hint.style.color='var(--t3)';}
+    else{hint.textContent=domOn?'Deploys Reality + CDN fallback + decoy site.':'Deploys Reality-only mode (fastest, no domain needed).';hint.style.color='var(--ok)';}
+  }else if(curTab==='check'){
+    hint.textContent=ip?'Runs pre-flight checks without installing anything.':'Enter your server IP to run the check.';
+    hint.style.color=ip?'var(--ok)':'var(--t3)';
+  }else if(curTab==='diag'){
+    hint.textContent=ip?'Collects diagnostics. Review output before posting to GitHub Issues.':'Enter your server IP to collect diagnostics.';
+    hint.style.color=ip?'var(--ok)':'var(--t3)';
+  }else{
+    hint.textContent=ip?'Removes Meridian. Docker and system packages are kept.':'IP is auto-detected from saved credentials if omitted.';
+    hint.style.color=ip?'var(--ok)':'var(--t3)';
+  }
 }
 const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('v')})},{threshold:.15});
 document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
