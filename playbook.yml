@@ -71,3 +71,19 @@
     - role: decoy_site
       when: domain_mode | bool
     - role: output
+
+  post_tasks:
+    - name: Create server credentials directory
+      ansible.builtin.file:
+        path: /etc/meridian
+        state: directory
+        mode: "0700"
+
+    - name: Sync credentials to server
+      ansible.builtin.copy:
+        src: "{{ credentials_dir }}/"
+        dest: /etc/meridian/
+        mode: "0600"
+        directory_mode: "0700"
+      no_log: true
+      when: credentials_dir != '/etc/meridian'

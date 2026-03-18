@@ -13,16 +13,24 @@ set -euo pipefail
 
 MERIDIAN_VERSION="1.0.0"
 
-# --- Directories ---
+# --- Directories & paths ---
 MERIDIAN_HOME="${MERIDIAN_HOME:-$HOME/.meridian}"
-CREDS_DIR="$MERIDIAN_HOME/credentials"
+CREDS_BASE="$MERIDIAN_HOME/credentials"
 PLAYBOOKS_DIR="$MERIDIAN_HOME/playbooks"
 CACHE_DIR="$MERIDIAN_HOME/cache"
+SERVERS_FILE="$MERIDIAN_HOME/servers"
+SERVER_CREDS_DIR="/etc/meridian"
 
 # --- URLs ---
 TARBALL_URL="https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz"
 VERSION_URL="https://meridian.msu.rocks/version"
 CLI_URL="https://meridian.msu.rocks/meridian"
+
+# --- State (set during execution) ---
+SERVER_IP=""
+ANSIBLE_USER="root"
+LOCAL_MODE=false
+REQUESTED_SERVER=""
 
 # --- Colors & output helpers ---
 R='\033[0m' B='\033[1m' D='\033[2m'
@@ -50,16 +58,117 @@ confirm() {
   read -r < /dev/tty || true
 }
 
-# --- OS detection ---
 detect_os() {
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "mac"
-  else
-    echo "linux"
-  fi
+  if [[ "$OSTYPE" == "darwin"* ]]; then echo "mac"; else echo "linux"; fi
 }
 
 OS=$(detect_os)
+
+# =============================================================================
+# Server registry — simple line-oriented file: host user name
+# =============================================================================
+
+servers_list() {
+  [[ -f "$SERVERS_FILE" ]] || return 0
+  grep -v '^#' "$SERVERS_FILE" 2>/dev/null | grep -v '^$' || true
+}
+
+servers_count() {
+  local n
+  n=$(servers_list | wc -l)
+  echo "${n// /}"
+}
+
+servers_find() {
+  local query="$1"
+  servers_list | awk -v q="$query" '$1 == q || $3 == q {print; exit}'
+}
+
+servers_add() {
+  local host="$1" user="$2" name="${3:-}"
+  mkdir -p "$MERIDIAN_HOME"
+  # Remove existing entry for this host
+  if [[ -f "$SERVERS_FILE" ]]; then
+    grep -v "^${host} " "$SERVERS_FILE" > "$SERVERS_FILE.tmp" 2>/dev/null || true
+    mv "$SERVERS_FILE.tmp" "$SERVERS_FILE"
+  fi
+  echo "$host $user $name" >> "$SERVERS_FILE"
+}
+
+servers_remove() {
+  local query="$1"
+  [[ -f "$SERVERS_FILE" ]] || return 1
+  local match
+  match=$(servers_find "$query") || return 1
+  local host
+  host=$(echo "$match" | awk '{print $1}')
+  grep -v "^${host} " "$SERVERS_FILE" > "$SERVERS_FILE.tmp" 2>/dev/null || true
+  mv "$SERVERS_FILE.tmp" "$SERVERS_FILE"
+}
+
+# =============================================================================
+# Server resolution
+# =============================================================================
+
+resolve_server() {
+  # 1. Explicit --server flag
+  if [[ -n "$REQUESTED_SERVER" ]]; then
+    local match
+    match=$(servers_find "$REQUESTED_SERVER") || true
+    if [[ -n "$match" ]]; then
+      SERVER_IP=$(echo "$match" | awk '{print $1}')
+      ANSIBLE_USER=$(echo "$match" | awk '{print $2}')
+      return 0
+    fi
+    if [[ "$REQUESTED_SERVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      SERVER_IP="$REQUESTED_SERVER"
+      return 0
+    fi
+    fail "Server '$REQUESTED_SERVER' not found. Run: meridian server list"
+  fi
+
+  # 2. Running on the server itself — /etc/meridian/ exists
+  if [[ -f "$SERVER_CREDS_DIR/proxy.yml" ]]; then
+    LOCAL_MODE=true
+    SERVER_IP=$(grep 'exit_ip:' "$SERVER_CREDS_DIR/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"')
+    if [[ -n "$SERVER_IP" ]]; then
+      return 0
+    fi
+  fi
+
+  # 3. Single server auto-select
+  local count
+  count=$(servers_count)
+  if [[ "$count" -eq 1 ]]; then
+    local entry
+    entry=$(servers_list | head -1)
+    SERVER_IP=$(echo "$entry" | awk '{print $1}')
+    ANSIBLE_USER=$(echo "$entry" | awk '{print $2}')
+    local name
+    name=$(echo "$entry" | awk '{print $3}')
+    [[ -n "$name" ]] && info "Using server: $name ($SERVER_IP)" || info "Using server: $SERVER_IP"
+    return 0
+  elif [[ "$count" -gt 1 ]]; then
+    printf "\n  Multiple servers. Use ${B}--server NAME${R}:\n\n"
+    servers_list | while IFS=' ' read -r h u n; do
+      printf "    ${C}%-15s${R}  %s  (%s)\n" "${n:-$h}" "$h" "$u"
+    done
+    printf "\n"
+    fail "Specify a server with --server"
+  fi
+
+  # 0 servers
+  return 1
+}
+
+# Per-server local credentials directory
+server_creds() {
+  if [[ "$LOCAL_MODE" == true ]]; then
+    echo "$SERVER_CREDS_DIR"
+  else
+    echo "$CREDS_BASE/$SERVER_IP"
+  fi
+}
 
 # =============================================================================
 # Core infrastructure
@@ -69,25 +178,19 @@ check_for_update() {
   local check_file="$CACHE_DIR/last_update_check"
   mkdir -p "$CACHE_DIR"
 
-  # Throttle to once per 24 hours
   if [[ -f "$check_file" ]]; then
     local last_check
     last_check=$(cat "$check_file" 2>/dev/null || echo "0")
     if [[ "$last_check" =~ ^[0-9]+$ ]]; then
-      local now
+      local now age
       now=$(date +%s)
-      local age=$(( now - last_check ))
-      if [[ $age -lt 86400 ]]; then
-        return 0
-      fi
+      age=$(( now - last_check ))
+      [[ $age -lt 86400 ]] && return 0
     fi
   fi
 
-  # Fetch latest version (non-blocking, fail silently)
   local latest
   latest=$(curl -sSf --max-time 3 "$VERSION_URL" </dev/null 2>/dev/null | tr -d '[:space:]') || return 0
-
-  # Save check timestamp
   date +%s > "$check_file"
 
   if [[ -n "$latest" && "$latest" != "$MERIDIAN_VERSION" ]]; then
@@ -99,23 +202,18 @@ check_for_update() {
 ensure_deps() {
   local need_qrencode="${1:-true}"
 
-  # pip --user bin directories
   for p in "$HOME/.local/bin" "$HOME/Library/Python"/*/bin; do
     [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
   done
 
   if ! command -v ansible-playbook &>/dev/null; then
     info "Installing Ansible..."
-    install_ansible || fail "Failed to install Ansible. Install it manually: pip3 install ansible"
-    # Re-check PATH after install
+    install_ansible || fail "Failed to install Ansible. Install manually: pip3 install ansible"
     for p in "$HOME/.local/bin" "$HOME/Library/Python"/*/bin; do
       [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
     done
-    if command -v ansible-playbook &>/dev/null; then
-      ok "Ansible installed"
-    else
-      fail "Ansible installed but not in PATH. Add ~/.local/bin to your PATH."
-    fi
+    command -v ansible-playbook &>/dev/null || fail "Ansible installed but not in PATH. Add ~/.local/bin to your PATH."
+    ok "Ansible installed"
   fi
 
   if [[ "$need_qrencode" == "true" ]] && ! command -v qrencode &>/dev/null; then
@@ -148,13 +246,10 @@ ensure_playbooks() {
   local version_file="$PLAYBOOKS_DIR/.version"
   mkdir -p "$PLAYBOOKS_DIR"
 
-  # Check if playbooks are up to date
   if [[ -f "$version_file" && -f "$PLAYBOOKS_DIR/playbook.yml" ]]; then
     local cached_version
     cached_version=$(cat "$version_file" 2>/dev/null)
-    if [[ "$cached_version" == "$MERIDIAN_VERSION" ]]; then
-      return 0
-    fi
+    [[ "$cached_version" == "$MERIDIAN_VERSION" ]] && return 0
   fi
 
   info "Downloading playbooks (v${MERIDIAN_VERSION})..."
@@ -170,7 +265,6 @@ ensure_playbooks() {
     fail "curl or wget is required"
   fi
 
-  # Replace playbooks atomically
   rm -rf "${PLAYBOOKS_DIR:?}.tmp"
   mv "$tmp_dir" "$PLAYBOOKS_DIR.tmp"
   rm -rf "${PLAYBOOKS_DIR:?}"
@@ -178,7 +272,6 @@ ensure_playbooks() {
   echo "$MERIDIAN_VERSION" > "$version_file"
   ok "Playbooks ready"
 
-  # Install Ansible collections
   info "Installing Ansible collections..."
   if ! ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" --quiet 2>/dev/null; then
     ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" || fail "Failed to install Ansible collections"
@@ -186,48 +279,13 @@ ensure_playbooks() {
   ok "Collections ready"
 }
 
-# --- Credential management ---
-
-migrate_credentials() {
-  # Migrate from old ~/meridian/ to ~/.meridian/credentials/
-  local old_dir="$HOME/meridian"
-  if [[ -d "$old_dir" ]] && ls "$old_dir"/*.yml &>/dev/null 2>&1; then
-    if [[ ! -f "$CREDS_DIR/proxy.yml" ]]; then
-      mkdir -p "$CREDS_DIR"
-      cp "$old_dir"/*.yml "$CREDS_DIR/" 2>/dev/null || true
-      cp "$old_dir"/*.html "$CREDS_DIR/" 2>/dev/null || true
-      cp "$old_dir"/*.txt "$CREDS_DIR/" 2>/dev/null || true
-      ok "Migrated credentials from ~/meridian/ to ~/.meridian/credentials/"
-    fi
-  fi
-}
-
-resolve_server_ip() {
-  # Try to find server IP from saved credentials
-  local cred_file=""
-  for search_dir in "$CREDS_DIR" "$HOME/meridian"; do
-    if [[ -f "$search_dir/proxy.yml" ]]; then
-      cred_file="$search_dir/proxy.yml"
-      break
-    fi
-  done
-  if [[ -n "${cred_file:-}" ]]; then
-    local saved_ip
-    saved_ip=$(grep 'exit_ip:' "$cred_file" 2>/dev/null | awk '{print $2}' | tr -d '"')
-    if [[ -n "$saved_ip" ]]; then
-      SERVER_IP="$saved_ip"
-      info "Found server: $SERVER_IP"
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# --- SSH & server helpers ---
+# =============================================================================
+# SSH & server helpers
+# =============================================================================
 
 detect_local_mode() {
   local local_ip
-  local_ip=$(curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
+  local_ip=$(curl -4 -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
   [[ "$local_ip" == "$SERVER_IP" ]]
 }
 
@@ -285,21 +343,32 @@ EOF
 }
 
 fetch_credentials_from_server() {
-  # Try fetching credentials from server if not found locally
-  if [[ -f "$CREDS_DIR/proxy.yml" ]]; then
-    return 0
-  fi
+  local creds_dir
+  creds_dir=$(server_creds)
 
-  if [[ "$LOCAL_MODE" != true && -n "${SERVER_IP:-}" ]]; then
-    local remote_cred
-    remote_cred=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "${ANSIBLE_USER}@${SERVER_IP}" \
-      "cat /root/meridian/proxy.yml 2>/dev/null || cat \$HOME/meridian/proxy.yml 2>/dev/null" </dev/null 2>/dev/null || true)
-    if [[ -n "$remote_cred" && "$remote_cred" == *"panel_configured"* ]]; then
-      mkdir -p "$CREDS_DIR"
-      printf '%s\n' "$remote_cred" > "$CREDS_DIR/proxy.yml"
-      ok "Fetched credentials from server"
-      return 0
-    fi
+  # Already have credentials locally
+  [[ -f "$creds_dir/proxy.yml" ]] && return 0
+
+  # In local mode, /etc/meridian/ is the source — nothing to fetch
+  [[ "$LOCAL_MODE" == true ]] && return 1
+
+  info "Fetching credentials from server..."
+  local remote_cred
+  remote_cred=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "${ANSIBLE_USER}@${SERVER_IP}" \
+    "cat /etc/meridian/proxy.yml 2>/dev/null" </dev/null 2>/dev/null || true)
+
+  if [[ -n "$remote_cred" && "$remote_cred" == *"panel_configured"* ]]; then
+    mkdir -p "$creds_dir"
+    printf '%s\n' "$remote_cred" > "$creds_dir/proxy.yml"
+
+    # Also fetch clients file
+    local remote_clients
+    remote_clients=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "${ANSIBLE_USER}@${SERVER_IP}" \
+      "cat /etc/meridian/proxy-clients.yml 2>/dev/null" </dev/null 2>/dev/null || true)
+    [[ -n "$remote_clients" ]] && printf '%s\n' "$remote_clients" > "$creds_dir/proxy-clients.yml"
+
+    ok "Fetched credentials from server"
+    return 0
   fi
 
   return 1
@@ -307,8 +376,29 @@ fetch_credentials_from_server() {
 
 run_playbook() {
   local playbook="$1"; shift
+  local creds_dir
+  creds_dir=$(server_creds)
+  mkdir -p "$creds_dir"
+
   cd "$PLAYBOOKS_DIR"
-  ansible-playbook "$playbook" -e "server_public_ip=$SERVER_IP" -e "credentials_dir=$CREDS_DIR" "$@"
+  ansible-playbook "$playbook" \
+    -e "server_public_ip=$SERVER_IP" \
+    -e "credentials_dir=$creds_dir" \
+    "$@"
+}
+
+install_cli_on_server() {
+  if [[ "$LOCAL_MODE" == true ]]; then
+    return 0
+  fi
+  local self_path
+  self_path=$(command -v meridian 2>/dev/null || echo "")
+  if [[ -n "$self_path" && -f "$self_path" ]]; then
+    info "Installing meridian CLI on server..."
+    scp -o BatchMode=yes "$self_path" "${ANSIBLE_USER}@${SERVER_IP}:/usr/local/bin/meridian" </dev/null 2>/dev/null && \
+      ok "CLI installed on server" || \
+      warn "Could not install CLI on server (non-critical)"
+  fi
 }
 
 # Shared preparation for commands that need server access
@@ -316,12 +406,11 @@ prepare_server() {
   local need_qrencode="${1:-true}"
   ensure_deps "$need_qrencode"
   ensure_playbooks
-  migrate_credentials
 
-  if detect_local_mode; then
-    LOCAL_MODE=true
-  else
-    LOCAL_MODE=false
+  if [[ "$LOCAL_MODE" != true ]]; then
+    if detect_local_mode; then
+      LOCAL_MODE=true
+    fi
   fi
   check_ssh
   write_inventory
@@ -335,7 +424,6 @@ prepare_server() {
 cmd_setup() {
   local server_ip="" domain="" email="" sni="" user="root" name="" yes=false
 
-  # Parse setup flags
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --domain)  domain="$2"; shift 2 ;;
@@ -380,29 +468,23 @@ cmd_setup() {
 
     while true; do
       prompt server_ip "IP address" "$detected_ip"
-      if [[ "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        break
-      fi
+      [[ "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && break
       printf "  ${RED}Enter a valid IPv4 address (e.g. 123.45.67.89)${R}\n" > /dev/tty
     done
 
     prompt ANSIBLE_USER "SSH user" "root"
-    if [[ "$ANSIBLE_USER" != "root" ]]; then
-      printf "  ${D}(sudo will be used for privileged operations)${R}\n" > /dev/tty
-    fi
+    [[ "$ANSIBLE_USER" != "root" ]] && printf "  ${D}(sudo will be used for privileged operations)${R}\n" > /dev/tty
 
     printf "\n"
     printf "  ${B}Optional — decoy website + CDN fallback:${R}\n\n"
 
+    # Suggest domain from saved credentials
     local suggested_domain=""
-    # Check saved credentials for previously used domain
-    if [[ -f "$CREDS_DIR/proxy.yml" ]]; then
-      suggested_domain=$(grep '^domain:' "$CREDS_DIR/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+    local creds_dir="$CREDS_BASE/$server_ip"
+    if [[ -f "$creds_dir/proxy.yml" ]]; then
+      suggested_domain=$(grep '^domain:' "$creds_dir/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
     fi
-
-    if [[ -n "$suggested_domain" ]]; then
-      printf "  ${D}Detected: ${suggested_domain}${R}\n" > /dev/tty
-    fi
+    [[ -n "$suggested_domain" ]] && printf "  ${D}Detected: ${suggested_domain}${R}\n" > /dev/tty
     prompt domain "Domain" "${suggested_domain:-skip}"
     [[ "$domain" == "skip" || "$domain" == "" ]] && domain=""
 
@@ -421,21 +503,15 @@ cmd_setup() {
     printf "\n"
     line
 
-    if [[ "$yes" != true ]]; then
-      confirm
-    fi
+    [[ "$yes" != true ]] && confirm
     printf "\n"
   fi
 
-  # Validate IP
-  if ! [[ "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    fail "Invalid IP address: $server_ip"
-  fi
+  [[ "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Invalid IP address: $server_ip"
 
   SERVER_IP="$server_ip"
   prepare_server true
 
-  # Build playbook command
   local play_args=()
   [[ -n "$domain" ]] && play_args+=(-e "domain=$domain")
   [[ -n "$email" ]]  && play_args+=(-e "email=$email")
@@ -449,12 +525,20 @@ cmd_setup() {
 
   run_playbook playbook.yml ${play_args[@]+"${play_args[@]}"}
 
+  # Register server
+  servers_add "$SERVER_IP" "$ANSIBLE_USER" ""
+
+  # Install CLI on server
+  install_cli_on_server
+
   # Done
+  local creds_dir
+  creds_dir=$(server_creds)
   local client_label="${name:-default}"
   local html_file
-  html_file=$(ls "$CREDS_DIR"/*-"${client_label}"-connection-info.html 2>/dev/null | head -1)
+  html_file=$(ls "$creds_dir"/*-"${client_label}"-connection-info.html 2>/dev/null | head -1)
   local txt_file
-  txt_file=$(ls "$CREDS_DIR"/*-connection-info.txt 2>/dev/null | head -1)
+  txt_file=$(ls "$creds_dir"/*-connection-info.txt 2>/dev/null | head -1)
 
   printf "\n  ${G}${B}Done!${R}\n\n"
   printf "  ${B}Next steps:${R}\n\n"
@@ -471,7 +555,7 @@ cmd_setup() {
   printf "     ${C}meridian client add alice${R}\n"
   printf "     ${C}meridian client list${R}\n\n"
   printf "  ${G}4.${R} View full credentials:\n"
-  printf "     ${C}cat ${CREDS_DIR}/proxy.yml${R}\n"
+  printf "     ${C}cat ${creds_dir}/proxy.yml${R}\n"
   printf "\n"
   line
   printf "\n  ${D}Feedback & issues: https://github.com/uburuntu/meridian/issues${R}\n\n"
@@ -483,26 +567,26 @@ cmd_client() {
 
   case "$action" in
     add)
-      local client_name="" user="root"
+      local client_name=""
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --user) user="$2"; shift 2 ;;
+          --user) ANSIBLE_USER="$2"; shift 2 ;;
           -*) fail "Unknown flag: $1" ;;
           *)  client_name="$1"; shift ;;
         esac
       done
       [[ -z "$client_name" ]] && fail "Usage: meridian client add NAME"
-      SERVER_IP=""
-      resolve_server_ip || fail "No saved credentials found. Run: meridian setup"
-      ANSIBLE_USER="$user"
+      resolve_server || fail "No servers configured. Run: meridian setup"
       prepare_server true
 
       info "Adding client '$client_name'..."
       printf "\n"
       run_playbook playbook-client.yml -e "client_action=add" -e "client_name=$client_name"
 
+      local creds_dir
+      creds_dir=$(server_creds)
       local html_file
-      html_file=$(ls "$CREDS_DIR"/*-"${client_name}"-connection-info.html 2>/dev/null | head -1)
+      html_file=$(ls "$creds_dir"/*-"${client_name}"-connection-info.html 2>/dev/null | head -1)
       if [[ -n "${html_file:-}" ]]; then
         printf "\n  ${G}${B}Done!${R}\n\n"
         printf "  Send this file to %s:\n" "$client_name"
@@ -511,42 +595,35 @@ cmd_client() {
       ;;
 
     list)
-      local user="root"
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --user) user="$2"; shift 2 ;;
+          --user) ANSIBLE_USER="$2"; shift 2 ;;
           -*) fail "Unknown flag: $1" ;;
           *)  shift ;;
         esac
       done
-      SERVER_IP=""
-      resolve_server_ip || fail "No saved credentials found. Run: meridian setup"
-      ANSIBLE_USER="$user"
+      resolve_server || fail "No servers configured. Run: meridian setup"
       prepare_server false
 
       run_playbook playbook-client.yml -e "client_action=list"
       ;;
 
     remove)
-      local client_name="" user="root"
+      local client_name=""
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --user) user="$2"; shift 2 ;;
+          --user) ANSIBLE_USER="$2"; shift 2 ;;
           -*) fail "Unknown flag: $1" ;;
           *)  client_name="$1"; shift ;;
         esac
       done
       [[ -z "$client_name" ]] && fail "Usage: meridian client remove NAME"
-      SERVER_IP=""
-      resolve_server_ip || fail "No saved credentials found. Run: meridian setup"
-      ANSIBLE_USER="$user"
+      resolve_server || fail "No servers configured. Run: meridian setup"
       prepare_server false
 
       info "Removing client '$client_name'..."
       printf "\n"
       run_playbook playbook-client.yml -e "client_action=remove" -e "client_name=$client_name"
-
-      # The playbook already deletes local files and updates proxy-clients.yml
       ;;
 
     ""|--help|-h)
@@ -555,10 +632,9 @@ cmd_client() {
       printf "    add NAME      Add a new client key\n"
       printf "    list          List all clients\n"
       printf "    remove NAME   Remove a client key\n\n"
-      printf "  Examples:\n"
-      printf "    meridian client add alice\n"
-      printf "    meridian client list\n"
-      printf "    meridian client remove alice\n\n"
+      printf "  Flags:\n"
+      printf "    --server NAME   Target a specific server\n"
+      printf "    --user USER     SSH user (default: root)\n\n"
       ;;
 
     *)
@@ -567,29 +643,101 @@ cmd_client() {
   esac
 }
 
+cmd_server() {
+  local action="${1:-}"
+  shift || true
+
+  case "$action" in
+    add)
+      local host="" user="root" name=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --user) user="$2"; shift 2 ;;
+          --name) name="$2"; shift 2 ;;
+          -*) fail "Unknown flag: $1" ;;
+          *)  host="$1"; shift ;;
+        esac
+      done
+      [[ -z "$host" ]] && fail "Usage: meridian server add IP [--name NAME] [--user USER]"
+
+      SERVER_IP="$host"
+      ANSIBLE_USER="$user"
+      LOCAL_MODE=false
+
+      info "Connecting to $host..."
+      check_ssh
+      fetch_credentials_from_server || warn "No credentials found on server (run meridian setup first)"
+
+      servers_add "$host" "$user" "$name"
+      ok "Server added: ${name:-$host}"
+      ;;
+
+    list)
+      local count
+      count=$(servers_count)
+      if [[ "$count" -eq 0 ]]; then
+        info "No servers configured. Run: meridian setup IP"
+        return
+      fi
+      printf "\n"
+      printf "  ${B}%-15s  %-15s  %-8s${R}\n" "NAME" "IP" "USER"
+      line
+      servers_list | while IFS=' ' read -r h u n; do
+        printf "  %-15s  %-15s  %-8s\n" "${n:---}" "$h" "$u"
+      done
+      printf "\n"
+      ;;
+
+    remove)
+      local query="${1:-}"
+      [[ -z "$query" ]] && fail "Usage: meridian server remove NAME|IP"
+
+      local match
+      match=$(servers_find "$query") || fail "Server '$query' not found"
+      local host
+      host=$(echo "$match" | awk '{print $1}')
+
+      servers_remove "$query"
+      rm -rf "${CREDS_BASE:?}/$host"
+      ok "Server removed: $query"
+      ;;
+
+    ""|--help|-h)
+      printf "\n  ${B}meridian server${R} — Manage known servers\n\n"
+      printf "  Commands:\n"
+      printf "    add IP [--name NAME] [--user USER]   Register a server\n"
+      printf "    list                                  List known servers\n"
+      printf "    remove NAME|IP                        Forget a server\n\n"
+      ;;
+
+    *)
+      fail "Unknown server command: $action. Run: meridian server --help"
+      ;;
+  esac
+}
+
 cmd_check() {
-  local server_ip="" domain="" sni="" user="root"
+  local server_ip="" domain="" sni=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --domain)  domain="$2"; shift 2 ;;
       --sni)     sni="$2"; shift 2 ;;
-      --user)    user="$2"; shift 2 ;;
+      --user)    ANSIBLE_USER="$2"; shift 2 ;;
       -*)        fail "Unknown flag: $1" ;;
       *)         server_ip="$1"; shift ;;
     esac
   done
 
-  if [[ -z "$server_ip" ]]; then
-    SERVER_IP=""
-    resolve_server_ip || fail "Server IP required. Usage: meridian check IP"
-    server_ip="$SERVER_IP"
+  if [[ -n "$server_ip" ]]; then
+    SERVER_IP="$server_ip"
+  else
+    resolve_server || fail "Server IP required. Usage: meridian check IP"
   fi
 
-  SERVER_IP="$server_ip"
-  ANSIBLE_USER="$user"
-  LOCAL_MODE=false
-  if detect_local_mode; then LOCAL_MODE=true; fi
+  if [[ "$LOCAL_MODE" != true ]]; then
+    detect_local_mode && LOCAL_MODE=true
+  fi
   check_ssh
 
   printf "\n"
@@ -603,14 +751,11 @@ cmd_check() {
   info "Checking SNI target ($sni_host) reachability from server..."
   local sni_check
   sni_check=$(run_on_server "timeout 5 bash -c 'echo | openssl s_client -connect $sni_host:443 -servername $sni_host 2>/dev/null | head -1'" || true)
-  if [[ -z "$sni_check" ]]; then
-    sni_check=$(run_on_server "timeout 3 bash -c 'echo >/dev/tcp/$sni_host/443' 2>&1 && echo OK" || true)
-  fi
+  [[ -z "$sni_check" ]] && sni_check=$(run_on_server "timeout 3 bash -c 'echo >/dev/tcp/$sni_host/443' 2>&1 && echo OK" || true)
   if [[ "$sni_check" == *"CONNECTED"* || "$sni_check" == *"OK"* || "$sni_check" == *"Certificate"* ]]; then
     ok "$sni_host is reachable from server"
   else
     warn "$sni_host is NOT reachable from server"
-    warn "  Reality needs the SNI target to be accessible. Try --sni with a different site."
     issues=$((issues + 1))
   fi
 
@@ -655,7 +800,7 @@ cmd_check() {
       warn "$domain resolves to $dns_result (expected $SERVER_IP)"
       issues=$((issues + 1))
     else
-      warn "$domain does not resolve (no DNS record found)"
+      warn "$domain does not resolve"
       issues=$((issues + 1))
     fi
   fi
@@ -691,27 +836,26 @@ cmd_check() {
 }
 
 cmd_diagnostics() {
-  local server_ip="" sni="" user="root"
+  local server_ip="" sni=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --sni)   sni="$2"; shift 2 ;;
-      --user)  user="$2"; shift 2 ;;
+      --user)  ANSIBLE_USER="$2"; shift 2 ;;
       -*)      fail "Unknown flag: $1" ;;
       *)       server_ip="$1"; shift ;;
     esac
   done
 
-  if [[ -z "$server_ip" ]]; then
-    SERVER_IP=""
-    resolve_server_ip || fail "Server IP required. Usage: meridian diagnostics IP"
-    server_ip="$SERVER_IP"
+  if [[ -n "$server_ip" ]]; then
+    SERVER_IP="$server_ip"
+  else
+    resolve_server || fail "Server IP required. Usage: meridian diagnostics IP"
   fi
 
-  SERVER_IP="$server_ip"
-  ANSIBLE_USER="$user"
-  LOCAL_MODE=false
-  if detect_local_mode; then LOCAL_MODE=true; fi
+  if [[ "$LOCAL_MODE" != true ]]; then
+    detect_local_mode && LOCAL_MODE=true
+  fi
   check_ssh
 
   printf "\n"
@@ -723,18 +867,8 @@ cmd_diagnostics() {
   local diag=""
   add_section() { diag="${diag}\n### $1\n\`\`\`\n$2\n\`\`\`\n"; }
 
-  local local_os ansible_ver
-  local_os=$(uname -a 2>&1)
-  ansible_ver=$(command -v ansible &>/dev/null && ansible --version 2>&1 | head -1 || echo "not installed")
-  add_section "Local Machine" "OS: $local_os\nAnsible: $ansible_ver\nMeridian: $MERIDIAN_VERSION"
-
-  local server_os server_kernel server_uptime server_disk server_mem
-  server_os=$(run_on_server "cat /etc/os-release 2>/dev/null | grep PRETTY_NAME" || echo "unknown")
-  server_kernel=$(run_on_server "uname -r" || echo "unknown")
-  server_uptime=$(run_on_server "uptime" || echo "unknown")
-  server_disk=$(run_on_server "df -h / 2>/dev/null | tail -1" || echo "unknown")
-  server_mem=$(run_on_server "free -h 2>/dev/null | grep Mem" || echo "unknown")
-  add_section "Server" "$server_os\nKernel: $server_kernel\n$server_uptime\nDisk: $server_disk\nMemory: $server_mem"
+  add_section "Local Machine" "OS: $(uname -a 2>&1)\nAnsible: $(command -v ansible &>/dev/null && ansible --version 2>&1 | head -1 || echo 'not installed')\nMeridian: $MERIDIAN_VERSION"
+  add_section "Server" "$(run_on_server 'cat /etc/os-release 2>/dev/null | grep PRETTY_NAME' || echo unknown)\nKernel: $(run_on_server 'uname -r' || echo unknown)\n$(run_on_server uptime || echo unknown)\nDisk: $(run_on_server 'df -h / 2>/dev/null | tail -1' || echo unknown)\nMemory: $(run_on_server 'free -h 2>/dev/null | grep Mem' || echo unknown)"
 
   local docker_ver docker_ps
   docker_ver=$(run_on_server "docker --version 2>&1" || echo "not installed")
@@ -745,28 +879,20 @@ cmd_diagnostics() {
   xray_logs=$(run_on_server "docker logs 3x-ui --tail 50 2>&1 | grep -v '^\s*$' | sort -u | tail -20" || echo "container not running")
   xray_logs=$(printf '%s' "$xray_logs" | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[UUID-REDACTED]/g; s/([Pp]assword|[Kk]ey|[Ss]ecret)[=: ]*[^ ]*/\1=[REDACTED]/g')
   add_section "3x-ui Logs" "$xray_logs"
-
-  local ports ufw
-  ports=$(run_on_server "ss -tlnp sport = :443 or sport = :80 or sport = :8443 or sport = :8444 2>&1" || echo "unknown")
-  add_section "Listening Ports" "$ports"
-
-  ufw=$(run_on_server "ufw status verbose 2>&1" || echo "ufw not available")
-  add_section "Firewall (UFW)" "$ufw"
+  add_section "Listening Ports" "$(run_on_server 'ss -tlnp sport = :443 or sport = :80 or sport = :8443 or sport = :8444 2>&1' || echo unknown)"
+  add_section "Firewall (UFW)" "$(run_on_server 'ufw status verbose 2>&1' || echo 'ufw not available')"
 
   local sni_host="${sni:-www.microsoft.com}"
-  local sni_check
-  sni_check=$(run_on_server "echo | openssl s_client -connect $sni_host:443 -servername $sni_host 2>/dev/null | grep -E 'subject=|issuer=|CONNECTED'" || echo "unreachable")
-  add_section "SNI Target ($sni_host)" "${sni_check:-unreachable}"
+  add_section "SNI Target ($sni_host)" "$(run_on_server "echo | openssl s_client -connect $sni_host:443 -servername $sni_host 2>/dev/null | grep -E 'subject=|issuer=|CONNECTED'" || echo unreachable)"
 
-  # Domain DNS
-  local saved_domain=""
-  if [[ -f "$CREDS_DIR/proxy.yml" ]]; then
-    saved_domain=$(grep '^domain:' "$CREDS_DIR/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
-  fi
-  if [[ -n "$saved_domain" ]]; then
-    local dns_result
-    dns_result=$(run_on_server "dig +short $saved_domain @8.8.8.8 2>/dev/null" || echo "dig not available")
-    add_section "Domain DNS ($saved_domain)" "$dns_result"
+  local creds_dir
+  creds_dir=$(server_creds)
+  if [[ -f "$creds_dir/proxy.yml" ]]; then
+    local saved_domain
+    saved_domain=$(grep '^domain:' "$creds_dir/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+    if [[ -n "$saved_domain" ]]; then
+      add_section "Domain DNS ($saved_domain)" "$(run_on_server "dig +short $saved_domain @8.8.8.8 2>/dev/null" || echo 'dig not available')"
+    fi
   fi
 
   printf "\n"
@@ -787,29 +913,25 @@ cmd_diagnostics() {
 }
 
 cmd_uninstall() {
-  local server_ip="" user="root" yes=false
+  local server_ip="" yes=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --user)   user="$2"; shift 2 ;;
+      --user)   ANSIBLE_USER="$2"; shift 2 ;;
       --yes|-y) yes=true; shift ;;
       -*)       fail "Unknown flag: $1" ;;
       *)        server_ip="$1"; shift ;;
     esac
   done
 
-  ANSIBLE_USER="$user"
-
-  if [[ -z "$server_ip" ]]; then
-    SERVER_IP=""
-    resolve_server_ip || true
-    if [[ -z "$SERVER_IP" ]]; then
+  if [[ -n "$server_ip" ]]; then
+    SERVER_IP="$server_ip"
+  else
+    resolve_server || {
       prompt server_ip "Server IP to uninstall from"
       [[ -z "$server_ip" ]] && fail "Server IP is required for uninstall"
       SERVER_IP="$server_ip"
-    fi
-  else
-    SERVER_IP="$server_ip"
+    }
   fi
 
   printf "\n"
@@ -828,6 +950,10 @@ cmd_uninstall() {
   printf "\n"
   run_playbook playbook-uninstall.yml
 
+  # Remove from server registry
+  servers_remove "$SERVER_IP" 2>/dev/null || true
+  rm -rf "${CREDS_BASE:?}/$SERVER_IP"
+
   printf "\n  ${G}${B}Uninstall complete.${R}\n\n"
 }
 
@@ -845,7 +971,6 @@ cmd_self_update() {
 
   info "Updating from v${MERIDIAN_VERSION} to v${latest}..."
 
-  # Find where we're installed
   local self_path
   self_path=$(command -v meridian 2>/dev/null || echo "$HOME/.local/bin/meridian")
 
@@ -853,23 +978,18 @@ cmd_self_update() {
     fail "Cannot update $self_path — permission denied. Try: sudo meridian self-update"
   fi
 
-  # Download new version
   local new_cli
   new_cli=$(curl -sSf "$CLI_URL" </dev/null 2>/dev/null) || \
   new_cli=$(curl -sSf "https://raw.githubusercontent.com/uburuntu/meridian/main/meridian" </dev/null 2>/dev/null) || \
     fail "Failed to download update"
 
-  if [[ "$new_cli" != *"MERIDIAN_VERSION"* ]]; then
-    fail "Downloaded file doesn't look like the meridian CLI"
-  fi
+  [[ "$new_cli" == *"MERIDIAN_VERSION"* ]] || fail "Downloaded file doesn't look like the meridian CLI"
 
   printf '%s\n' "$new_cli" > "$self_path"
   chmod +x "$self_path"
 
-  # Clear playbook cache so next run downloads matching version
   rm -rf "${PLAYBOOKS_DIR:?}"
 
-  # Reset update check timer
   mkdir -p "$CACHE_DIR"
   date +%s > "$CACHE_DIR/last_update_check"
 
@@ -886,12 +1006,16 @@ cmd_help() {
   printf "  ${B}Commands:${R}\n\n"
   printf "    ${C}setup${R} [IP] [flags]         Deploy proxy server\n"
   printf "    ${C}client${R} add|list|remove     Manage client access keys\n"
+  printf "    ${C}server${R} add|list|remove     Manage known servers\n"
   printf "    ${C}check${R} [IP]                 Pre-flight server validation\n"
   printf "    ${C}diagnostics${R} [IP]           Collect info for bug reports\n"
   printf "    ${C}uninstall${R} [IP]             Remove proxy from server\n"
   printf "    ${C}self-update${R}                Update Meridian CLI\n"
   printf "    ${C}version${R}                    Show version\n"
   printf "    ${C}help${R}                       Show this help\n"
+  printf "\n"
+  printf "  ${B}Global flags:${R}\n\n"
+  printf "    --server NAME             Target a specific server\n"
   printf "\n"
   printf "  ${B}Quick start:${R}\n\n"
   printf "    meridian setup                   ${D}# interactive wizard${R}\n"
@@ -907,6 +1031,16 @@ cmd_help() {
 
 main() {
   mkdir -p "$MERIDIAN_HOME"
+
+  # Parse global --server flag from anywhere in args
+  local args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --server) REQUESTED_SERVER="$2"; shift 2 ;;
+      *)        args+=("$1"); shift ;;
+    esac
+  done
+  set -- ${args[@]+"${args[@]}"}
 
   local cmd="${1:-}"
   shift || true
@@ -926,6 +1060,7 @@ main() {
   case "$cmd" in
     setup)        cmd_setup "$@" ;;
     client)       cmd_client "$@" ;;
+    server)       cmd_server "$@" ;;
     check)        cmd_check "$@" ;;
     diagnostics)  cmd_diagnostics "$@" ;;
     uninstall)    cmd_uninstall "$@" ;;

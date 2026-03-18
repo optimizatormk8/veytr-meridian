@@ -74,22 +74,25 @@ These are easy to break by editing one file without updating the others:
 - `meridian` CLI installed to `~/.local/bin/meridian` via `install.sh`
 - Data directory: `~/.meridian/` (playbooks, credentials, cache)
 - Playbooks cached in `~/.meridian/playbooks/` with `.version` marker — re-downloaded when CLI version changes
-- Credentials stored in `~/.meridian/credentials/` (migrated from `~/meridian/` on first run)
+- Credentials stored in `~/.meridian/credentials/<IP>/` (per-server subdirectories)
+- Server as source of truth: credentials also saved to `/etc/meridian/` on the server
+- Server index: `~/.meridian/servers` (line-oriented: `host user name`)
 - Auto-update check on each run (throttled to 1x/24h), fetches `meridian.msu.rocks/version`
 - `VERSION` file at repo root is the single source of truth — must match `MERIDIAN_VERSION` in `meridian` script
 - `setup.sh` is a compat shim that installs the CLI and forwards args
 
 ### meridian CLI ↔ playbooks
-- CLI passes `-e server_public_ip=$SERVER_IP -e credentials_dir=$HOME/.meridian/credentials` to ansible-playbook
+- CLI passes `-e server_public_ip=$SERVER_IP -e credentials_dir=$HOME/.meridian/credentials/$SERVER_IP` to ansible-playbook
 - All output templates use `{{ server_public_ip }}` instead of `{{ ansible_host }}` for user-facing URLs
 - CLI writes `inventory.yml` inside `~/.meridian/playbooks/` with the user-provided IP/user
 - CLI adds `ansible_connection: local` when running on the target server itself
 - CLI adds `ansible_become: true` for non-root users
-- After playbook run, CLI copies generated files from playbook credentials dir back to `~/.meridian/credentials/`
+- Playbook post_tasks sync `credentials_dir` to `/etc/meridian/` on the server (unless already local)
 
 ### meridian subcommands
 - `meridian setup [IP] [--domain --sni --name --user --yes]` — deploy server
 - `meridian client add|list|remove NAME` — manage clients via `playbook-client.yml`
+- `meridian server add|list|remove` — manage known servers
 - `meridian check [IP]` — pre-flight validation (SNI, ports, DNS, OS, disk)
 - `meridian diagnostics [IP]` — collect system info for bug reports
 - `meridian uninstall [IP]` — remove proxy via `playbook-uninstall.yml`
@@ -108,15 +111,17 @@ These are easy to break by editing one file without updating the others:
 - All three have similar CSS/JS but different Jinja2 variables; app download links must be kept in sync across all three
 
 ### Credential flow
-- `meridian` CLI passes `credentials_dir=$HOME/.meridian/credentials` to ansible-playbook
+- Server is source of truth: `/etc/meridian/proxy.yml` on the server
+- Local cache: `~/.meridian/credentials/<IP>/proxy.yml` per server
+- `meridian` CLI passes `credentials_dir=$HOME/.meridian/credentials/$SERVER_IP` (remote) or `/etc/meridian` (local mode)
 - `roles/xray/tasks/configure_panel.yml` saves to `{{ credentials_file }}` which is `{{ credentials_dir }}/{{ inventory_hostname }}.yml`
 - `roles/xray/tasks/configure_panel.yml` also creates `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with the first client
-- `playbook.yml` and `playbook-chain.yml` load from the same file in pre_tasks via `include_vars`
+- `playbook.yml` and `playbook-client.yml` post_tasks sync `credentials_dir` to `/etc/meridian/` on the server
 - `playbook-chain.yml` relay play loads EXIT node credentials from `{{ credentials_dir }}/{{ exit_node }}.yml`
 - Domain is saved to credentials file for detection on re-runs
 - CLI reads saved credentials to find the server IP (for client/uninstall/diagnostics commands)
-- CLI migrates credentials from old `~/meridian/` to `~/.meridian/credentials/` on first run
-- CLI fetches credentials from server via SSH when not found locally (handles cross-machine runs)
+- CLI fetches credentials from `/etc/meridian/` via SSH when not found locally (handles cross-machine runs)
+- `meridian server add IP` fetches credentials from server, caches locally
 
 ### Client management flow
 - `playbook-client.yml` loads credentials from `proxy.yml`, reads `domain` field to detect domain mode

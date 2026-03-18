@@ -81,23 +81,19 @@
         - meridian-docker-log-cleanup
       failed_when: false
 
-    - name: Remove saved credentials from server
+    - name: Remove server credentials
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
+        - /etc/meridian
         - /root/meridian
-        - "{{ ansible_env.HOME | default('/root') }}/meridian"
       failed_when: false
 
-    - name: Remove saved credentials locally
+    - name: Remove meridian CLI from server
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /usr/local/bin/meridian
         state: absent
-      loop:
-        - "{{ lookup('env', 'HOME') }}/meridian"
-      delegate_to: localhost
-      become: false
       failed_when: false
 
     - name: Remove UFW rules added by playbook
