@@ -124,25 +124,32 @@ details .inner p{margin-bottom:12px}
 <div class="w">
   <p class="label">Setup</p>
   <h2>One command</h2>
-  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. The script installs everything else automatically.</p>
+  <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. The script walks you through everything interactively.</p>
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
     <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
   </div>
 
-  <p style="font-size:.85rem;color:var(--t2)">It asks for your server IP, configures the proxy, and outputs a QR code. Or pass the IP directly:</p>
+  <p style="font-size:.85rem;color:var(--t2);margin-top:16px">The script asks for your server IP, configures the proxy, and outputs a QR code. Or build a command with your settings:</p>
 
-  <div class="oneliner" style="margin-top:12px">
-    <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span></pre>
-  </div>
-
-  <div class="or-sep">with a domain (adds a decoy website + CDN fallback)</div>
-
-  <div class="oneliner">
-    <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- <span class="st">YOUR_IP</span> --domain <span class="st">example.com</span></pre>
+  <!-- Command builder -->
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:24px;margin:20px 0">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <input id="f-ip" type="text" placeholder="Server IP" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
+      <input id="f-user" type="text" placeholder="SSH user" value="root" style="width:100px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:.84rem;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
+        <input id="f-domain-on" type="checkbox" onchange="document.getElementById('f-domain').style.display=this.checked?'block':'none';buildCmd()" style="accent-color:var(--ac)"> Add domain
+      </label>
+      <input id="f-domain" type="text" placeholder="example.com" style="display:none;flex:1;min-width:140px;background:var(--bg);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.85rem;padding:10px 14px;border-radius:var(--r);outline:none;transition:border-color .08s" onfocus="this.style.borderColor='var(--b2)'" onblur="this.style.borderColor='var(--b1)'" oninput="buildCmd()">
+    </div>
+    <div id="cmd-out" class="oneliner" style="margin:16px 0 0;padding:16px 20px">
+      <button class="cp" onclick="copyEl(this)">Copy</button>
+      <pre id="cmd-pre" style="padding-right:60px">curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
+    </div>
+    <p id="cmd-hint" style="font-size:.78rem;color:var(--t3);margin-top:8px"></p>
   </div>
 </div>
 </section>
@@ -316,6 +323,29 @@ function copyEl(btn){
   else{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);flash(btn)}
 }
 function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
+function buildCmd(){
+  const base='curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash';
+  const ip=document.getElementById('f-ip').value.trim();
+  const user=document.getElementById('f-user').value.trim()||'root';
+  const domOn=document.getElementById('f-domain-on').checked;
+  const dom=document.getElementById('f-domain').value.trim();
+  const hint=document.getElementById('cmd-hint');
+  let cmd=base;
+  const args=[];
+  if(ip){
+    if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)){
+      hint.textContent='Enter a valid IP address';hint.style.color='#f87171';return;
+    }
+    args.push(ip);
+  }
+  if(user&&user!=='root')args.push('--user '+user);
+  if(domOn&&dom)args.push('--domain '+dom);
+  if(args.length)cmd+=' -s -- '+args.join(' ');
+  document.getElementById('cmd-pre').textContent=cmd;
+  if(!ip){hint.textContent='Enter your server IP above, or just run the command — the script will ask interactively.';hint.style.color='var(--t3)';}
+  else if(domOn&&!dom){hint.textContent='Enter a domain or uncheck to skip.';hint.style.color='var(--t3)';}
+  else{hint.textContent=domOn?'Deploys Reality + CDN fallback + decoy site.':'Deploys Reality-only mode (fastest, no domain needed).';hint.style.color='var(--ok)';}
+}
 const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('v')})},{threshold:.15});
 document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
 </script>

@@ -1,53 +1,59 @@
 #!/usr/bin/env bash
 # =============================================================================
-# One-command proxy server setup
+# Meridian — One-command proxy server setup
 #
-# Usage:
-#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash
-#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 1.2.3.4
-#   curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- 1.2.3.4 --domain example.com
+# Interactive:  curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash
+# With flags:   curl -sS ... | bash -s -- 1.2.3.4 --domain example.com
+# Uninstall:    curl -sS ... | bash -s -- --uninstall
 # =============================================================================
 set -euo pipefail
 
 ORIG_PWD="${PWD}"
 
-# --- Colors ---
+# --- Colors & output helpers ---
 R='\033[0m' B='\033[1m' D='\033[2m'
 G='\033[32m' Y='\033[33m' C='\033[36m' RED='\033[31m'
 
-info()  { printf "${C}→${R} %s\n" "$*"; }
-ok()    { printf "${G}✓${R} %s\n" "$*"; }
-warn()  { printf "${Y}!${R} %s\n" "$*"; }
-fail()  { printf "${RED}✗ %s${R}\n" "$*" >&2; exit 1; }
-ask()   { printf "${B}?${R} %s: " "$*"; }
+info()  { printf "  ${C}→${R} %s\n" "$*"; }
+ok()    { printf "  ${G}✓${R} %s\n" "$*"; }
+warn()  { printf "  ${Y}!${R} %s\n" "$*"; }
+fail()  { printf "\n  ${RED}✗ %s${R}\n\n" "$*" >&2; exit 1; }
+line()  { printf "  ${D}─────────────────────────────────────────${R}\n"; }
+
+# Read from /dev/tty so it works in curl | bash
+prompt() {
+  local varname="$1" message="$2" default="${3:-}"
+  printf "  ${B}%s${R}" "$message" > /dev/tty
+  [[ -n "$default" ]] && printf " ${D}[%s]${R}" "$default" > /dev/tty
+  printf ": " > /dev/tty
+  local value
+  read -r value < /dev/tty || true
+  [[ -z "$value" && -n "$default" ]] && value="$default"
+  eval "$varname=\$value"
+}
+
+confirm() {
+  printf "\n  Press ${B}Enter${R} to start, or ${D}Ctrl+C${R} to cancel. " > /dev/tty
+  read -r < /dev/tty || true
+}
 
 # --- Parse args ---
 SERVER_IP=""
 DOMAIN=""
 EMAIL=""
-EXTRA_ARGS=""
 UNINSTALL=false
+ANSIBLE_USER="${ANSIBLE_USER:-root}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain)    DOMAIN="$2"; shift 2 ;;
     --email)     EMAIL="$2"; shift 2 ;;
-    --chain)     EXTRA_ARGS="chain"; shift ;;
+    --user)      ANSIBLE_USER="$2"; shift 2 ;;
     --uninstall) UNINSTALL=true; shift ;;
     -*)          fail "Unknown flag: $1" ;;
     *)           SERVER_IP="$1"; shift ;;
   esac
 done
-
-printf "\n${B}Meridian${R} — Proxy Server Setup\n\n"
-
-# --- Prompt for IP if not given ---
-if [[ -z "$SERVER_IP" ]]; then
-  ask "Server IP address"
-  read -r SERVER_IP
-  [[ -z "$SERVER_IP" ]] && fail "Server IP is required"
-fi
-printf "\n"
 
 # --- Detect OS ---
 OS="unknown"
@@ -56,28 +62,103 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "linux"* ]]; then
   OS="linux"
 else
-  warn "Unknown OS: $OSTYPE — assuming Linux"
   OS="linux"
 fi
 
-# --- Validate IP format ---
-if ! [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  fail "Invalid IP address: $SERVER_IP
-  Expected format: 123.45.67.89"
+# --- Welcome banner ---
+printf "\n"
+printf "  ${B}Meridian${R}\n"
+printf "\n"
+
+# --- Interactive mode (no args) ---
+if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
+  printf "  Deploy a censorship-resistant proxy server.\n"
+  printf "  The server will look like ${D}microsoft.com${R} to any probe.\n"
+  printf "  Takes ~2 minutes. Safe to re-run.\n"
+  printf "\n"
+  line
+  printf "\n"
+  printf "  ${B}Where is the server?${R}\n\n"
+
+  while true; do
+    prompt SERVER_IP "IP address"
+    if [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      break
+    fi
+    printf "  ${RED}Enter a valid IP like 123.45.67.89${R}\n" > /dev/tty
+  done
+
+  prompt ANSIBLE_USER "SSH user" "root"
+
+  printf "\n"
+  printf "  ${B}Optional — decoy website + CDN fallback:${R}\n\n"
+  prompt DOMAIN "Domain" "skip"
+  [[ "$DOMAIN" == "skip" || "$DOMAIN" == "" ]] && DOMAIN=""
+
+  printf "\n"
+  line
+  printf "\n"
+  printf "  ${B}Summary${R}\n\n"
+  printf "  Target:  ${G}${ANSIBLE_USER}@${SERVER_IP}${R}\n"
+  if [[ -n "$DOMAIN" ]]; then
+    printf "  Domain:  ${G}${DOMAIN}${R}\n"
+    printf "  Mode:    Reality + CDN fallback + decoy site\n"
+  else
+    printf "  Domain:  ${D}(none)${R}\n"
+    printf "  Mode:    Standalone (Reality only)\n"
+  fi
+  printf "\n"
+  line
+
+  confirm
+  printf "\n"
+fi
+
+# --- Validate IP ---
+if [[ "$UNINSTALL" != true ]]; then
+  if [[ -z "$SERVER_IP" ]]; then
+    fail "Server IP is required. Run without flags for interactive mode."
+  fi
+  if ! [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail "Invalid IP address: $SERVER_IP\n  Expected format: 123.45.67.89"
+  fi
+fi
+
+# --- Handle uninstall ---
+if [[ "$UNINSTALL" == true ]]; then
+  if [[ -z "$SERVER_IP" ]]; then
+    CRED_FILE=$(ls "$ORIG_PWD"/vpn-credentials/*.yml 2>/dev/null | head -1)
+    if [[ -n "$CRED_FILE" ]]; then
+      SAVED_IP=$(grep 'exit_ip:' "$CRED_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
+      [[ -n "$SAVED_IP" ]] && SERVER_IP="$SAVED_IP" && info "Found server: $SERVER_IP"
+    fi
+  fi
+  if [[ -z "$SERVER_IP" ]]; then
+    prompt SERVER_IP "Server IP to uninstall from"
+    [[ -z "$SERVER_IP" ]] && fail "Server IP is required for uninstall"
+  fi
+
+  printf "\n"
+  warn "This will remove Meridian from $SERVER_IP."
+  warn "Docker and system packages will NOT be touched."
+  printf "\n"
+  prompt CONFIRM "Continue? (y/N)"
+  [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]] && { info "Cancelled."; exit 0; }
+  printf "\n"
 fi
 
 # --- Check SSH access ---
-ANSIBLE_USER="${ANSIBLE_USER:-root}"
 info "Checking SSH access to ${ANSIBLE_USER}@${SERVER_IP}..."
 if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${ANSIBLE_USER}@${SERVER_IP}" true 2>/dev/null; then
   ok "SSH connection successful"
 else
+  printf "\n"
   fail "Cannot SSH to ${ANSIBLE_USER}@${SERVER_IP}
 
   Possible fixes:
   1. Copy your SSH key:  ssh-copy-id ${ANSIBLE_USER}@${SERVER_IP}
   2. Test manually:      ssh ${ANSIBLE_USER}@${SERVER_IP}
-  3. Different user:     ANSIBLE_USER=ubuntu bash setup.sh ${SERVER_IP}"
+  3. Different user:     pass --user ubuntu"
 fi
 
 # --- Install dependencies ---
@@ -94,9 +175,7 @@ install_if_missing() {
 
 if [[ "$OS" == "mac" ]]; then
   if ! command -v brew &>/dev/null; then
-    warn "Homebrew not found. Install it from https://brew.sh"
-    warn "Then re-run this script."
-    fail "Homebrew is required on macOS"
+    fail "Homebrew not found. Install it from https://brew.sh then re-run."
   fi
   install_if_missing qrencode qrencode "brew install qrencode"
   install_if_missing ansible ansible "pip3 install --quiet --user ansible"
@@ -123,8 +202,9 @@ cd "$WORK_DIR"
 
 # --- Install Ansible collections ---
 info "Installing Ansible collections..."
-ansible-galaxy collection install -r requirements.yml --quiet 2>/dev/null || \
-  ansible-galaxy collection install -r requirements.yml >/dev/null 2>&1
+if ! ansible-galaxy collection install -r requirements.yml --quiet 2>/dev/null; then
+  ansible-galaxy collection install -r requirements.yml >/dev/null 2>&1 || fail "Failed to install Ansible collections"
+fi
 ok "Collections ready"
 
 # --- Write inventory ---
@@ -136,51 +216,16 @@ all:
       ansible_user: "$ANSIBLE_USER"
 EOF
 
-# --- Handle uninstall ---
+# --- Run uninstall if requested ---
 if [[ "$UNINSTALL" == true ]]; then
-  # Find the server IP: from argument, saved credentials, or prompt
-  if [[ -z "$SERVER_IP" ]]; then
-    # Check saved credentials
-    CRED_FILE=$(ls "$ORIG_PWD"/vpn-credentials/*.yml 2>/dev/null | head -1)
-    if [[ -n "$CRED_FILE" ]]; then
-      SAVED_IP=$(grep 'exit_ip:' "$CRED_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
-      if [[ -n "$SAVED_IP" ]]; then
-        SERVER_IP="$SAVED_IP"
-        info "Found server IP from saved credentials: $SERVER_IP"
-      fi
-    fi
-  fi
-  if [[ -z "$SERVER_IP" ]]; then
-    ask "Server IP to uninstall from"
-    read -r SERVER_IP
-    [[ -z "$SERVER_IP" ]] && fail "Server IP is required for uninstall"
-  fi
-
-  warn "This will remove the Meridian proxy from $SERVER_IP."
-  warn "Docker and system packages will NOT be removed (they may be used by other apps)."
-  printf "\n"
-  ask "Continue? [y/N]"
-  read -r CONFIRM
-  if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
-    info "Cancelled."
-    exit 0
-  fi
-
-  cat > inventory.yml <<EOF
-all:
-  hosts:
-    proxy:
-      ansible_host: "$SERVER_IP"
-      ansible_user: "$ANSIBLE_USER"
-EOF
-
+  info "Removing Meridian from $SERVER_IP..."
   printf "\n"
   ansible-playbook playbook-uninstall.yml
-  printf "\n${G}${B}Uninstall complete.${R}\n\n"
+  printf "\n  ${G}${B}Uninstall complete.${R}\n\n"
   exit 0
 fi
 
-# --- Build ansible-playbook command ---
+# --- Build and run playbook ---
 PLAY_CMD="ansible-playbook playbook.yml -e server_public_ip=$SERVER_IP"
 [[ -n "$DOMAIN" ]] && PLAY_CMD="$PLAY_CMD -e domain=$DOMAIN"
 [[ -n "$EMAIL" ]]  && PLAY_CMD="$PLAY_CMD -e email=$EMAIL"
@@ -190,17 +235,16 @@ info "Configuring server at ${B}$SERVER_IP${R}..."
 [[ -n "$DOMAIN" ]] && info "Domain: $DOMAIN"
 printf "\n"
 
-# --- Run playbook ---
 $PLAY_CMD
 
-# --- Copy output files to caller's directory ---
+# --- Copy output files ---
 ORIG_DIR="$ORIG_PWD"
 if [[ -d credentials ]]; then
   mkdir -p "$ORIG_DIR/vpn-credentials"
   cp credentials/* "$ORIG_DIR/vpn-credentials/" 2>/dev/null || true
-  printf "\n${G}${B}Done!${R}\n\n"
-  printf "Credentials saved to: ${B}$ORIG_DIR/vpn-credentials/${R}\n"
-  printf "Send the HTML file to your contact — they scan the QR code and connect.\n\n"
+  printf "\n  ${G}${B}Done!${R}\n\n"
+  printf "  Credentials saved to: ${B}$ORIG_DIR/vpn-credentials/${R}\n"
+  printf "  Send the HTML file to whoever needs it — they scan the QR code and connect.\n\n"
 else
-  printf "\n${G}${B}Done!${R} Check the output above for connection details.\n\n"
+  printf "\n  ${G}${B}Done!${R} Check the output above for connection details.\n\n"
 fi
