@@ -63,8 +63,8 @@
 {% set biz_idx = (seed[4:8] | int(base=16)) % (businesses | length) %}
 {% set theme = themes[theme_idx] %}
 {% set biz = businesses[biz_idx] %}
-{% set site_name = decoy_site_title if decoy_site_title != 'Meridian Digital Solutions' else biz.name %}
-{% set site_tag = decoy_site_tagline if decoy_site_tagline != 'Modern technology consulting for growing businesses' else biz.tag %}
+{% set site_name = decoy_site_title if decoy_site_title != 'Westbridge Partners' else biz.name %}
+{% set site_tag = decoy_site_tagline if decoy_site_tagline != 'Strategic advisory for modern enterprises' else biz.tag %}
 {% set layout_var = (seed[8:10] | int(base=16)) % 3 %}
 <!DOCTYPE html>
 <html lang="en">

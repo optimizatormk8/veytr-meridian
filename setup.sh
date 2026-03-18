@@ -50,7 +50,20 @@ while [[ $# -gt 0 ]]; do
     --email)     EMAIL="$2"; shift 2 ;;
     --user)      ANSIBLE_USER="$2"; shift 2 ;;
     --uninstall) UNINSTALL=true; shift ;;
-    -*)          fail "Unknown flag: $1" ;;
+    --help|-h)
+      printf "\n  ${B}Meridian${R} — Proxy Server Setup\n\n"
+      printf "  Usage:\n"
+      printf "    curl -sS https://...setup.sh | bash              ${D}# interactive wizard${R}\n"
+      printf "    curl -sS ... | bash -s -- IP                     ${D}# with server IP${R}\n"
+      printf "    curl -sS ... | bash -s -- IP --domain example.com\n"
+      printf "    curl -sS ... | bash -s -- --uninstall\n\n"
+      printf "  Flags:\n"
+      printf "    --domain DOMAIN   Add decoy website + CDN fallback\n"
+      printf "    --user USER       SSH user (default: root)\n"
+      printf "    --uninstall       Remove proxy from server\n"
+      printf "    --help            Show this help\n\n"
+      exit 0 ;;
+    -*)          fail "Unknown flag: $1. Use --help for usage." ;;
     *)           SERVER_IP="$1"; shift ;;
   esac
 done
@@ -127,7 +140,7 @@ fi
 # --- Handle uninstall ---
 if [[ "$UNINSTALL" == true ]]; then
   if [[ -z "$SERVER_IP" ]]; then
-    CRED_FILE=$(ls "$ORIG_PWD"/vpn-credentials/*.yml 2>/dev/null | head -1)
+    CRED_FILE=$(ls "$ORIG_PWD"/meridian/*.yml 2>/dev/null | head -1)
     if [[ -n "$CRED_FILE" ]]; then
       SAVED_IP=$(grep 'exit_ip:' "$CRED_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
       [[ -n "$SAVED_IP" ]] && SERVER_IP="$SAVED_IP" && info "Found server: $SERVER_IP"
@@ -173,15 +186,30 @@ install_if_missing() {
   fi
 }
 
+install_ansible() {
+  # Try pipx first (modern, no PEP 668 issues), then pip with --user,
+  # then pip with --break-system-packages (Debian 12+/Ubuntu 23.04+)
+  if command -v pipx &>/dev/null; then
+    pipx install ansible --quiet 2>/dev/null && return 0
+  fi
+  pip3 install --quiet --user ansible 2>/dev/null && return 0
+  pip3 install --quiet --user --break-system-packages ansible 2>/dev/null && return 0
+  # Last resort: system package
+  if [[ "$OS" == "linux" ]]; then
+    sudo apt-get install -y -qq ansible >/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
 if [[ "$OS" == "mac" ]]; then
   if ! command -v brew &>/dev/null; then
     fail "Homebrew not found. Install it from https://brew.sh then re-run."
   fi
   install_if_missing qrencode qrencode "brew install qrencode"
-  install_if_missing ansible ansible "pip3 install --quiet --user ansible"
+  install_if_missing ansible ansible "install_ansible"
 elif [[ "$OS" == "linux" ]]; then
   install_if_missing qrencode qrencode "sudo apt-get install -y -qq qrencode >/dev/null 2>&1"
-  install_if_missing ansible ansible "pip3 install --quiet --user ansible"
+  install_if_missing ansible ansible "install_ansible"
 fi
 
 # --- Download project ---
@@ -240,10 +268,10 @@ $PLAY_CMD
 # --- Copy output files ---
 ORIG_DIR="$ORIG_PWD"
 if [[ -d credentials ]]; then
-  mkdir -p "$ORIG_DIR/vpn-credentials"
-  cp credentials/* "$ORIG_DIR/vpn-credentials/" 2>/dev/null || true
+  mkdir -p "$ORIG_DIR/meridian"
+  cp credentials/* "$ORIG_DIR/meridian/" 2>/dev/null || true
   printf "\n  ${G}${B}Done!${R}\n\n"
-  printf "  Credentials saved to: ${B}$ORIG_DIR/vpn-credentials/${R}\n"
+  printf "  Credentials saved to: ${B}$ORIG_DIR/meridian/${R}\n"
   printf "  Send the HTML file to whoever needs it — they scan the QR code and connect.\n\n"
 else
   printf "\n  ${G}${B}Done!${R} Check the output above for connection details.\n\n"

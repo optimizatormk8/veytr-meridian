@@ -103,5 +103,5 @@ server_public_ip: ""
 # Decoy Site
 # -----------------------------------------------------------------------------
 # Title for the decoy landing page served by Caddy (domain mode only)
-decoy_site_title: "Meridian Digital Solutions"
-decoy_site_tagline: "Modern technology consulting for growing businesses"
+decoy_site_title: "Westbridge Partners"
+decoy_site_tagline: "Strategic advisory for modern enterprises"

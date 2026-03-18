@@ -6,7 +6,7 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "0755"
+    mode: "0700"
   loop:
     - /opt/3x-ui
     - /opt/3x-ui/db
@@ -18,16 +18,28 @@
     dest: /opt/3x-ui/docker-compose.yml
     mode: "0644"
 
-- name: Start 3x-ui container
+- name: Pull 3x-ui Docker image
   ansible.builtin.command:
-    cmd: docker compose up -d
+    cmd: docker compose pull
     chdir: /opt/3x-ui
-  register: compose_result
-  changed_when: >-
-    'Started' in (compose_result.stdout + compose_result.stderr) or
-    'Creating' in (compose_result.stdout + compose_result.stderr)
+  register: pull_result
+  changed_when: "'Pull complete' in (pull_result.stderr | default('')) or 'Downloaded' in (pull_result.stderr | default(''))"
+  retries: 3
+  delay: 10
+  until: pull_result is succeeded
+
+- name: Start 3x-ui container
+  block:
+    - name: Run docker compose up
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: /opt/3x-ui
+      register: compose_result
+      changed_when: >-
+        'Started' in (compose_result.stdout + compose_result.stderr) or
+        'Creating' in (compose_result.stdout + compose_result.stderr)
   rescue:
-    - name: Show Docker error details
+    - name: Fetch container logs for diagnosis
       ansible.builtin.command:
         cmd: docker compose logs --tail 50
         chdir: /opt/3x-ui
@@ -52,7 +64,7 @@
 
 - name: Wait for 3x-ui panel to become responsive
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ panel_internal_port }}/"
+    url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path | default('') }}/"
     method: GET
     status_code: [200, 302, 301]
   register: panel_health

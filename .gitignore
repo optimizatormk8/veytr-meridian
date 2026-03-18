@@ -1,9 +1,22 @@
 # Credentials contain all secrets — NEVER commit these
 credentials/
+meridian/
+vpn-credentials/
 
-# Ansible retry files
+# Ansible
 *.retry
 
-# macOS
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+venv/
+.venv/
+
+# OS
 .DS_Store
 .claude/
+
+# Environment
+.env
+*.log

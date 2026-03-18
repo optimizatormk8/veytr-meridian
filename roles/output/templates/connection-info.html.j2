@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connection Setup — {{ inventory_hostname }}</title>
+<title>Connection Setup</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -156,7 +156,7 @@
      Go to Settings &gt; Date &amp; Time and enable "Set Automatically".</p>
 </div>
 
-<p class="footer">Server: {{ server_public_ip }} &middot; Generated {{ ansible_date_time.iso8601 }}</p>
+<p class="footer">Generated {{ ansible_date_time.iso8601 }}</p>
 
 <div class="copy-toast" id="toast">Copied to clipboard</div>
 
