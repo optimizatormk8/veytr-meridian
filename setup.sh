@@ -633,8 +633,24 @@ printf "\n"
 $PLAY_CMD
 
 # --- Done ---
+# Find the generated files
+HTML_FILE=$(ls "$STABLE_CREDS"/*-connection-info.html 2>/dev/null | head -1)
+TXT_FILE=$(ls "$STABLE_CREDS"/*-connection-info.txt 2>/dev/null | head -1)
+
 printf "\n  ${G}${B}Done!${R}\n\n"
-printf "  Credentials saved to: ${B}$STABLE_CREDS/${R}\n"
-printf "  Send the HTML file to whoever needs it — they scan the QR code and connect.\n"
-printf "\n  ${D}Feedback, issues, or ideas: https://github.com/uburuntu/meridian/issues${R}\n"
+printf "  ${B}Next steps:${R}\n\n"
+if [[ -n "$HTML_FILE" ]]; then
+  printf "  ${G}1.${R} Send this file to whoever needs access:\n"
+  printf "     ${B}${HTML_FILE}${R}\n"
+  printf "     ${D}(They open it, scan the QR code, and connect)${R}\n\n"
+fi
+if [[ -n "$TXT_FILE" ]]; then
+  printf "  ${G}2.${R} View connection details:\n"
+  printf "     ${C}cat ${TXT_FILE}${R}\n\n"
+fi
+printf "  ${G}3.${R} View full credentials:\n"
+printf "     ${C}cat ${STABLE_CREDS}/proxy.yml${R}\n"
+printf "\n"
+line
+printf "\n  ${D}Feedback & issues: https://github.com/uburuntu/meridian/issues${R}\n"
 printf "  ${D}This project evolves based on your feedback — every report helps.${R}\n\n"
