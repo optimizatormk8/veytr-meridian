@@ -31,7 +31,7 @@
       {{ port_443_precheck.stdout }}
       Stop the conflicting service: systemctl stop nginx apache2 haproxy
   when:
-    - port_443_precheck.stdout | default('') | regex_search(':443\\s')
+    - port_443_precheck.stdout | default('') | regex_search(':443') is not none
     - "'3x-ui' not in (port_443_precheck.stdout | default(''))"
     - "'xray' not in (port_443_precheck.stdout | default(''))"
 
