@@ -7,7 +7,8 @@
 # Uninstall:    curl -sS ... | bash -s -- --uninstall
 # =============================================================================
 set -euo pipefail
-trap 'echo "  [EXIT] Script exited at line $LINENO (exit code $?)" >&2' ERR
+trap 'echo "  [DEBUG] ERR at line $LINENO (exit $?)" >&2' ERR
+trap 'echo "  [DEBUG] EXIT at line $LINENO (exit $?)" >&2' EXIT
 
 ORIG_PWD="${PWD}"
 
