@@ -76,10 +76,10 @@ body{
   position:relative;
 }
 .url:hover{border-color:var(--tx2)}
-.url::after{
-  content:'tap to copy';position:absolute;top:8px;right:10px;
+.url-hint{
+  display:block;text-align:right;margin-top:6px;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  font-size:.6rem;color:var(--tx3);opacity:.6;pointer-events:none;
+  font-size:.6rem;color:var(--tx3);opacity:.5;
   text-transform:uppercase;letter-spacing:.04em;font-weight:500;
 }
 .apps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
@@ -142,7 +142,7 @@ body{
   <p class="card-desc">Fastest route. Use this as your default connection.</p>
   <a href="{{ vless_reality_url }}" class="open-btn">Open in App</a>
   <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64_local.stdout }}" alt="QR" loading="lazy"></div>
-  <div class="url" onclick="cp(this)" data-url="{{ vless_reality_url }}">{{ vless_reality_url }}</div>
+  <div class="url" onclick="cp(this)" data-url="{{ vless_reality_url }}">{{ vless_reality_url }}<span class="url-hint">tap to copy</span></div>
 </div>
 
 {% if domain_mode | bool %}
@@ -152,7 +152,7 @@ body{
   <p class="card-desc">CDN fallback. Use if the primary connection is blocked.</p>
   <a href="{{ vless_wss_url }}" class="open-btn">Open in App</a>
   <div class="qr"><img src="data:image/png;base64,{{ wss_qr_b64_local.stdout }}" alt="QR" loading="lazy"></div>
-  <div class="url" onclick="cp(this)" data-url="{{ vless_wss_url }}">{{ vless_wss_url }}</div>
+  <div class="url" onclick="cp(this)" data-url="{{ vless_wss_url }}">{{ vless_wss_url }}<span class="url-hint">tap to copy</span></div>
 </div>
 {% endif %}
 
@@ -173,7 +173,7 @@ body{
   <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Quick Setup</div>
   <div class="steps">
     <div class="step">Install a client app from the list above</div>
-    <div class="step">Tap <strong>Open in App</strong> — the connection imports automatically</div>
+    <div class="step">Tap "Open in App" — the connection imports automatically</div>
     <div class="step">Or scan the QR code from another device</div>
     <div class="step">Activate the connection in the app</div>
   </div>
