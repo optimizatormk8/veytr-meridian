@@ -370,7 +370,7 @@ PLAY_CMD="ansible-playbook playbook.yml -e server_public_ip=$SERVER_IP -e creden
 [[ -n "$EMAIL" ]]  && PLAY_CMD="$PLAY_CMD -e email=$EMAIL"
 
 printf "\n"
-info "Configuring server at ${B}$SERVER_IP${R}..."
+info "Configuring server at $SERVER_IP..."
 [[ -n "$DOMAIN" ]] && info "Domain: $DOMAIN"
 printf "\n"
 
