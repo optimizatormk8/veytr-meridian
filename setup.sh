@@ -7,8 +7,6 @@
 # Uninstall:    curl -sS ... | bash -s -- --uninstall
 # =============================================================================
 set -euo pipefail
-trap 'echo "  [DEBUG] ERR at line $LINENO (exit $?)" >&2' ERR
-trap 'echo "  [DEBUG] EXIT at line $LINENO (exit $?)" >&2' EXIT
 
 ORIG_PWD="${PWD}"
 
@@ -96,7 +94,7 @@ if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
   printf "  ${B}Where is the server?${R}\n\n"
 
   # Auto-detect current machine's public IP as a default suggestion
-  DETECTED_IP=$(curl -s --max-time 3 https://ifconfig.me 2>/dev/null || true)
+  DETECTED_IP=$(curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
 
   while true; do
     prompt SERVER_IP "IP address" "$DETECTED_IP"
@@ -167,14 +165,14 @@ fi
 
 # --- Detect if we're running on the target server itself ---
 LOCAL_MODE=false
-LOCAL_IP=$(curl -s --max-time 3 https://ifconfig.me 2>/dev/null || true)
+LOCAL_IP=$(curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
 if [[ "$LOCAL_IP" == "$SERVER_IP" ]]; then
   LOCAL_MODE=true
   ok "Running on the target server (local mode)"
 else
   # Check SSH access (only needed when deploying remotely)
   info "Checking SSH access to ${ANSIBLE_USER}@${SERVER_IP}..."
-  if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${ANSIBLE_USER}@${SERVER_IP}" true 2>/dev/null; then
+  if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "${ANSIBLE_USER}@${SERVER_IP}" true </dev/null 2>/dev/null; then
     ok "SSH connection successful"
   else
     printf "\n"
@@ -235,9 +233,9 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 info "Downloading playbook..."
 if command -v curl &>/dev/null; then
-  curl -sL "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
+  curl -sL "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" </dev/null | tar xz -C "$WORK_DIR" --strip-components=1
 elif command -v wget &>/dev/null; then
-  wget -qO- "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" | tar xz -C "$WORK_DIR" --strip-components=1
+  wget -qO- "https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz" </dev/null | tar xz -C "$WORK_DIR" --strip-components=1
 else
   fail "curl or wget is required"
 fi
