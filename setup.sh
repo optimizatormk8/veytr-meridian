@@ -43,6 +43,7 @@ DOMAIN=""
 EMAIL=""
 SNI=""
 UNINSTALL=false
+YES=false
 LOCAL_MODE=false
 ANSIBLE_USER="${ANSIBLE_USER:-root}"
 
@@ -53,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --sni)       SNI="$2"; shift 2 ;;
     --user)      ANSIBLE_USER="$2"; shift 2 ;;
     --uninstall) UNINSTALL=true; shift ;;
+    --yes|-y)    YES=true; shift ;;
     --help|-h)
       printf "\n  ${B}Meridian${R} — Proxy Server Setup\n\n"
       printf "  Usage:\n"
@@ -65,6 +67,7 @@ while [[ $# -gt 0 ]]; do
       printf "    --sni HOST        Reality camouflage target (default: www.microsoft.com)\n"
       printf "    --user USER       SSH user (default: root)\n"
       printf "    --uninstall       Remove proxy from server\n"
+      printf "    --yes, -y         Skip confirmation prompts\n"
       printf "    --help            Show this help\n\n"
       exit 0 ;;
     -*)          fail "Unknown flag: $1. Use --help for usage." ;;
@@ -232,8 +235,10 @@ if [[ "$UNINSTALL" == true ]]; then
   warn "This will remove Meridian from $SERVER_IP."
   warn "Docker and system packages will NOT be touched."
   printf "\n"
-  prompt CONFIRM "Continue? (y/N)"
-  [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]] && { info "Cancelled."; exit 0; }
+  if [[ "$YES" != true ]]; then
+    prompt CONFIRM "Continue? (y/N)"
+    [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]] && { info "Cancelled."; exit 0; }
+  fi
   printf "\n"
 fi
 
