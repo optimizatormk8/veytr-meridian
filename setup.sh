@@ -47,6 +47,9 @@ DIAGNOSTICS=false
 CHECK=false
 YES=false
 LOCAL_MODE=false
+CLIENT_ACTION=""
+CLIENT_NAME=""
+FIRST_CLIENT_NAME=""
 ANSIBLE_USER="${ANSIBLE_USER:-root}"
 
 while [[ $# -gt 0 ]]; do
@@ -59,6 +62,10 @@ while [[ $# -gt 0 ]]; do
     --rage|--diagnostics) DIAGNOSTICS=true; shift ;;
     --check|--preflight)  CHECK=true; shift ;;
     --yes|-y)    YES=true; shift ;;
+    --add-client)     CLIENT_ACTION="add"; CLIENT_NAME="$2"; shift 2 ;;
+    --list-clients)   CLIENT_ACTION="list"; shift ;;
+    --remove-client)  CLIENT_ACTION="remove"; CLIENT_NAME="$2"; shift 2 ;;
+    --name)           FIRST_CLIENT_NAME="$2"; shift 2 ;;
     --help|-h)
       printf "\n  ${B}Meridian${R} — Proxy Server Setup\n\n"
       printf "  Usage:\n"
@@ -69,12 +76,17 @@ while [[ $# -gt 0 ]]; do
       printf "  Flags:\n"
       printf "    --domain DOMAIN   Add decoy website + CDN fallback\n"
       printf "    --sni HOST        Reality camouflage target (default: www.microsoft.com)\n"
+      printf "    --name NAME       Name the first client (default: 'default')\n"
       printf "    --user USER       SSH user (default: root)\n"
       printf "    --uninstall       Remove proxy from server\n"
       printf "    --check           Pre-flight check (SNI reachability, ports, blocklists)\n"
       printf "    --rage            Collect diagnostics for bug reports (no secrets)\n"
       printf "    --yes, -y         Skip confirmation prompts\n"
       printf "    --help            Show this help\n\n"
+      printf "  Client management:\n"
+      printf "    --add-client NAME     Add a new client key\n"
+      printf "    --list-clients        List all clients\n"
+      printf "    --remove-client NAME  Remove a client key\n\n"
       printf "  Issues & feedback:\n"
       printf "    https://github.com/uburuntu/meridian/issues\n\n"
       exit 0 ;;
@@ -93,13 +105,37 @@ else
   OS="linux"
 fi
 
+# --- Resolve server IP from saved credentials (for client management / uninstall) ---
+resolve_saved_ip() {
+  local cred_file
+  cred_file=$(ls "$HOME"/meridian/*.yml 2>/dev/null | head -1)
+  if [[ -z "$cred_file" ]]; then
+    cred_file=$(ls "$ORIG_PWD"/meridian/*.yml 2>/dev/null | head -1)
+  fi
+  if [[ -n "$cred_file" ]]; then
+    local saved_ip
+    saved_ip=$(grep 'exit_ip:' "$cred_file" 2>/dev/null | awk '{print $2}' | tr -d '"')
+    if [[ -n "$saved_ip" ]]; then
+      SERVER_IP="$saved_ip"
+      info "Found server: $SERVER_IP"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 # --- Welcome banner ---
 printf "\n"
 printf "  ${B}Meridian${R}\n"
 printf "\n"
 
+# --- Client management: resolve IP early ---
+if [[ -n "$CLIENT_ACTION" && -z "$SERVER_IP" ]]; then
+  resolve_saved_ip || fail "No saved credentials found. Run setup.sh first to deploy the server."
+fi
+
 # --- Interactive mode (no args) ---
-if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
+if [[ -z "$SERVER_IP" && "$UNINSTALL" != true && -z "$CLIENT_ACTION" ]]; then
   printf "  Deploy a VLESS+Reality proxy server.\n"
   printf "  Invisible to DPI, active probing, and TLS fingerprinting.\n"
   printf "  Your server will impersonate ${D}${SNI:-www.microsoft.com}${R} — probes\n"
@@ -216,7 +252,7 @@ if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
 fi
 
 # --- Validate IP ---
-if [[ "$UNINSTALL" != true ]]; then
+if [[ "$UNINSTALL" != true && -z "$CLIENT_ACTION" ]]; then
   if [[ -z "$SERVER_IP" ]]; then
     fail "Server IP is required. Run without flags for interactive mode."
   fi
@@ -228,11 +264,7 @@ fi
 # --- Handle uninstall ---
 if [[ "$UNINSTALL" == true ]]; then
   if [[ -z "$SERVER_IP" ]]; then
-    CRED_FILE=$(ls "$ORIG_PWD"/meridian/*.yml 2>/dev/null | head -1)
-    if [[ -n "$CRED_FILE" ]]; then
-      SAVED_IP=$(grep 'exit_ip:' "$CRED_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"')
-      [[ -n "$SAVED_IP" ]] && SERVER_IP="$SAVED_IP" && info "Found server: $SERVER_IP"
-    fi
+    resolve_saved_ip || true
   fi
   if [[ -z "$SERVER_IP" ]]; then
     prompt SERVER_IP "Server IP to uninstall from"
@@ -616,6 +648,32 @@ if [[ "$UNINSTALL" == true ]]; then
   exit 0
 fi
 
+# --- Client management ---
+if [[ -n "$CLIENT_ACTION" ]]; then
+  STABLE_CREDS="$HOME/meridian"
+  mkdir -p "$STABLE_CREDS"
+  PLAY_CMD="ansible-playbook playbook-client.yml -e client_action=$CLIENT_ACTION -e server_public_ip=$SERVER_IP -e credentials_dir=$STABLE_CREDS"
+  [[ -n "$CLIENT_NAME" ]] && PLAY_CMD="$PLAY_CMD -e client_name=$CLIENT_NAME"
+
+  case "$CLIENT_ACTION" in
+    add)    info "Adding client '$CLIENT_NAME' on $SERVER_IP..." ;;
+    list)   info "Listing clients on $SERVER_IP..." ;;
+    remove) info "Removing client '$CLIENT_NAME' from $SERVER_IP..." ;;
+  esac
+  printf "\n"
+  $PLAY_CMD
+
+  if [[ "$CLIENT_ACTION" == "add" ]]; then
+    HTML_FILE="$STABLE_CREDS/proxy-${CLIENT_NAME}-connection-info.html"
+    if [[ -f "$HTML_FILE" ]]; then
+      printf "\n  ${G}${B}Done!${R}\n\n"
+      printf "  Send this file to %s:\n" "$CLIENT_NAME"
+      printf "     ${B}${HTML_FILE}${R}\n\n"
+    fi
+  fi
+  exit 0
+fi
+
 # --- Build and run playbook ---
 # Point credentials to a stable location (survives temp dir cleanup)
 STABLE_CREDS="$HOME/meridian"
@@ -624,6 +682,7 @@ PLAY_CMD="ansible-playbook playbook.yml -e server_public_ip=$SERVER_IP -e creden
 [[ -n "$DOMAIN" ]] && PLAY_CMD="$PLAY_CMD -e domain=$DOMAIN"
 [[ -n "$EMAIL" ]]  && PLAY_CMD="$PLAY_CMD -e email=$EMAIL"
 [[ -n "$SNI" ]]    && PLAY_CMD="$PLAY_CMD -e reality_sni=$SNI"
+[[ -n "$FIRST_CLIENT_NAME" ]] && PLAY_CMD="$PLAY_CMD -e first_client_name=$FIRST_CLIENT_NAME"
 
 printf "\n"
 info "Configuring server at $SERVER_IP..."
@@ -634,7 +693,8 @@ $PLAY_CMD
 
 # --- Done ---
 # Find the generated files
-HTML_FILE=$(ls "$STABLE_CREDS"/*-connection-info.html 2>/dev/null | head -1)
+CLIENT_LABEL="${FIRST_CLIENT_NAME:-default}"
+HTML_FILE=$(ls "$STABLE_CREDS"/*-"${CLIENT_LABEL}"-connection-info.html 2>/dev/null | head -1)
 TXT_FILE=$(ls "$STABLE_CREDS"/*-connection-info.txt 2>/dev/null | head -1)
 
 printf "\n  ${G}${B}Done!${R}\n\n"
@@ -648,7 +708,10 @@ if [[ -n "$TXT_FILE" ]]; then
   printf "  ${G}2.${R} View connection details:\n"
   printf "     ${C}cat ${TXT_FILE}${R}\n\n"
 fi
-printf "  ${G}3.${R} View full credentials:\n"
+printf "  ${G}3.${R} Share access with friends:\n"
+printf "     ${C}setup.sh --add-client alice${R}\n"
+printf "     ${C}setup.sh --list-clients${R}\n\n"
+printf "  ${G}4.${R} View full credentials:\n"
 printf "     ${C}cat ${STABLE_CREDS}/proxy.yml${R}\n"
 printf "\n"
 line

@@ -113,6 +113,8 @@ MOCK_VARS = {
     "reality_public_key": "test-pubkey",
     "reality_short_id": "abcd1234",
     "xhttp_uuid": "test-xhttp-uuid",
+    "client_name": "default",
+    "first_client_name": "default",
 }
 
 TEMPLATES = [
@@ -120,6 +122,7 @@ TEMPLATES = [
     ("roles/decoy_site/templates", "connection-info.html.j2"),
     ("roles/output/templates", "connection-info.html.j2"),
     ("roles/output/templates", "connection-summary.txt.j2"),
+    ("roles/output/templates", "connection-summary-client.txt.j2"),
     ("roles/output_relay/templates", "connection-info.html.j2"),
     ("roles/output_relay/templates", "connection-summary.txt.j2"),
     ("roles/xray/templates", "docker-compose.yml.j2"),

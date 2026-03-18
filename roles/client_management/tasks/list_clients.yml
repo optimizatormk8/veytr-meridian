@@ -1,0 +1,42 @@
+---
+# List all clients with their status and protocols.
+
+- name: Build WSS client email list
+  ansible.builtin.set_fact:
+    wss_client_emails: "{{ wss_clients | default([]) | map(attribute='email') | list }}"
+
+- name: Build client summary
+  ansible.builtin.set_fact:
+    client_rows: >-
+      {{ reality_clients | map(attribute='email') | map('regex_replace', '^reality-', '') | list }}
+    client_status: >-
+      {{ reality_clients | map(attribute='enable') | list }}
+
+- name: Display client list
+  ansible.builtin.shell:
+    cmd: |
+      printf '\n'
+      cat <<'TABLE'
+
+      ======================================================================
+                            PROXY CLIENTS
+      ======================================================================
+
+      Name              Status     Protocols
+      ─────────────────────────────────────────────────────
+      {% for client in reality_clients %}
+      {% set name = client.email | regex_replace('^reality-', '') %}
+      {% set status = 'active' if client.enable else 'disabled' %}
+      {% set has_wss = 'wss-' + name in wss_client_emails %}
+      {% set protocols = 'Reality + WSS' if has_wss else 'Reality' %}
+      {{ '%-17s %-10s %s' | format(name, status, protocols) }}
+      {% endfor %}
+
+      ─────────────────────────────────────────────────────
+      Total: {{ reality_clients | length }} client{{ 's' if reality_clients | length != 1 else '' }}
+
+      ======================================================================
+      TABLE
+  delegate_to: localhost
+  become: false
+  changed_when: false

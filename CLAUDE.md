@@ -27,6 +27,7 @@ Ansible automation for deploying censorship-resistant VLESS+Reality proxy server
 ```
 playbook.yml              Standalone mode
 playbook-chain.yml         Chain mode (exit first, then relay)
+playbook-client.yml        Client management (add/list/remove)
 playbook-uninstall.yml     Clean removal of proxy components + credentials
 inventory.yml              Standalone inventory
 inventory-chain.yml.example Chain inventory template
@@ -54,7 +55,9 @@ roles/
   caddy/                   Reverse proxy + auto-TLS (domain mode)
   decoy_site/              Static decoy website + connection info page
   output/                  Terminal display + local file generation + port verification
+                           (generate_client_output.yml is shared with client_management)
   output_relay/            Relay-specific output
+  client_management/       Add/list/remove proxy clients via panel API
 ```
 
 ## Implicit dependencies & cross-file relationships
@@ -74,11 +77,15 @@ These are easy to break by editing one file without updating the others:
 ### setup.sh flags
 - `--domain DOMAIN` — add decoy website + CDN fallback
 - `--sni HOST` — Reality camouflage target (default: www.microsoft.com), passed as `-e reality_sni=`
+- `--name NAME` — name the first client (default: "default"), passed as `-e first_client_name=`
 - `--user USER` — SSH user (default: root)
 - `--uninstall` — remove proxy from server, deletes credentials
 - `--check` / `--preflight` — pre-flight validation without installing (SNI, ports, DNS, OS, disk)
 - `--rage` / `--diagnostics` — collect system diagnostics for bug reports, auto-redacts secrets
 - `--yes` / `-y` — skip confirmation prompts (for non-interactive/CI use)
+- `--add-client NAME` — add a named client to existing server, runs `playbook-client.yml -e client_action=add`
+- `--list-clients` — list all clients, runs `playbook-client.yml -e client_action=list`
+- `--remove-client NAME` — remove a named client, runs `playbook-client.yml -e client_action=remove`
 
 ### docs/index.html ↔ setup.sh
 - Website command builder has tabbed interface (Install/Pre-flight/Diagnostics/Uninstall) — flag names must match `setup.sh`
@@ -94,12 +101,22 @@ These are easy to break by editing one file without updating the others:
 ### Credential flow
 - `setup.sh` overrides `credentials_dir` to `$HOME/meridian/` so credentials survive temp dir cleanup
 - `roles/xray/tasks/configure_panel.yml` saves to `{{ credentials_file }}` which is `{{ credentials_dir }}/{{ inventory_hostname }}.yml`
+- `roles/xray/tasks/configure_panel.yml` also creates `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with the first client
 - `playbook.yml` and `playbook-chain.yml` load from the same file in pre_tasks via `include_vars`
 - `playbook-chain.yml` relay play loads EXIT node credentials from `{{ credentials_dir }}/{{ exit_node }}.yml`
 - Domain is saved to credentials file for detection on re-runs
 - `setup.sh` uninstall reads saved credentials to find the server IP
 - `playbook-uninstall.yml` deletes credentials from both server (`~/meridian/`) and locally
 - `setup.sh` fetches credentials from server via SSH when not found locally (handles cross-machine runs)
+
+### Client management flow
+- `playbook-client.yml` loads credentials from `proxy.yml`, reads `domain` field to detect domain mode
+- Client names map to 3x-ui `email` fields: `reality-{name}`, `wss-{name}` (e.g., `reality-alice`, `wss-alice`)
+- The first client created during install uses `reality-{{ first_client_name | default('default') }}` — same naming convention
+- Clients are tracked in `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with UUIDs and timestamps
+- `roles/output/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
+- 3x-ui API: `addClient` adds to existing inbound, `delClient/{email}` removes by email field
+- `--add-client`/`--remove-client` resolve server IP from saved credentials (same as `--uninstall`)
 
 ### Caddy config pattern
 - Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (not the main Caddyfile)

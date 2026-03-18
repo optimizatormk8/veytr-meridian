@@ -2,67 +2,18 @@
 # Final output: display connection info, QR codes, and save files locally.
 # This role always runs (both domain and no-domain mode).
 
-# -- Build connection URLs --
-- name: Build Reality VLESS connection URL
+# -- Generate client output (URLs, QR codes, HTML, text) --
+- name: Set client variables for output generation
   ansible.builtin.set_fact:
-    vless_reality_url: >-
-      vless://{{ reality_uuid }}@{{ server_public_ip }}:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni={{ reality_sni }}&fp={{ utls_fingerprint }}&pbk={{ reality_public_key }}&sid={{ reality_short_id }}&type=tcp&headerType=none#VLESS-Reality
+    client_reality_uuid: "{{ reality_uuid }}"
+    client_wss_uuid: "{{ wss_uuid | default('') }}"
+    client_name: "{{ first_client_name | default('default') }}"
 
-- name: Build WSS VLESS connection URL (domain mode)
-  ansible.builtin.set_fact:
-    vless_wss_url: >-
-      vless://{{ wss_uuid }}@{{ domain }}:443?encryption=none&security=tls&sni={{ domain }}&type=ws&host={{ domain }}&path=%2F{{ ws_path }}#VLESS-WSS-CDN
-  when: domain_mode | bool
+- name: Generate client output files
+  ansible.builtin.include_tasks: generate_client_output.yml
 
-- name: Set empty WSS URL for no-domain mode
-  ansible.builtin.set_fact:
-    vless_wss_url: ""
-  when: not (domain_mode | bool)
-
-- name: Build direct Reality fallback URL (exit mode)
-  ansible.builtin.set_fact:
-    vless_direct_url: >-
-      vless://{{ reality_uuid }}@{{ server_public_ip }}:{{ reality_direct_port | default(8444) }}?encryption=none&flow=xtls-rprx-vision&security=reality&sni={{ reality_sni }}&fp={{ utls_fingerprint }}&pbk={{ reality_public_key }}&sid={{ reality_short_id }}&type=tcp&headerType=none#VLESS-Direct-Fallback
-  when: exit_mode | default(false) | bool
-
-# -- Generate QR codes in terminal --
-- name: Generate Reality QR code for terminal display
-  ansible.builtin.command:
-    cmd: "qrencode -t ANSIUTF8 '{{ vless_reality_url }}'"
-  register: reality_qr_terminal
-  changed_when: false
-  delegate_to: localhost
-  become: false
-
-- name: Generate WSS QR code for terminal display
-  ansible.builtin.command:
-    cmd: "qrencode -t ANSIUTF8 '{{ vless_wss_url }}'"
-  register: wss_qr_terminal
-  changed_when: false
-  delegate_to: localhost
-  become: false
-  when: domain_mode | bool
-
-# -- Generate QR codes as base64 PNGs for HTML file --
-- name: Generate Reality QR code as base64 PNG
-  ansible.builtin.shell:
-    cmd: "printf '%s' '{{ vless_reality_url }}' | qrencode -t PNG -o - -s 6 | base64 | tr -d '\\n'"
-  register: reality_qr_b64_local
-  changed_when: false
-  delegate_to: localhost
-  become: false
-
-- name: Generate WSS QR code as base64 PNG
-  ansible.builtin.shell:
-    cmd: "printf '%s' '{{ vless_wss_url }}' | qrencode -t PNG -o - -s 6 | base64 | tr -d '\\n'"
-  register: wss_qr_b64_local
-  changed_when: false
-  delegate_to: localhost
-  become: false
-  when: domain_mode | bool
-
-# -- Save files locally (before noisy terminal output) --
-- name: Save connection summary to local file
+# -- Save admin connection summary (includes panel credentials) --
+- name: Save admin connection summary to local file
   ansible.builtin.template:
     src: connection-summary.txt.j2
     dest: "{{ credentials_dir }}/{{ inventory_hostname }}-connection-info.txt"
@@ -70,13 +21,12 @@
   delegate_to: localhost
   become: false
 
-- name: Save connection info HTML page locally
-  ansible.builtin.template:
-    src: connection-info.html.j2
-    dest: "{{ credentials_dir }}/{{ inventory_hostname }}-connection-info.html"
-    mode: "0600"
-  delegate_to: localhost
-  become: false
+# -- Exit mode direct fallback URL --
+- name: Build direct Reality fallback URL (exit mode)
+  ansible.builtin.set_fact:
+    vless_direct_url: >-
+      vless://{{ reality_uuid }}@{{ server_public_ip }}:{{ reality_direct_port | default(8444) }}?encryption=none&flow=xtls-rprx-vision&security=reality&sni={{ reality_sni }}&fp={{ utls_fingerprint }}&pbk={{ reality_public_key }}&sid={{ reality_short_id }}&type=tcp&headerType=none#VLESS-Direct-Fallback
+  when: exit_mode | default(false) | bool
 
 # -- Flush handlers so HAProxy/Caddy are running before port check --
 - name: Flush handlers before port verification
@@ -142,7 +92,7 @@
       {% endif %}
 
       --- Files Saved ---
-      HTML page: {{ credentials_dir }}/{{ inventory_hostname }}-connection-info.html
+      HTML page: {{ credentials_dir }}/{{ inventory_hostname }}-{{ first_client_name | default('default') }}-connection-info.html
       Text file: {{ credentials_dir }}/{{ inventory_hostname }}-connection-info.txt
       Credentials: {{ credentials_file }}
       {% if domain_mode | bool %}
@@ -168,6 +118,11 @@
       {% endif %}
       Username: {{ panel_username }}
       Password: {{ panel_password }}
+
+      --- Share Access ---
+      Add a friend:   setup.sh --add-client NAME
+      List clients:   setup.sh --list-clients
+      Remove client:  setup.sh --remove-client NAME
 
       --- Feedback ---
       Something not working? Run: setup.sh --rage

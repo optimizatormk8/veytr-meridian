@@ -1,0 +1,107 @@
+---
+# Remove a client from existing inbound(s) and clean up local files.
+
+# -- Validate input --
+- name: Validate client name is provided
+  ansible.builtin.assert:
+    that:
+      - client_name is defined
+      - client_name | length > 0
+    fail_msg: "client_name is required. Usage: --remove-client NAME"
+
+# -- Check client exists --
+- name: Check if client exists in Reality inbound
+  ansible.builtin.set_fact:
+    client_exists: "{{ reality_clients | selectattr('email', 'equalto', 'reality-' + client_name) | list | length > 0 }}"
+
+- name: Fail if client does not exist
+  ansible.builtin.fail:
+    msg: "Client '{{ client_name }}' not found. Use --list-clients to see all clients."
+  when: not (client_exists | bool)
+
+# -- Delete from Reality inbound --
+- name: Remove client from Reality inbound
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/panel/api/inbounds/{{ reality_inbound_id }}/delClient/reality-{{ client_name }}"
+    method: POST
+    headers:
+      Cookie: "{{ session_cookie }}"
+    return_content: true
+  register: reality_del_result
+
+- name: Verify Reality client was removed
+  ansible.builtin.assert:
+    that: reality_del_result.json.success | default(false)
+    fail_msg: "Failed to remove client from Reality inbound: {{ reality_del_result.json.msg | default('unknown error') }}"
+
+# -- Delete from WSS inbound (domain mode) --
+- name: Check if client exists in WSS inbound
+  ansible.builtin.set_fact:
+    wss_client_exists: "{{ wss_clients | default([]) | selectattr('email', 'equalto', 'wss-' + client_name) | list | length > 0 }}"
+  when: domain_mode | bool
+
+- name: Remove client from WSS inbound
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/panel/api/inbounds/{{ wss_inbound_id }}/delClient/wss-{{ client_name }}"
+    method: POST
+    headers:
+      Cookie: "{{ session_cookie }}"
+    return_content: true
+  register: wss_del_result
+  when: domain_mode | bool and (wss_client_exists | default(false) | bool)
+
+- name: Verify WSS client was removed
+  ansible.builtin.assert:
+    that: wss_del_result.json.success | default(false)
+    fail_msg: "Failed to remove client from WSS inbound: {{ wss_del_result.json.msg | default('unknown error') }}"
+  when: domain_mode | bool and (wss_client_exists | default(false) | bool)
+
+# -- Update local clients tracking file --
+- name: Load existing clients file
+  ansible.builtin.include_vars:
+    file: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
+    name: clients_data
+  delegate_to: localhost
+  become: false
+  ignore_errors: true
+
+- name: Save updated clients file (without removed client)
+  ansible.builtin.copy:
+    content: |
+      ---
+      clients:
+      {% for c in (clients_data.clients | default([])) if c.name != client_name %}
+        - name: "{{ c.name }}"
+          added: "{{ c.added }}"
+          reality_uuid: "{{ c.reality_uuid }}"
+          wss_uuid: "{{ c.wss_uuid | default('') }}"
+      {% endfor %}
+    dest: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  when: clients_data is defined and clients_data.clients is defined
+
+# -- Delete local output files --
+- name: Remove client HTML file
+  ansible.builtin.file:
+    path: "{{ credentials_dir }}/{{ inventory_hostname }}-{{ client_name }}-connection-info.html"
+    state: absent
+  delegate_to: localhost
+  become: false
+
+- name: Remove client text file
+  ansible.builtin.file:
+    path: "{{ credentials_dir }}/{{ inventory_hostname }}-{{ client_name }}-connection-info.txt"
+    state: absent
+  delegate_to: localhost
+  become: false
+
+# -- Confirmation --
+- name: Display removal confirmation
+  ansible.builtin.debug:
+    msg: |
+      Client '{{ client_name }}' has been removed.
+      - Removed from Reality inbound
+      {{ '- Removed from WSS inbound' if (wss_client_exists | default(false) | bool) else '' }}
+      - Deleted local connection files

@@ -136,6 +136,22 @@
       become: false
       no_log: true
 
+    # -- Track the first client alongside all future clients --
+    - name: Save initial client to clients tracking file
+      ansible.builtin.copy:
+        content: |
+          ---
+          clients:
+            - name: "{{ first_client_name | default('default') }}"
+              added: "{{ ansible_date_time.iso8601 }}"
+              reality_uuid: "{{ reality_uuid }}"
+              wss_uuid: "{{ wss_uuid | default('') }}"
+        dest: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+      no_log: true
+
     # -- Apply settings and change credentials (shared with xray_relay) --
     - name: Apply panel settings and credentials
       ansible.builtin.include_tasks: apply_panel_settings.yml

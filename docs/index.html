@@ -395,6 +395,19 @@ ansible-playbook playbook.yml</div>
   </details>
 
   <details>
+    <summary>Client management <span></span></summary>
+    <div class="inner">
+      <p>Share access with friends — each gets their own key:</p>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --add-client alice</div>
+      <p>List all clients:</p>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --list-clients</div>
+      <p>Revoke a client:</p>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --remove-client alice</div>
+      <p>Each client gets a unique connection key. Generates an HTML file with QR codes to share. The server IP is auto-detected from saved credentials.</p>
+    </div>
+  </details>
+
+  <details>
     <summary>Uninstall <span></span></summary>
     <div class="inner">
       <p>Remove the proxy from your server:</p>
