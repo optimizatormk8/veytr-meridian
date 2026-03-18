@@ -13,9 +13,9 @@
       ansible.builtin.set_fact:
         panel_username: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=12') }}"
         panel_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=24') }}"
-        panel_web_base_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=16') }}"
-        info_page_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=16') }}"
-        ws_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=12') }}"
+        panel_web_base_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=24') }}"
+        info_page_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=24') }}"
+        ws_path: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=16') }}"
       no_log: true
 
     # -- Discover Xray binary path (architecture-independent) --
