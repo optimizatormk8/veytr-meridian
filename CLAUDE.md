@@ -202,12 +202,14 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 
 ## Known issues / tech debt
 
-- `configure_panel.yml` is ~90% duplicated between `xray` and `xray_relay` roles (277 vs 191 lines). The 35-field settings payload is copy-pasted. Extracting to a shared task file is possible but risky — it touches the critical credential flow and needs careful testing on both standalone and chain mode.
-- Three connection-info HTML templates share the same design but different Jinja2 variables. They now have a unified visual design, but CSS/JS is still duplicated across all three. A single template with conditional blocks would reduce drift risk.
-- Pre-tasks (IP resolution, credential loading, qrencode check) are duplicated across playbook.yml and playbook-chain.yml. Could extract to a shared pre_tasks file.
+- Three connection-info HTML templates share the same design but different Jinja2 variables. CSS/JS is duplicated across all three. A single template with conditional blocks would reduce drift risk.
 - No key/credential rotation mechanism. To rotate: uninstall (deletes credentials) then reinstall.
-- No post-deployment monitoring or health checks (cron/watchdog).
-- 3x-ui database at `/opt/3x-ui/db/` grows without bound (traffic stats). No cleanup mechanism.
+- No post-deployment monitoring beyond cron-based cleanup. No watchdog or alerting.
+
+### Recently addressed
+- Panel settings payload extracted to `roles/xray/tasks/apply_panel_settings.yml` — shared by both `xray` and `xray_relay` roles.
+- Pre-tasks extracted to `pre_tasks/` directory — `resolve_ip.yml`, `check_qrencode.yml`, `load_credentials.yml` shared by both playbooks.
+- Database and log growth: weekly cron jobs vacuum the 3x-ui database (deletes traffic stats older than 30 days) and truncate Docker container logs.
 
 ## GitHub community files
 

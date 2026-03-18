@@ -71,6 +71,16 @@
         - /var/www/private
       failed_when: false
 
+    - name: Remove maintenance cron jobs
+      ansible.builtin.cron:
+        name: "{{ item }}"
+        state: absent
+        user: root
+      loop:
+        - meridian-db-vacuum
+        - meridian-docker-log-cleanup
+      failed_when: false
+
     - name: Remove saved credentials from server
       ansible.builtin.file:
         path: "{{ item }}"

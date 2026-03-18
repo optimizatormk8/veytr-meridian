@@ -26,84 +26,24 @@
           Edit inventory.yml and replace YOUR_SERVER_IP with your actual VPS IP address.
       when: ansible_host == 'YOUR_SERVER_IP'
 
-    # -- Resolve server public IP --
-    # When running locally (ansible_connection: local), ansible_host is 127.0.0.1.
-    # We need the real public IP for VLESS URLs.
-    - name: Use ansible_host as public IP (normal SSH runs)
-      ansible.builtin.set_fact:
-        server_public_ip: "{{ ansible_host }}"
-      when:
-        - server_public_ip | default('') | length == 0
-        - ansible_host not in ['127.0.0.1', 'localhost']
+    - name: Resolve server public IP
+      ansible.builtin.include_tasks: pre_tasks/resolve_ip.yml
 
-    - name: Auto-detect public IP (local connection fallback)
-      ansible.builtin.command:
-        cmd: curl -s --max-time 5 https://ifconfig.me
-      register: detected_ip
-      changed_when: false
-      failed_when: false
-      when: server_public_ip | default('') | length == 0
-
-    - name: Set auto-detected public IP
-      ansible.builtin.set_fact:
-        server_public_ip: "{{ detected_ip.stdout | trim }}"
-      when:
-        - server_public_ip | default('') | length == 0
-        - detected_ip.stdout | default('') | trim | length > 0
-
-    - name: Fail if public IP could not be determined
-      ansible.builtin.fail:
-        msg: "Could not determine public IP. Pass it explicitly: -e server_public_ip=1.2.3.4"
-      when: server_public_ip | default('') | length == 0
-
-    - name: Check that qrencode is installed locally
-      ansible.builtin.command: qrencode --version
-      delegate_to: localhost
-      become: false
-      changed_when: false
-      failed_when: false
-      register: local_qrencode_check
-
-    - name: Fail if qrencode is not installed locally
-      ansible.builtin.fail:
-        msg: >-
-          qrencode is not installed on your local machine. It is needed to generate QR codes.
-          Install it with: brew install qrencode (macOS) or apt install qrencode (Linux)
-      when: local_qrencode_check.rc != 0
+    - name: Check qrencode dependency
+      ansible.builtin.include_tasks: pre_tasks/check_qrencode.yml
 
     # -- Compute derived variables --
     - name: Set mode flags and derived ports
       ansible.builtin.set_fact:
         domain_mode: "{{ domain | default('') | length > 0 }}"
-        # In exit mode: TCP Reality goes to reality_direct_port (XHTTP takes primary port)
-        # In standalone: port depends on domain mode
         reality_port: >-
           {{ (exit_mode | default(false) | bool) | ternary(
                reality_direct_port | default(8444),
                (domain | default('') | length > 0) | ternary(haproxy_reality_backend_port, 443)
              ) }}
 
-    # -- Load previously generated credentials for idempotent re-runs --
-    - name: Create local credentials directory
-      ansible.builtin.file:
-        path: "{{ credentials_dir }}"
-        state: directory
-        mode: "0700"
-      delegate_to: localhost
-      become: false
-
-    - name: Check if credentials file exists
-      ansible.builtin.stat:
-        path: "{{ credentials_file }}"
-      register: creds_file_stat
-      delegate_to: localhost
-      become: false
-
-    - name: Load saved credentials from previous run
-      ansible.builtin.include_vars:
-        file: "{{ credentials_file }}"
-        name: saved_creds
-      when: creds_file_stat.stat.exists
+    - name: Load saved credentials
+      ansible.builtin.include_tasks: pre_tasks/load_credentials.yml
 
     - name: Apply saved credentials as facts
       ansible.builtin.set_fact:

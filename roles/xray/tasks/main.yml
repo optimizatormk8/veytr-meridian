@@ -17,3 +17,6 @@
 - name: Create VLESS+WSS inbound (CDN fallback)
   ansible.builtin.include_tasks: configure_wss.yml
   when: domain_mode | bool
+
+- name: Set up maintenance cron jobs
+  ansible.builtin.import_tasks: maintenance.yml
