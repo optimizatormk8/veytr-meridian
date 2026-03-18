@@ -21,20 +21,23 @@
     # -- Generate cryptographic keys (before any API calls) --
     - name: Generate x25519 keypair for Reality
       ansible.builtin.command:
-        cmd: docker exec 3x-ui /app/bin/xray-linux-amd64 x25519
+        cmd: docker exec 3x-ui sh -c '/app/bin/xray-linux-* x25519'
       register: x25519_output
       changed_when: false
       no_log: true
 
+    # x25519 output format varies by Xray version:
+    #   Old: "Private key: xxx\nPublic key: xxx"
+    #   New: "PrivateKey: xxx\nPassword: xxx" (Password = public key)
     - name: Parse Reality private and public keys
       ansible.builtin.set_fact:
-        reality_private_key: "{{ x25519_output.stdout | regex_search('Private key: (.+)', '\\1') | first }}"
-        reality_public_key: "{{ x25519_output.stdout | regex_search('Public key: (.+)', '\\1') | first }}"
+        reality_private_key: "{{ x25519_output.stdout | regex_search('(?:Private key|PrivateKey):\\s*(.+)', '\\1') | first }}"
+        reality_public_key: "{{ x25519_output.stdout | regex_search('(?:Public key|Password):\\s*(.+)', '\\1') | first }}"
       no_log: true
 
     - name: Generate UUID for Reality client
       ansible.builtin.command:
-        cmd: docker exec 3x-ui /app/bin/xray-linux-amd64 uuid
+        cmd: docker exec 3x-ui sh -c '/app/bin/xray-linux-* uuid'
       register: uuid_output
       changed_when: false
       no_log: true
@@ -46,7 +49,7 @@
 
     - name: Generate UUID for WSS client
       ansible.builtin.command:
-        cmd: docker exec 3x-ui /app/bin/xray-linux-amd64 uuid
+        cmd: docker exec 3x-ui sh -c '/app/bin/xray-linux-* uuid'
       register: wss_uuid_output
       changed_when: false
       no_log: true
@@ -63,7 +66,7 @@
 
     - name: Generate UUID for XHTTP relay connections (exit mode only)
       ansible.builtin.command:
-        cmd: docker exec 3x-ui /app/bin/xray-linux-amd64 uuid
+        cmd: docker exec 3x-ui sh -c '/app/bin/xray-linux-* uuid'
       register: xhttp_uuid_output
       changed_when: false
       no_log: true

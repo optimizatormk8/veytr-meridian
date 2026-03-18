@@ -14,7 +14,7 @@
 
     - name: Generate UUID for relay user
       ansible.builtin.command:
-        cmd: docker exec 3x-ui /app/bin/xray-linux-amd64 uuid
+        cmd: docker exec 3x-ui sh -c '/app/bin/xray-linux-* uuid'
       register: relay_uuid_output
       changed_when: false
       no_log: true

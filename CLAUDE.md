@@ -52,7 +52,7 @@ roles/
 - Update credentials: `POST /panel/setting/updateUser` (JSON body)
 - Read settings: `POST /panel/setting/all`
 - Xray template config: set `xrayTemplateConfig` field in `/panel/setting/update`
-- Key generation: `docker exec 3x-ui /app/bin/xray-linux-amd64 x25519` (parse Private/Public key lines), `docker exec 3x-ui /app/bin/xray-linux-amd64 uuid`
+- Key generation: `docker exec 3x-ui sh -c '/app/bin/xray-linux-* x25519'` (parse PrivateKey/Password lines), `docker exec 3x-ui sh -c '/app/bin/xray-linux-* uuid'`
 
 ## Build and test
 
