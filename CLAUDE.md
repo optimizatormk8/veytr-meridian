@@ -34,14 +34,20 @@ inventory-chain.yml.example Chain inventory template
 group_vars/all.yml         Shared defaults (version pin, ports, limits)
 group_vars/exit.yml        Exit node defaults (chain)
 group_vars/relay.yml       Relay node defaults (chain)
-setup.sh                   One-command installer (interactive wizard + flag mode)
+meridian                   CLI script (installed to ~/.local/bin/meridian)
+install.sh                 Lightweight CLI installer (curl install.sh | bash)
+setup.sh                   Compat shim → installs CLI + forwards args
+VERSION                    Version source of truth (matched in meridian script)
 docs/index.html            Website hosted on meridian.msu.rocks (GitHub Pages)
-docs/setup.sh              Copy of setup.sh served by GitHub Pages (synced by CD)
+docs/meridian              CLI served from website (CD sync)
+docs/install.sh            Installer served from website (CD sync)
+docs/setup.sh              Compat shim served from website (CD sync)
+docs/version               Version file served from website (CD sync)
 docs/CNAME                 Custom domain for GitHub Pages
 pre_tasks/                 Shared pre-task files (resolve_ip, check_qrencode, load_credentials)
 tests/render_templates.py  CI template rendering test (with Ansible filter mocks)
 .github/workflows/ci.yml   CI pipeline (lint, syntax, templates, shell, dry-run)
-.github/workflows/cd.yml   CD pipeline (sync setup.sh → docs/setup.sh)
+.github/workflows/cd.yml   CD pipeline (sync CLI files → docs/)
 .ansible-lint              Ansible lint configuration
 SECURITY.md                Vulnerability reporting policy
 CONTRIBUTING.md            Development setup and PR guidelines
@@ -64,32 +70,35 @@ roles/
 
 These are easy to break by editing one file without updating the others:
 
-### setup.sh ↔ playbooks
-- `setup.sh` passes `-e server_public_ip=$SERVER_IP -e credentials_dir=$HOME/meridian` to `ansible-playbook`
+### CLI architecture
+- `meridian` CLI installed to `~/.local/bin/meridian` via `install.sh`
+- Data directory: `~/.meridian/` (playbooks, credentials, cache)
+- Playbooks cached in `~/.meridian/playbooks/` with `.version` marker — re-downloaded when CLI version changes
+- Credentials stored in `~/.meridian/credentials/` (migrated from `~/meridian/` on first run)
+- Auto-update check on each run (throttled to 1x/24h), fetches `meridian.msu.rocks/version`
+- `VERSION` file at repo root is the single source of truth — must match `MERIDIAN_VERSION` in `meridian` script
+- `setup.sh` is a compat shim that installs the CLI and forwards args
+
+### meridian CLI ↔ playbooks
+- CLI passes `-e server_public_ip=$SERVER_IP -e credentials_dir=$HOME/.meridian/credentials` to ansible-playbook
 - All output templates use `{{ server_public_ip }}` instead of `{{ ansible_host }}` for user-facing URLs
-- `setup.sh` writes `inventory.yml` with the user-provided IP/user; adds `ansible_connection: local` when running on the target server itself
-- `setup.sh` adds `ansible_become: true` for non-root users
-- `setup.sh --uninstall` runs `playbook-uninstall.yml`
-- `setup.sh` is served from `https://meridian.msu.rocks/setup.sh` (GitHub Pages) — synced from repo root by CD workflow
-- `setup.sh` downloads the playbook tarball from `github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz`
-- `setup.sh` restores credentials from `~/meridian/` locally, or fetches from server via SSH if not found
+- CLI writes `inventory.yml` inside `~/.meridian/playbooks/` with the user-provided IP/user
+- CLI adds `ansible_connection: local` when running on the target server itself
+- CLI adds `ansible_become: true` for non-root users
+- After playbook run, CLI copies generated files from playbook credentials dir back to `~/.meridian/credentials/`
 
-### setup.sh flags
-- `--domain DOMAIN` — add decoy website + CDN fallback
-- `--sni HOST` — Reality camouflage target (default: www.microsoft.com), passed as `-e reality_sni=`
-- `--name NAME` — name the first client (default: "default"), passed as `-e first_client_name=`
-- `--user USER` — SSH user (default: root)
-- `--uninstall` — remove proxy from server, deletes credentials
-- `--check` / `--preflight` — pre-flight validation without installing (SNI, ports, DNS, OS, disk)
-- `--rage` / `--diagnostics` — collect system diagnostics for bug reports, auto-redacts secrets
-- `--yes` / `-y` — skip confirmation prompts (for non-interactive/CI use)
-- `--add-client NAME` — add a named client to existing server, runs `playbook-client.yml -e client_action=add`
-- `--list-clients` — list all clients, runs `playbook-client.yml -e client_action=list`
-- `--remove-client NAME` — remove a named client, runs `playbook-client.yml -e client_action=remove`
+### meridian subcommands
+- `meridian setup [IP] [--domain --sni --name --user --yes]` — deploy server
+- `meridian client add|list|remove NAME` — manage clients via `playbook-client.yml`
+- `meridian check [IP]` — pre-flight validation (SNI, ports, DNS, OS, disk)
+- `meridian diagnostics [IP]` — collect system info for bug reports
+- `meridian uninstall [IP]` — remove proxy via `playbook-uninstall.yml`
+- `meridian self-update` — update CLI + clear playbook cache
+- `meridian version` — show version
 
-### docs/index.html ↔ setup.sh
-- Website command builder has tabbed interface (Install/Pre-flight/Diagnostics/Uninstall) — flag names must match `setup.sh`
-- setup.sh is served from `meridian.msu.rocks/setup.sh` — the `docs/setup.sh` copy is synced by CD workflow (`.github/workflows/cd.yml`)
+### docs/index.html ↔ meridian CLI
+- Website command builder has tabbed interface generating `meridian` subcommands
+- CLI files served from `meridian.msu.rocks/` — synced by CD workflow: `meridian`, `install.sh`, `setup.sh`, `version`
 - Website references the same app download links as the HTML templates in roles
 
 ### Connection info HTML templates (3 copies)
@@ -99,15 +108,15 @@ These are easy to break by editing one file without updating the others:
 - All three have similar CSS/JS but different Jinja2 variables; app download links must be kept in sync across all three
 
 ### Credential flow
-- `setup.sh` overrides `credentials_dir` to `$HOME/meridian/` so credentials survive temp dir cleanup
+- `meridian` CLI passes `credentials_dir=$HOME/.meridian/credentials` to ansible-playbook
 - `roles/xray/tasks/configure_panel.yml` saves to `{{ credentials_file }}` which is `{{ credentials_dir }}/{{ inventory_hostname }}.yml`
 - `roles/xray/tasks/configure_panel.yml` also creates `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with the first client
 - `playbook.yml` and `playbook-chain.yml` load from the same file in pre_tasks via `include_vars`
 - `playbook-chain.yml` relay play loads EXIT node credentials from `{{ credentials_dir }}/{{ exit_node }}.yml`
 - Domain is saved to credentials file for detection on re-runs
-- `setup.sh` uninstall reads saved credentials to find the server IP
-- `playbook-uninstall.yml` deletes credentials from both server (`~/meridian/`) and locally
-- `setup.sh` fetches credentials from server via SSH when not found locally (handles cross-machine runs)
+- CLI reads saved credentials to find the server IP (for client/uninstall/diagnostics commands)
+- CLI migrates credentials from old `~/meridian/` to `~/.meridian/credentials/` on first run
+- CLI fetches credentials from server via SSH when not found locally (handles cross-machine runs)
 
 ### Client management flow
 - `playbook-client.yml` loads credentials from `proxy.yml`, reads `domain` field to detect domain mode
@@ -115,14 +124,14 @@ These are easy to break by editing one file without updating the others:
 - The first client created during install uses `reality-{{ first_client_name | default('default') }}` — same naming convention
 - Clients are tracked in `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with UUIDs and timestamps
 - `roles/output/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
-- 3x-ui API: `addClient` adds to existing inbound, `delClient/{email}` removes by email field
+- 3x-ui API: `addClient` adds to existing inbound (id in form body), `delClient/{uuid}` removes by client UUID (NOT email — email silently succeeds but doesn't delete)
 - `--add-client`/`--remove-client` resolve server IP from saved credentials (same as `--uninstall`)
 
 ### Caddy config pattern
 - Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (not the main Caddyfile)
 - Main Caddyfile gets a single `import /etc/caddy/conf.d/*.caddy` line added via `lineinfile`
 - Uninstall removes only `/etc/caddy/conf.d/meridian.caddy`, not the user's Caddyfile
-- `setup.sh` domain detection checks both `conf.d/meridian.caddy` and `Caddyfile` for the domain
+- `meridian setup` interactive wizard checks saved credentials for domain suggestion
 
 ### Port 443 pre-check allowlist
 - `roles/xray/tasks/deploy.yml` checks port 443 and allows `3x-ui`, `xray`, `haproxy`, `caddy` — if a new service is added to the stack, add it here too
@@ -148,10 +157,10 @@ These are easy to break by editing one file without updating the others:
 - The `ansible.cfg` must NOT have `result_format = yaml` for the same reason
 
 ### Feedback loop
-- `fail()` in setup.sh suggests `--rage` and links to GitHub issues
+- `fail()` in meridian CLI suggests `meridian diagnostics` and links to GitHub issues
 - Success output mentions feedback URL
 - Ansible connection summary includes feedback section
-- Website has troubleshooting with `--check` and `--rage` commands
+- Website has troubleshooting with `meridian check` and `meridian diagnostics` commands
 - README has troubleshooting section
 
 ## Key API patterns
@@ -206,16 +215,17 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - Docker role removes conflicting `docker.io` / `containerd` / `runc` packages only when `docker-ce` is not already installed AND no containers are running
 - `reality_dest` is derived from `reality_sni` (`{{ reality_sni }}:443`) — don't hardcode separately
 - **Always use context7 MCP to check up-to-date docs** before writing Ansible tasks, Docker configs, or Caddy configs — stale patterns cause real deployment failures
-- **curl|bash stdin trap**: in `setup.sh`, any command that reads stdin (ssh, curl, wget, pip3) MUST have `</dev/null` — otherwise it consumes the rest of the piped script and bash silently exits
+- **curl|bash stdin trap**: in `install.sh` and `setup.sh` (compat shim), any command that reads stdin MUST have `</dev/null` — the `meridian` CLI runs directly so this isn't needed there, but `</dev/null` on SSH commands is still good practice
 - **Ansible debug vs shell for terminal output**: use `shell` with `printf`/`cat` for output containing ANSI codes (QR codes); `debug msg:` JSON-escapes them
 - **pip3 install on modern Debian/Ubuntu**: must handle PEP 668 "externally managed environment" — try pipx, then `--user`, then `--break-system-packages`, then apt
 - **pip user bin PATH**: after pip3 install --user, add `~/.local/bin` (Linux) and `~/Library/Python/*/bin` (macOS) to PATH
 - **Decoy site default title**: must NOT contain "Meridian" — would link the decoy site back to this GitHub repo. Currently "Westbridge Partners", randomized per deployment via hostname hash
-- **setup.sh interactive prompts**: use `read -r VAR < /dev/tty` (not stdin) so it works in `curl | bash`; detect public IPv4 with `curl -4` to avoid IPv6; suggest domain from Caddy config or saved credentials
-- **setup.sh info() function**: uses `printf "%s"` which prints arguments literally — do NOT embed escape codes like `${B}` in arguments passed to `info()`
+- **meridian interactive prompts**: use `read -r VAR < /dev/tty` for robustness; detect public IPv4 with `curl -4` to avoid IPv6; suggest domain from saved credentials
+- **info() function**: uses `printf "%s"` which prints arguments literally — do NOT embed escape codes like `${B}` in arguments passed to `info()`
 - **GitHub raw CDN caching**: raw.githubusercontent.com caches for ~60-120s; can't bust with query params or headers, just wait. Serving from meridian.msu.rocks avoids this.
 - **HAProxy health checks**: do NOT use `check` on TLS backends (Caddy, Xray) — TCP probes fail on TLS-only ports, causing "backend has no server available" errors. These are local systemd services, not load-balanced pools.
-- **setup.sh docs/ sync**: `docs/setup.sh` must stay in sync with root `setup.sh`. The CD workflow auto-syncs on push, but manual edits to docs/setup.sh will be overwritten.
+- **docs/ sync**: `docs/meridian`, `docs/install.sh`, `docs/setup.sh`, `docs/version` are synced by CD workflow. Manual edits to docs/ copies will be overwritten.
+- **VERSION consistency**: `VERSION` file and `MERIDIAN_VERSION` in `meridian` script must match — CI validates this.
 
 ## CI/CD pipelines
 
@@ -226,9 +236,10 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - **Dry run**: `ansible-playbook --check` with local connection (validates task structure)
 - Skipped lint rules: `var-naming[no-role-prefix]` (would require renaming 90+ variables), `command-instead-of-module` (curl/dig used intentionally)
 
-### CD (`.github/workflows/cd.yml`) — runs on push to main when setup.sh changes
-- Copies `setup.sh` → `docs/setup.sh` and auto-commits with `[skip ci]`
-- Ensures `meridian.msu.rocks/setup.sh` always serves the latest version
+### CD (`.github/workflows/cd.yml`) — runs on push to main when CLI files change
+- Syncs `meridian` → `docs/meridian`, `install.sh` → `docs/install.sh`, `setup.sh` → `docs/setup.sh`, `VERSION` → `docs/version`
+- Auto-commits with `[skip ci]`
+- Ensures `meridian.msu.rocks/` always serves the latest CLI, installer, and version
 
 ## Known issues / tech debt
 

@@ -4,30 +4,37 @@ on:
   push:
     branches: [main]
     paths:
+      - meridian
+      - install.sh
       - setup.sh
+      - VERSION
 
 jobs:
-  sync-setup-script:
-    name: Sync setup.sh to GitHub Pages
+  sync-to-pages:
+    name: Sync CLI files to GitHub Pages
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy setup.sh to docs/
-        run: cp setup.sh docs/setup.sh
+      - name: Copy files to docs/
+        run: |
+          cp meridian docs/meridian
+          cp install.sh docs/install.sh
+          cp setup.sh docs/setup.sh
+          cp VERSION docs/version
 
       - name: Check for changes
         id: diff
         run: |
-          git diff --quiet docs/setup.sh && echo "changed=false" >> "$GITHUB_OUTPUT" || echo "changed=true" >> "$GITHUB_OUTPUT"
+          git diff --quiet docs/ && echo "changed=false" >> "$GITHUB_OUTPUT" || echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push
         if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/setup.sh
-          git commit -m "Sync setup.sh to GitHub Pages [skip ci]"
+          git add docs/meridian docs/install.sh docs/setup.sh docs/version
+          git commit -m "Sync CLI files to GitHub Pages [skip ci]"
           git push

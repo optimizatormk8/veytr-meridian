@@ -144,9 +144,16 @@ details .inner p{margin-bottom:12px}
   <h2>One command</h2>
   <p class="desc">You need a VPS (Debian/Ubuntu, root SSH key access) and a terminal. Run it directly or build a command below.</p>
 
+  <p style="font-size:.78rem;color:var(--t2);margin-bottom:8px">Install the CLI:</p>
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
+    <pre>curl -sSf https://meridian.msu.rocks/install.sh | bash</pre>
+  </div>
+
+  <p style="font-size:.78rem;color:var(--t2);margin-top:12px;margin-bottom:8px">Then deploy:</p>
+  <div class="oneliner">
+    <button class="cp" onclick="copyEl(this)">Copy</button>
+    <pre>meridian setup</pre>
   </div>
 
   <p style="font-size:.82rem;color:var(--t2);margin-top:16px">The interactive wizard asks for everything. Or configure your command:</p>
@@ -398,11 +405,11 @@ ansible-playbook playbook.yml</div>
     <summary>Client management <span></span></summary>
     <div class="inner">
       <p>Share access with friends — each gets their own key:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --add-client alice</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian client add alice</div>
       <p>List all clients:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --list-clients</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian client list</div>
       <p>Revoke a client:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --remove-client alice</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian client remove alice</div>
       <p>Each client gets a unique connection key. Generates an HTML file with QR codes to share. The server IP is auto-detected from saved credentials.</p>
     </div>
   </details>
@@ -411,7 +418,7 @@ ansible-playbook playbook.yml</div>
     <summary>Uninstall <span></span></summary>
     <div class="inner">
       <p>Remove the proxy from your server:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --uninstall</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian uninstall</div>
       <p>Removes the proxy container, configs, and firewall rules. Does <strong>not</strong> remove Docker or system packages — those may be used by other applications. The script finds the server IP from saved credentials automatically.</p>
     </div>
   </details>
@@ -445,10 +452,10 @@ function copyEl(btn){
 function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
 var curTab='install';
 var tabConfig={
-  install:{desc:'Deploy VLESS+Reality proxy. Configures Docker, Xray, firewall, and TLS automatically.',show:['ip','user','domain','sni','yes'],flag:''},
-  check:{desc:'Test if your server is compatible — checks SNI, ports, DNS, OS, disk. Installs nothing.',show:['ip','user','domain'],flag:'--check'},
-  diag:{desc:'Collect system diagnostics for bug reports. Secrets are auto-redacted.',show:['ip','user'],flag:'--rage'},
-  uninstall:{desc:'Remove proxy container, configs, and firewall rules. Docker and system packages are kept.',show:['ip','user','yes'],flag:'--uninstall'}
+  install:{desc:'Deploy VLESS+Reality proxy. Configures Docker, Xray, firewall, and TLS automatically.',show:['ip','user','domain','sni','yes'],cmd:'setup'},
+  check:{desc:'Test if your server is compatible — checks SNI, ports, DNS, OS, disk. Installs nothing.',show:['ip','user','domain'],cmd:'check'},
+  diag:{desc:'Collect system diagnostics for bug reports. Secrets are auto-redacted.',show:['ip','user'],cmd:'diagnostics'},
+  uninstall:{desc:'Remove proxy container, configs, and firewall rules. Docker and system packages are kept.',show:['ip','user','yes'],cmd:'uninstall'}
 };
 function setTab(t){
   curTab=t;
@@ -462,7 +469,6 @@ function setTab(t){
   buildCmd();
 }
 function buildCmd(){
-  var base='curl -sS https://meridian.msu.rocks/setup.sh | bash';
   var ip=document.getElementById('f-ip').value.trim();
   var user=document.getElementById('f-user').value.trim()||'root';
   var domOn=document.getElementById('f-domain-on').checked;
@@ -479,7 +485,7 @@ function buildCmd(){
   if(ip){
     if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)){
       hint.textContent='Enter a valid IPv4 address';hint.style.color='#f87171';
-      document.getElementById('cmd-pre').textContent=base;return;
+      document.getElementById('cmd-pre').textContent='meridian '+cfg.cmd;return;
     }
     args.push(ip);
   }
@@ -487,9 +493,8 @@ function buildCmd(){
   if(cfg.show.indexOf('domain')>=0&&domOn&&dom)args.push('--domain '+dom);
   if(cfg.show.indexOf('sni')>=0&&sniOn&&sni&&sni!=='www.microsoft.com')args.push('--sni '+sni);
   if(cfg.show.indexOf('yes')>=0&&yes)args.push('--yes');
-  if(cfg.flag)args.push(cfg.flag);
-  var cmd=base;
-  if(args.length)cmd+=' -s -- '+args.join(' ');
+  var cmd='meridian '+cfg.cmd;
+  if(args.length)cmd+=' '+args.join(' ');
   document.getElementById('cmd-pre').textContent=cmd;
   // Hints
   if(curTab==='install'){

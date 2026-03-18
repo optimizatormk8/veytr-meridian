@@ -120,12 +120,12 @@
       Password: {{ panel_password }}
 
       --- Share Access ---
-      Add a friend:   setup.sh --add-client NAME
-      List clients:   setup.sh --list-clients
-      Remove client:  setup.sh --remove-client NAME
+      Add a friend:   meridian client add NAME
+      List clients:   meridian client list
+      Remove client:  meridian client remove NAME
 
       --- Feedback ---
-      Something not working? Run: setup.sh --rage
+      Something not working? Run: meridian diagnostics
       Then open an issue: https://github.com/uburuntu/meridian/issues
 
       ======================================================================
