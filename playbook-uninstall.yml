@@ -71,6 +71,25 @@
         - /var/www/private
       failed_when: false
 
+    - name: Remove saved credentials from server
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /root/meridian
+        - "{{ ansible_env.HOME | default('/root') }}/meridian"
+      failed_when: false
+
+    - name: Remove saved credentials locally
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ lookup('env', 'HOME') }}/meridian"
+      delegate_to: localhost
+      become: false
+      failed_when: false
+
     - name: Remove UFW rules added by playbook
       community.general.ufw:
         rule: allow
@@ -93,12 +112,12 @@
             - HAProxy config (if present)
             - Caddy Meridian config and web files (if present)
             - Firewall rules for ports 443, 80, 8444
+            - Saved credentials (server and local ~/meridian/)
 
           NOT removed (may be used by other apps):
             - Docker engine
             - System packages
             - SSH settings
-            - Local credentials (in ./credentials/ on your machine)
 
           To fully clean up Docker:
             docker system prune -af
