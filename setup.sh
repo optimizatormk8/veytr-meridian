@@ -41,6 +41,7 @@ confirm() {
 SERVER_IP=""
 DOMAIN=""
 EMAIL=""
+SNI=""
 UNINSTALL=false
 LOCAL_MODE=false
 ANSIBLE_USER="${ANSIBLE_USER:-root}"
@@ -49,6 +50,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --domain)    DOMAIN="$2"; shift 2 ;;
     --email)     EMAIL="$2"; shift 2 ;;
+    --sni)       SNI="$2"; shift 2 ;;
     --user)      ANSIBLE_USER="$2"; shift 2 ;;
     --uninstall) UNINSTALL=true; shift ;;
     --help|-h)
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do
       printf "    curl -sS ... | bash -s -- --uninstall\n\n"
       printf "  Flags:\n"
       printf "    --domain DOMAIN   Add decoy website + CDN fallback\n"
+      printf "    --sni HOST        Reality camouflage target (default: www.microsoft.com)\n"
       printf "    --user USER       SSH user (default: root)\n"
       printf "    --uninstall       Remove proxy from server\n"
       printf "    --help            Show this help\n\n"
@@ -87,7 +90,7 @@ printf "\n"
 # --- Interactive mode (no args) ---
 if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
   printf "  Deploy a censorship-resistant proxy server.\n"
-  printf "  The server will look like ${D}microsoft.com${R} to any probe.\n"
+  printf "  The server will look like ${D}${SNI:-www.microsoft.com}${R} to any probe.\n"
   printf "  Takes ~2 minutes. Safe to re-run.\n"
   printf "\n"
   line
@@ -368,6 +371,7 @@ mkdir -p "$STABLE_CREDS"
 PLAY_CMD="ansible-playbook playbook.yml -e server_public_ip=$SERVER_IP -e credentials_dir=$STABLE_CREDS"
 [[ -n "$DOMAIN" ]] && PLAY_CMD="$PLAY_CMD -e domain=$DOMAIN"
 [[ -n "$EMAIL" ]]  && PLAY_CMD="$PLAY_CMD -e email=$EMAIL"
+[[ -n "$SNI" ]]    && PLAY_CMD="$PLAY_CMD -e reality_sni=$SNI"
 
 printf "\n"
 info "Configuring server at $SERVER_IP..."
