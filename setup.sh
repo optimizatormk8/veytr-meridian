@@ -93,22 +93,49 @@ if [[ -z "$SERVER_IP" && "$UNINSTALL" != true ]]; then
   printf "\n"
   printf "  ${B}Where is the server?${R}\n\n"
 
-  # Auto-detect current machine's public IP as a default suggestion
-  DETECTED_IP=$(curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
+  # Auto-detect public IPv4 (force -4 to avoid IPv6)
+  DETECTED_IP=$(curl -4 -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || \
+                curl -4 -s --max-time 3 https://api.ipify.org </dev/null 2>/dev/null || \
+                curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
+  # Strip any non-IPv4 result
+  if ! [[ "$DETECTED_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    DETECTED_IP=""
+  fi
 
   while true; do
     prompt SERVER_IP "IP address" "$DETECTED_IP"
     if [[ "$SERVER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       break
     fi
-    printf "  ${RED}Enter a valid IP like 123.45.67.89${R}\n" > /dev/tty
+    printf "  ${RED}Enter a valid IPv4 address (e.g. 123.45.67.89)${R}\n" > /dev/tty
   done
 
   prompt ANSIBLE_USER "SSH user" "root"
+  if [[ "$ANSIBLE_USER" != "root" ]]; then
+    printf "  ${D}(sudo will be used for privileged operations)${R}\n" > /dev/tty
+  fi
 
   printf "\n"
   printf "  ${B}Optional — decoy website + CDN fallback:${R}\n\n"
-  prompt DOMAIN "Domain" "skip"
+
+  # Try to detect domains pointing to this IP via reverse DNS
+  SUGGESTED_DOMAIN=""
+  if command -v dig &>/dev/null; then
+    REVERSE_DNS=$(dig -x "$SERVER_IP" +short </dev/null 2>/dev/null | head -1 | sed 's/\.$//')
+    if [[ -n "$REVERSE_DNS" && "$REVERSE_DNS" != *"in-addr"* ]]; then
+      SUGGESTED_DOMAIN="$REVERSE_DNS"
+    fi
+  elif command -v host &>/dev/null; then
+    REVERSE_DNS=$(host "$SERVER_IP" </dev/null 2>/dev/null | grep "domain name pointer" | head -1 | awk '{print $NF}' | sed 's/\.$//')
+    if [[ -n "$REVERSE_DNS" ]]; then
+      SUGGESTED_DOMAIN="$REVERSE_DNS"
+    fi
+  fi
+
+  if [[ -n "$SUGGESTED_DOMAIN" ]]; then
+    printf "  ${D}Detected: ${SUGGESTED_DOMAIN}${R}\n" > /dev/tty
+  fi
+  prompt DOMAIN "Domain" "${SUGGESTED_DOMAIN:-skip}"
   [[ "$DOMAIN" == "skip" || "$DOMAIN" == "" ]] && DOMAIN=""
 
   printf "\n"
@@ -261,6 +288,11 @@ for cred_dir in "$ORIG_PWD/meridian" "$ORIG_PWD/vpn-credentials" "$HOME/meridian
 done
 
 # --- Write inventory ---
+BECOME_LINE=""
+if [[ "$ANSIBLE_USER" != "root" ]]; then
+  BECOME_LINE="      ansible_become: true"
+fi
+
 if [[ "$LOCAL_MODE" == true ]]; then
   cat > inventory.yml <<EOF
 all:
@@ -268,6 +300,7 @@ all:
     proxy:
       ansible_host: "$SERVER_IP"
       ansible_connection: local
+${BECOME_LINE}
 EOF
 else
   cat > inventory.yml <<EOF
@@ -276,6 +309,7 @@ all:
     proxy:
       ansible_host: "$SERVER_IP"
       ansible_user: "$ANSIBLE_USER"
+${BECOME_LINE}
 EOF
 fi
 
