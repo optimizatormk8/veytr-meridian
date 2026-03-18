@@ -139,3 +139,4 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - Use `ansible_facts['distribution']` not `ansible_distribution` (deprecated in 2.24)
 - Docker role removes conflicting `docker.io` / `containerd` / `runc` packages only when `docker-ce` is not already installed AND no containers are running
 - **Always use context7 MCP to check up-to-date docs** before writing Ansible tasks, Docker configs, or Caddy configs — stale patterns cause real deployment failures
+- **curl|bash stdin trap**: in `setup.sh`, any command that reads stdin (ssh, curl, wget, pip3) MUST have `</dev/null` — otherwise it consumes the rest of the piped script and bash silently exits
