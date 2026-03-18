@@ -131,9 +131,9 @@
 
     - name: Wait for panel to come back up
       ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/login"
+        url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/"
         method: GET
-        status_code: [200, 302, 301]
+        status_code: [200]
       register: panel_restart_wait
       until: panel_restart_wait is succeeded
       retries: 30
