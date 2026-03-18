@@ -17,7 +17,7 @@ G='\033[32m' Y='\033[33m' C='\033[36m' RED='\033[31m'
 info()  { printf "  ${C}→${R} %s\n" "$*"; }
 ok()    { printf "  ${G}✓${R} %s\n" "$*"; }
 warn()  { printf "  ${Y}!${R} %s\n" "$*"; }
-fail()  { printf "\n  ${RED}✗ %s${R}\n\n" "$*" >&2; exit 1; }
+fail()  { printf "\n  ${RED}✗ %s${R}\n" "$*" >&2; printf "  ${D}Need help? Run with --rage and open an issue: https://github.com/uburuntu/meridian/issues${R}\n\n" >&2; exit 1; }
 line()  { printf "  ${D}─────────────────────────────────────────${R}\n"; }
 
 # Read from /dev/tty so it works in curl | bash
@@ -43,6 +43,8 @@ DOMAIN=""
 EMAIL=""
 SNI=""
 UNINSTALL=false
+DIAGNOSTICS=false
+CHECK=false
 YES=false
 LOCAL_MODE=false
 ANSIBLE_USER="${ANSIBLE_USER:-root}"
@@ -54,6 +56,8 @@ while [[ $# -gt 0 ]]; do
     --sni)       SNI="$2"; shift 2 ;;
     --user)      ANSIBLE_USER="$2"; shift 2 ;;
     --uninstall) UNINSTALL=true; shift ;;
+    --rage|--diagnostics) DIAGNOSTICS=true; shift ;;
+    --check|--preflight)  CHECK=true; shift ;;
     --yes|-y)    YES=true; shift ;;
     --help|-h)
       printf "\n  ${B}Meridian${R} — Proxy Server Setup\n\n"
@@ -67,8 +71,12 @@ while [[ $# -gt 0 ]]; do
       printf "    --sni HOST        Reality camouflage target (default: www.microsoft.com)\n"
       printf "    --user USER       SSH user (default: root)\n"
       printf "    --uninstall       Remove proxy from server\n"
+      printf "    --check           Pre-flight check (SNI reachability, ports, blocklists)\n"
+      printf "    --rage            Collect diagnostics for bug reports (no secrets)\n"
       printf "    --yes, -y         Skip confirmation prompts\n"
       printf "    --help            Show this help\n\n"
+      printf "  Issues & feedback:\n"
+      printf "    https://github.com/uburuntu/meridian/issues\n\n"
       exit 0 ;;
     -*)          fail "Unknown flag: $1. Use --help for usage." ;;
     *)           SERVER_IP="$1"; shift ;;
@@ -263,6 +271,218 @@ else
   fi
 fi
 
+# Helper to run command locally or via SSH
+run_on_server() {
+  if [[ "$LOCAL_MODE" == true ]]; then
+    bash -c "$1" 2>&1
+  else
+    ssh -o BatchMode=yes -o ConnectTimeout=5 "${ANSIBLE_USER}@${SERVER_IP}" "$1" </dev/null 2>&1
+  fi
+}
+
+# --- Pre-flight check ---
+if [[ "$CHECK" == true ]]; then
+  printf "\n"
+  printf "  ${B}Pre-flight Check${R}\n"
+  printf "  ${D}Testing if this server can run a Reality proxy${R}\n"
+  printf "\n"
+
+  ISSUES=0
+  SNI_HOST="${SNI:-www.microsoft.com}"
+
+  # 1. Check SNI target is reachable from server (TCP connection to port 443)
+  info "Checking SNI target ($SNI_HOST) reachability from server..."
+  SNI_CHECK=$(run_on_server "timeout 5 bash -c 'echo | openssl s_client -connect $SNI_HOST:443 -servername $SNI_HOST 2>/dev/null | head -1'" || true)
+  if [[ -z "$SNI_CHECK" ]]; then
+    # Fallback: simple TCP check
+    SNI_CHECK=$(run_on_server "timeout 3 bash -c 'echo >/dev/tcp/$SNI_HOST/443' 2>&1 && echo OK" || true)
+  fi
+  if [[ "$SNI_CHECK" == *"CONNECTED"* || "$SNI_CHECK" == *"OK"* || "$SNI_CHECK" == *"Certificate"* ]]; then
+    ok "$SNI_HOST is reachable from server"
+  else
+    warn "$SNI_HOST is NOT reachable from server"
+    warn "  Reality needs the SNI target to be accessible. Try --sni with a different site."
+    warn "  Good alternatives: www.apple.com, dl.google.com, www.yahoo.com"
+    ISSUES=$((ISSUES + 1))
+  fi
+
+  # 2. Check if port 443 is available
+  info "Checking port 443 availability..."
+  PORT_CHECK=$(run_on_server "ss -tlnp sport = :443 2>/dev/null | grep LISTEN" || true)
+  if [[ -z "$PORT_CHECK" ]]; then
+    ok "Port 443 is available"
+  else
+    # Extract process name (works on both GNU and BSD grep)
+    PORT_USER=$(echo "$PORT_CHECK" | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | head -1)
+    [[ -z "$PORT_USER" ]] && PORT_USER="unknown"
+    if [[ "$PORT_USER" == "haproxy" || "$PORT_USER" == "3x-ui" || "$PORT_USER" == "xray" || "$PORT_USER" == "caddy" ]]; then
+      ok "Port 443 is in use by $PORT_USER (Meridian — OK)"
+    else
+      warn "Port 443 is in use by: $PORT_USER"
+      warn "  Meridian needs port 443. Stop the conflicting service first."
+      ISSUES=$((ISSUES + 1))
+    fi
+  fi
+
+  # 3. Check if port 443 is reachable from outside (TCP-level, no TLS)
+  info "Checking port 443 external reachability..."
+  if timeout 5 bash -c "echo >/dev/tcp/$SERVER_IP/443" 2>/dev/null; then
+    ok "Port 443 is reachable from outside"
+  else
+    # Could be nothing listening yet (pre-install) — check from server side
+    PORT_LISTEN=$(run_on_server "ss -tlnp sport = :443 2>/dev/null | grep -c LISTEN" || echo "0")
+    if [[ "$PORT_LISTEN" == "0" ]]; then
+      ok "Port 443 not yet listening (expected before install)"
+    else
+      warn "Port 443 is listening on server but not reachable from outside"
+      warn "  Check your VPS provider's firewall/security group settings."
+      ISSUES=$((ISSUES + 1))
+    fi
+  fi
+
+  # 4. Check if domain resolves correctly (if provided)
+  if [[ -n "$DOMAIN" ]]; then
+    info "Checking domain DNS ($DOMAIN)..."
+    DNS_RESULT=$(run_on_server "dig +short $DOMAIN @8.8.8.8 2>/dev/null" || true)
+    if [[ "$DNS_RESULT" == *"$SERVER_IP"* ]]; then
+      ok "$DOMAIN resolves to $SERVER_IP"
+    elif [[ -n "$DNS_RESULT" ]]; then
+      warn "$DOMAIN resolves to $DNS_RESULT (expected $SERVER_IP)"
+      warn "  If using Cloudflare proxy (orange cloud), this is OK after initial setup."
+      warn "  For first install, set DNS to 'DNS only' (grey cloud)."
+      ISSUES=$((ISSUES + 1))
+    else
+      warn "$DOMAIN does not resolve (no DNS record found)"
+      ISSUES=$((ISSUES + 1))
+    fi
+  fi
+
+  # 5. Check server OS
+  info "Checking server OS..."
+  OS_INFO=$(run_on_server "cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"'" || true)
+  if [[ "$OS_INFO" == *"Ubuntu"* || "$OS_INFO" == *"Debian"* ]]; then
+    ok "Server OS: $OS_INFO"
+  elif [[ -n "$OS_INFO" ]]; then
+    warn "Server OS: $OS_INFO (tested on Ubuntu/Debian only)"
+    ISSUES=$((ISSUES + 1))
+  fi
+
+  # 6. Check available disk space
+  info "Checking disk space..."
+  DISK_AVAIL=$(run_on_server "df -BG / 2>/dev/null | tail -1 | awk '{print \$4}' | tr -d 'G'" || true)
+  if [[ -n "$DISK_AVAIL" ]] && [[ "$DISK_AVAIL" -ge 2 ]]; then
+    ok "Disk space: ${DISK_AVAIL}G available"
+  elif [[ -n "$DISK_AVAIL" ]]; then
+    warn "Only ${DISK_AVAIL}G disk space available (need at least 2G)"
+    ISSUES=$((ISSUES + 1))
+  fi
+
+  printf "\n"
+  line
+  printf "\n"
+  if [[ "$ISSUES" -eq 0 ]]; then
+    printf "  ${G}${B}All checks passed.${R} Ready to install.\n\n"
+  else
+    printf "  ${Y}${B}$ISSUES issue(s) found.${R} Review the warnings above.\n"
+    printf "  The install may still work — these are advisory checks.\n\n"
+  fi
+  printf "  ${D}Something unexpected? Report it:${R}\n"
+  printf "  ${C}https://github.com/uburuntu/meridian/issues${R}\n"
+  printf "  ${D}Use --rage to collect diagnostics for your report.${R}\n\n"
+  exit 0
+fi
+
+# --- Diagnostics ---
+if [[ "$DIAGNOSTICS" == true ]]; then
+  printf "\n"
+  printf "  ${B}Meridian Diagnostics${R}\n"
+  printf "  ${D}Collecting system info for bug reports...${R}\n"
+  printf "  ${Y}Note: secrets (passwords, UUIDs, keys) are redacted.${R}\n"
+  printf "\n"
+
+  DIAG=""
+  add_section() { DIAG="${DIAG}\n### $1\n\`\`\`\n$2\n\`\`\`\n"; }
+
+  # Local info
+  LOCAL_OS=$(uname -a 2>&1)
+  ANSIBLE_VER=$(command -v ansible &>/dev/null && ansible --version 2>&1 | head -1 || echo "not installed")
+  add_section "Local Machine" "OS: $LOCAL_OS\nAnsible: $ANSIBLE_VER"
+
+  # Server info
+  SERVER_OS=$(run_on_server "cat /etc/os-release 2>/dev/null | grep PRETTY_NAME" || echo "unknown")
+  SERVER_KERNEL=$(run_on_server "uname -r" || echo "unknown")
+  SERVER_UPTIME=$(run_on_server "uptime" || echo "unknown")
+  SERVER_DISK=$(run_on_server "df -h / 2>/dev/null | tail -1" || echo "unknown")
+  SERVER_MEM=$(run_on_server "free -h 2>/dev/null | grep Mem" || echo "unknown")
+  add_section "Server" "$SERVER_OS\nKernel: $SERVER_KERNEL\n$SERVER_UPTIME\nDisk: $SERVER_DISK\nMemory: $SERVER_MEM"
+
+  # Docker
+  DOCKER_VER=$(run_on_server "docker --version 2>&1" || echo "not installed")
+  DOCKER_PS=$(run_on_server "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1" || echo "no containers")
+  add_section "Docker" "$DOCKER_VER\n$DOCKER_PS"
+
+  # 3x-ui logs (last 20 unique lines, secrets redacted)
+  XRAY_LOGS=$(run_on_server "docker logs 3x-ui --tail 50 2>&1 | grep -v '^\s*$' | sort -u | tail -20" || echo "container not running")
+  XRAY_LOGS=$(printf '%s' "$XRAY_LOGS" | sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[UUID-REDACTED]/g; s/([Pp]assword|[Kk]ey|[Ss]ecret)[=: ]*[^ ]*/\1=[REDACTED]/g')
+  add_section "3x-ui Logs (last 30 lines)" "$XRAY_LOGS"
+
+  # Ports
+  PORTS=$(run_on_server "ss -tlnp sport = :443 or sport = :80 or sport = :8443 or sport = :8444 2>&1" || echo "unknown")
+  add_section "Listening Ports" "$PORTS"
+
+  # Firewall
+  UFW=$(run_on_server "ufw status verbose 2>&1" || echo "ufw not available")
+  add_section "Firewall (UFW)" "$UFW"
+
+  # HAProxy
+  HAPROXY_STATUS=$(run_on_server "systemctl is-active haproxy 2>&1" || echo "not installed")
+  add_section "HAProxy" "Status: $HAPROXY_STATUS"
+
+  # Caddy
+  CADDY_STATUS=$(run_on_server "systemctl is-active caddy 2>&1" || echo "not installed")
+  CADDY_LOGS=$(run_on_server "journalctl -u caddy --no-pager -n 10 2>&1" || echo "no logs")
+  add_section "Caddy" "Status: $CADDY_STATUS\nRecent logs:\n$CADDY_LOGS"
+
+  # SNI check
+  SNI_HOST="${SNI:-www.microsoft.com}"
+  SNI_CHECK=$(run_on_server "echo | openssl s_client -connect $SNI_HOST:443 -servername $SNI_HOST 2>/dev/null | grep -E 'subject=|issuer=|CONNECTED'" || echo "unreachable")
+  add_section "SNI Target ($SNI_HOST)" "${SNI_CHECK:-unreachable}"
+
+  # DNS (if domain known)
+  SAVED_DOMAIN=""
+  for cred_dir in "$HOME/meridian" "$ORIG_PWD/meridian"; do
+    if [[ -f "$cred_dir/proxy.yml" ]]; then
+      SAVED_DOMAIN=$(grep '^domain:' "$cred_dir/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+      [[ -n "$SAVED_DOMAIN" ]] && break
+    fi
+  done
+  if [[ -n "$DOMAIN" || -n "$SAVED_DOMAIN" ]]; then
+    CHECK_DOMAIN="${DOMAIN:-$SAVED_DOMAIN}"
+    DNS_RESULT=$(run_on_server "dig +short $CHECK_DOMAIN @8.8.8.8 2>/dev/null" || echo "dig not available")
+    add_section "Domain DNS ($CHECK_DOMAIN)" "$DNS_RESULT"
+  fi
+
+  printf "\n"
+  line
+  printf "\n"
+  printf "  ${B}Diagnostics collected.${R}\n\n"
+  printf "  1. Review the output below for any private info you want to remove\n"
+  printf "  2. Copy the markdown block into a new issue:\n"
+  printf "     ${C}https://github.com/uburuntu/meridian/issues/new${R}\n"
+  printf "\n"
+  line
+  printf "\n"
+
+  # Output as markdown
+  printf '%b' "$DIAG"
+
+  printf "\n"
+  line
+  printf "\n"
+  printf "  ${D}Secrets (UUIDs, passwords, keys) are auto-redacted.${R}\n\n"
+  exit 0
+fi
+
 # --- Install dependencies ---
 install_if_missing() {
   local cmd="$1" name="$2" install_cmd="$3"
@@ -415,4 +635,6 @@ $PLAY_CMD
 # --- Done ---
 printf "\n  ${G}${B}Done!${R}\n\n"
 printf "  Credentials saved to: ${B}$STABLE_CREDS/${R}\n"
-printf "  Send the HTML file to whoever needs it — they scan the QR code and connect.\n\n"
+printf "  Send the HTML file to whoever needs it — they scan the QR code and connect.\n"
+printf "\n  ${D}Feedback, issues, or ideas: https://github.com/uburuntu/meridian/issues${R}\n"
+printf "  ${D}This project evolves based on your feedback — every report helps.${R}\n\n"

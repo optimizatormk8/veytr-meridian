@@ -40,6 +40,16 @@ A Debian/Ubuntu VPS with root SSH key access. The script handles the rest.
 | **Domain** | Adds decoy website, CDN fallback through Cloudflare, web panel access |
 | **Chain** | Two-server relay for IP whitelist bypass (domestic relay + foreign exit) |
 
+## Troubleshooting
+
+```bash
+# Pre-flight check — test if your server is compatible (without installing)
+curl -sS ... | bash -s -- IP --check
+
+# Collect diagnostics for bug reports (secrets are auto-redacted)
+curl -sS ... | bash -s -- IP --rage
+```
+
 ## Uninstall
 
 ```bash
@@ -47,3 +57,5 @@ curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bas
 ```
 
 **Full docs:** [meridian.msu.rocks](https://meridian.msu.rocks)
+
+**Feedback & issues:** [github.com/uburuntu/meridian/issues](https://github.com/uburuntu/meridian/issues) — this project evolves based on your reports.

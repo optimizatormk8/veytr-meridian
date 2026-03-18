@@ -169,6 +169,10 @@
       Username: {{ panel_username }}
       Password: {{ panel_password }}
 
+      --- Feedback ---
+      Something not working? Run: setup.sh --rage
+      Then open an issue: https://github.com/uburuntu/meridian/issues
+
       ======================================================================
       {% if exit_mode | default(false) | bool %}
 
