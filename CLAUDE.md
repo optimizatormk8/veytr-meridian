@@ -25,11 +25,15 @@ Ansible automation for deploying censorship-resistant VLESS+Reality proxy server
 ```
 playbook.yml              Standalone mode
 playbook-chain.yml         Chain mode (exit first, then relay)
+playbook-uninstall.yml     Clean removal of proxy components
 inventory.yml              Standalone inventory
 inventory-chain.yml.example Chain inventory template
 group_vars/all.yml         Shared defaults (version pin, ports, limits)
 group_vars/exit.yml        Exit node defaults (chain)
 group_vars/relay.yml       Relay node defaults (chain)
+setup.sh                   One-command installer (interactive wizard + flag mode)
+docs/index.html            Website hosted on meridian.msu.rocks (GitHub Pages)
+docs/CNAME                 Custom domain for GitHub Pages
 roles/
   common/                  OS packages, SSH hardening, UFW, BBR
   docker/                  Docker CE installation (idempotent)
@@ -42,6 +46,51 @@ roles/
   output/                  Terminal display + local file generation + port verification
   output_relay/            Relay-specific output
 ```
+
+## Implicit dependencies & cross-file relationships
+
+These are easy to break by editing one file without updating the others:
+
+### setup.sh ↔ playbooks
+- `setup.sh` passes `-e server_public_ip=$SERVER_IP` to `ansible-playbook`; all output templates use `{{ server_public_ip }}` instead of `{{ ansible_host }}`
+- `setup.sh` writes `inventory.yml` with the user-provided IP and user; the playbook reads it
+- `setup.sh --uninstall` runs `playbook-uninstall.yml` — both must exist in the downloaded tarball
+- `setup.sh` downloads from `github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz` — the repo name/org is hardcoded
+
+### docs/index.html ↔ setup.sh
+- The website command builder generates `curl ... setup.sh | bash -s -- IP` commands — the flag names (`--domain`, `--user`, `--uninstall`) must match `setup.sh`
+- The raw GitHub URL in the website must match the actual repo path
+- The website references the same app download links as the HTML templates in roles
+
+### Connection info HTML templates (3 copies)
+- `roles/decoy_site/templates/connection-info.html.j2` — served on the server (domain mode)
+- `roles/output/templates/connection-info.html.j2` — saved locally (standalone/exit)
+- `roles/output_relay/templates/connection-info.html.j2` — saved locally (relay)
+- All three have similar CSS/JS but different Jinja2 variables; app download links must be kept in sync across all three
+
+### Credential flow
+- `roles/xray/tasks/configure_panel.yml` saves to `{{ credentials_file }}` (locally)
+- `playbook.yml` and `playbook-chain.yml` load from the same file in pre_tasks via `include_vars`
+- `playbook-chain.yml` relay play loads EXIT node credentials from `{{ credentials_dir }}/{{ exit_node }}.yml`
+- `setup.sh` copies `credentials/*` to `$ORIG_PWD/vpn-credentials/` — the uninstall path reads from there
+
+### Port 443 pre-check allowlist
+- `roles/xray/tasks/deploy.yml` checks port 443 and allows `3x-ui`, `xray`, `haproxy`, `caddy` — if a new service is added to the stack, add it here too
+
+### Panel health check URL
+- After first run, the panel root `/` returns 404 (webBasePath is set)
+- Health checks must use `/{{ panel_web_base_path }}/` — see `deploy.yml` and `configure_panel.yml`
+- The panel needs a `docker restart` after changing `webBasePath` (setting doesn't apply live)
+
+### Xray binary path
+- Binary is at `/app/bin/xray-linux-*` inside the 3x-ui container (architecture-dependent)
+- Discovered dynamically via `ls` glob — stored in `xray_cmd` fact
+- Used in both `roles/xray/tasks/configure_panel.yml` and `roles/xray_relay/tasks/configure_panel.yml`
+- x25519 output format: `PrivateKey:` and `Password:` (not `Private key:` / `Public key:` in newer Xray versions)
+
+### Handler flush timing
+- `roles/output/tasks/main.yml` calls `meta: flush_handlers` before the port verification check
+- Without this, HAProxy/Caddy handlers haven't fired yet and port 443 shows as not listening
 
 ## Key API patterns
 
