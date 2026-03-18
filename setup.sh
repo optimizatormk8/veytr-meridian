@@ -348,6 +348,21 @@ if [[ "$CRED_FOUND" != true ]]; then
     mkdir -p credentials
     cp "$(dirname "$ORPHAN")"/*.yml credentials/ 2>/dev/null || true
     ok "Recovered credentials from previous run"
+    CRED_FOUND=true
+  fi
+fi
+# Fetch credentials from the server if not found locally (e.g., previous run was in local mode)
+if [[ "$CRED_FOUND" != true && "$LOCAL_MODE" != true ]]; then
+  REMOTE_CRED=$(ssh -o BatchMode=yes -o ConnectTimeout=3 "${ANSIBLE_USER}@${SERVER_IP}" \
+    "cat /root/meridian/proxy.yml 2>/dev/null || cat \$HOME/meridian/proxy.yml 2>/dev/null" </dev/null 2>/dev/null || true)
+  if [[ -n "$REMOTE_CRED" && "$REMOTE_CRED" == *"panel_configured"* ]]; then
+    mkdir -p credentials
+    printf '%s\n' "$REMOTE_CRED" > credentials/proxy.yml
+    # Also save locally for future runs
+    mkdir -p "$HOME/meridian"
+    printf '%s\n' "$REMOTE_CRED" > "$HOME/meridian/proxy.yml"
+    ok "Fetched credentials from server"
+    CRED_FOUND=true
   fi
 fi
 
