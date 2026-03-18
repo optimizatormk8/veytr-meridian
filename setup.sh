@@ -42,6 +42,7 @@ SERVER_IP=""
 DOMAIN=""
 EMAIL=""
 UNINSTALL=false
+LOCAL_MODE=false
 ANSIBLE_USER="${ANSIBLE_USER:-root}"
 
 while [[ $# -gt 0 ]]; do
@@ -218,7 +219,6 @@ if [[ "$UNINSTALL" == true ]]; then
 fi
 
 # --- Detect if we're running on the target server itself ---
-LOCAL_MODE=false
 LOCAL_IP=$(curl -s --max-time 3 https://ifconfig.me </dev/null 2>/dev/null || true)
 if [[ "$LOCAL_IP" == "$SERVER_IP" ]]; then
   LOCAL_MODE=true
