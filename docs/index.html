@@ -136,7 +136,7 @@ details .inner p{margin-bottom:12px}
 
   <div class="oneliner">
     <button class="cp" onclick="copyEl(this)">Copy</button>
-    <pre>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
+    <pre>curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
   </div>
 
   <p style="font-size:.85rem;color:var(--t2);margin-top:16px">The script asks for your server IP, configures the proxy, and outputs a QR code. Or build a command with your settings:</p>
@@ -155,7 +155,7 @@ details .inner p{margin-bottom:12px}
     </div>
     <div id="cmd-out" class="oneliner" style="margin:16px 0 0;padding:16px 20px">
       <button class="cp" onclick="copyEl(this)">Copy</button>
-      <pre id="cmd-pre" style="padding-right:60px">curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash</pre>
+      <pre id="cmd-pre" style="padding-right:60px">curl -sS https://meridian.msu.rocks/setup.sh | bash</pre>
     </div>
     <p id="cmd-hint" style="font-size:.78rem;color:var(--t3);margin-top:8px"></p>
   </div>
@@ -335,7 +335,7 @@ ansible-playbook playbook.yml</div>
     <summary>Pre-flight check <span></span></summary>
     <div class="inner">
       <p>Not sure if your server is compatible? Run a pre-flight check first:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- IP --check</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- IP --check</div>
       <p>This tests SNI target reachability, port availability, DNS resolution, OS compatibility, and disk space — without installing anything. Helps distinguish between setup issues and censorship-related blocks.</p>
     </div>
   </details>
@@ -348,7 +348,7 @@ ansible-playbook playbook.yml</div>
       <p><strong>Slow speeds:</strong> Some hosting IP ranges are throttled. Try a different provider or datacenter (Finland, Netherlands, Sweden).</p>
       <p><strong>Do NOT</strong> run other protocols (OpenVPN, WireGuard) on the same server — it flags the IP.</p>
       <p>For bug reports, collect diagnostics (secrets are auto-redacted):</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- IP --rage</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- IP --rage</div>
       <p>Then open an issue with the output: <a href="https://github.com/uburuntu/meridian/issues" style="color:var(--ac)">github.com/uburuntu/meridian/issues</a></p>
     </div>
   </details>
@@ -357,7 +357,7 @@ ansible-playbook playbook.yml</div>
     <summary>Uninstall <span></span></summary>
     <div class="inner">
       <p>Remove the proxy from your server:</p>
-      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- --uninstall</div>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --uninstall</div>
       <p>Removes the proxy container, configs, and firewall rules. Does <strong>not</strong> remove Docker or system packages — those may be used by other applications. The script finds the server IP from saved credentials automatically.</p>
     </div>
   </details>
@@ -390,7 +390,7 @@ function copyEl(btn){
 }
 function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
 function buildCmd(){
-  const base='curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash';
+  const base='curl -sS https://meridian.msu.rocks/setup.sh | bash';
   const ip=document.getElementById('f-ip').value.trim();
   const user=document.getElementById('f-user').value.trim()||'root';
   const domOn=document.getElementById('f-domain-on').checked;

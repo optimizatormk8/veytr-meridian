@@ -62,7 +62,8 @@ These are easy to break by editing one file without updating the others:
 - `setup.sh` writes `inventory.yml` with the user-provided IP/user; adds `ansible_connection: local` when running on the target server itself
 - `setup.sh` adds `ansible_become: true` for non-root users
 - `setup.sh --uninstall` runs `playbook-uninstall.yml`
-- `setup.sh` downloads from `github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz` — repo name/org hardcoded
+- `setup.sh` is served from `https://meridian.msu.rocks/setup.sh` (GitHub Pages) — synced from repo root by CD workflow
+- `setup.sh` downloads the playbook tarball from `github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz`
 - `setup.sh` restores credentials from `~/meridian/` locally, or fetches from server via SSH if not found
 
 ### setup.sh flags

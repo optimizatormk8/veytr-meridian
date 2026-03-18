@@ -6,7 +6,7 @@
 One command deploys a censorship-resistant proxy server. Invisible to DPI, active probing, and TLS fingerprinting.
 
 ```bash
-curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash
+curl -sS https://meridian.msu.rocks/setup.sh | bash
 ```
 
 ## How it works
@@ -53,7 +53,7 @@ curl -sS ... | bash -s -- IP --rage
 ## Uninstall
 
 ```bash
-curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- --uninstall
+curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- --uninstall
 ```
 
 **Full docs:** [meridian.msu.rocks](https://meridian.msu.rocks)

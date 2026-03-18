@@ -54,7 +54,7 @@ body:
     attributes:
       label: Pre-flight check output
       description: |
-        Run: `curl -sS https://...setup.sh | bash -s -- YOUR_IP --check`
+        Run: `curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- YOUR_IP --check`
       render: text
     validations:
       required: false

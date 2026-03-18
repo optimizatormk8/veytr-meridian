@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for reporting! Please run `--rage` to collect diagnostics:
         ```
-        curl -sS https://raw.githubusercontent.com/uburuntu/meridian/main/setup.sh | bash -s -- YOUR_IP --rage
+        curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- YOUR_IP --rage
         ```
         Secrets are auto-redacted. Paste the output below.
 
