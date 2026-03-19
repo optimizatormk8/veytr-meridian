@@ -44,7 +44,7 @@ docs/install.sh            Installer served from website (CD sync)
 docs/setup.sh              Compat shim served from website (CD sync)
 docs/version               Version file served from website (CD sync)
 docs/CNAME                 Custom domain for GitHub Pages
-roles/_shared/tasks/       Shared task files (resolve_ip, check_qrencode, load_credentials)
+roles/shared/tasks/       Shared task files (resolve_ip, check_qrencode, load_credentials)
 tests/render_templates.py  CI template rendering test (with Ansible filter mocks)
 .github/workflows/ci.yml   CI pipeline (lint, syntax, templates, shell, dry-run)
 .github/workflows/cd.yml   CD pipeline (sync CLI files → docs/)
@@ -265,7 +265,7 @@ CI validates that `VERSION` and `MERIDIAN_VERSION` match on every push.
 
 ### Recently addressed
 - Panel settings payload extracted to `roles/xray/tasks/apply_panel_settings.yml` — shared by both `xray` and `xray_relay` roles.
-- Shared tasks in `roles/_shared/tasks/` — `resolve_ip.yml`, `check_qrencode.yml`, `load_credentials.yml` used by all playbooks.
+- Shared tasks in `roles/shared/tasks/` — `resolve_ip.yml`, `check_qrencode.yml`, `load_credentials.yml` used by all playbooks.
 - Database and log growth: weekly cron jobs vacuum the 3x-ui database (deletes traffic stats older than 30 days) and truncate Docker container logs.
 
 ## GitHub community files

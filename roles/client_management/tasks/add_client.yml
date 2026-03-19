@@ -134,7 +134,7 @@
     name: clients_data
   delegate_to: localhost
   become: false
-  ignore_errors: true
+  failed_when: false
 
 - name: Initialize clients list if not found
   ansible.builtin.set_fact:

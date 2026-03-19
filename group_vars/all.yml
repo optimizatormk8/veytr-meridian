@@ -98,4 +98,3 @@ exit_mode: false
 # Public IP of the server (auto-detected if not set).
 # Override with: -e server_public_ip=1.2.3.4
 server_public_ip: ""
-

@@ -27,10 +27,10 @@
       when: ansible_host == 'YOUR_SERVER_IP'
 
     - name: Resolve server public IP
-      ansible.builtin.include_tasks: roles/_shared/tasks/resolve_ip.yml
+      ansible.builtin.include_tasks: roles/shared/tasks/resolve_ip.yml
 
     - name: Check qrencode dependency
-      ansible.builtin.include_tasks: roles/_shared/tasks/check_qrencode.yml
+      ansible.builtin.include_tasks: roles/shared/tasks/check_qrencode.yml
 
     # -- Compute derived variables --
     - name: Set mode flags and derived ports
@@ -43,7 +43,7 @@
              ) }}
 
     - name: Load saved credentials
-      ansible.builtin.include_tasks: roles/_shared/tasks/load_credentials.yml
+      ansible.builtin.include_tasks: roles/shared/tasks/load_credentials.yml
 
     - name: Apply saved credentials as facts
       ansible.builtin.set_fact:

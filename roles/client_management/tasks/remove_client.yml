@@ -70,7 +70,7 @@
     name: clients_data
   delegate_to: localhost
   become: false
-  ignore_errors: true
+  failed_when: false
 
 - name: Save updated clients file (without removed client)
   ansible.builtin.copy:
