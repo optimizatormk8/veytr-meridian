@@ -32,6 +32,15 @@
         header Cache-Control "no-store"
     }
 
+    # --- Per-client stats (fetched by connection info page JS) ---
+    handle /{{ info_page_path }}/stats/* {
+        uri strip_prefix /{{ info_page_path }}
+        root * /var/www/private
+        file_server
+        header Cache-Control "no-store, max-age=0"
+        header Access-Control-Allow-Origin *
+    }
+
     header -Server
     header X-Content-Type-Options "nosniff"
     header X-Frame-Options "DENY"

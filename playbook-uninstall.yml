@@ -78,6 +78,7 @@
       loop:
         - meridian-db-vacuum
         - meridian-docker-log-cleanup
+        - meridian-stats-update
       failed_when: false
 
     - name: Remove server credentials

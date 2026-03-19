@@ -122,6 +122,17 @@ body{
   opacity:0;transition:opacity .08s,transform .08s;pointer-events:none;z-index:10;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.stats{
+  background:var(--sf);border:1px solid var(--br);
+  border-radius:var(--r2);padding:16px 20px;margin-bottom:14px;
+  display:none;
+}
+.stats-title{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stats-item{text-align:center}
+.stats-val{font-size:1.1rem;font-weight:600;color:var(--tx);font-family:var(--tx)}
+.stats-label{font-size:.65rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.stats-active{grid-column:1/-1;text-align:center;font-size:.72rem;color:var(--tx3);margin-top:4px;padding-top:10px;border-top:1px solid var(--br)}
 </style>
 </head>
 <body>
@@ -174,6 +185,16 @@ body{
   <p>Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
 </div>
 
+<!-- Usage stats (loaded via JS) -->
+<div class="stats" id="stats">
+  <div class="stats-title">Usage</div>
+  <div class="stats-grid">
+    <div class="stats-item"><div class="stats-val" id="s-up">—</div><div class="stats-label">Upload</div></div>
+    <div class="stats-item"><div class="stats-val" id="s-down">—</div><div class="stats-label">Download</div></div>
+  </div>
+  <div class="stats-active" id="s-active"></div>
+</div>
+
 <div class="foot">
   <div class="links">
     <a href="https://meridian.msu.rocks" target="_blank">Powered by Meridian</a>
@@ -198,6 +219,44 @@ function flash(){var t=document.getElementById('toast');t.classList.add('show');
   else if(/Android/i.test(ua))os='Android';
   else if(/Win/i.test(ua))os='Windows';
   if(os)document.querySelectorAll('.app').forEach(function(a){if(a.getAttribute('data-os')===os)a.classList.add('detected')});
+}();
+/* Fetch per-client usage stats */
+!function(){
+  var uuid='';
+  document.querySelectorAll('.url').forEach(function(el){
+    var u=el.getAttribute('data-url')||'';
+    var m=u.match(/vless:\/\/([0-9a-f-]{36})@/);
+    if(m&&u.indexOf('reality')>-1)uuid=m[1];
+  });
+  if(!uuid)return;
+  var base=location.pathname;
+  if(base.charAt(base.length-1)!=='/')base+='/';
+  fetch(base+'stats/'+uuid+'.json')
+    .then(function(r){return r.ok?r.json():null})
+    .then(function(d){
+      if(!d)return;
+      var el=document.getElementById('stats');if(!el)return;
+      function fmt(b){
+        if(b>=1073741824)return(b/1073741824).toFixed(1)+' GB';
+        if(b>=1048576)return(b/1048576).toFixed(0)+' MB';
+        if(b>=1024)return(b/1024).toFixed(0)+' KB';
+        return b+' B';
+      }
+      function ago(ts){
+        if(!ts)return '';
+        var s=Math.floor((Date.now()-ts)/1000);
+        if(s<60)return 'Active now';
+        if(s<3600)return 'Active '+Math.floor(s/60)+'m ago';
+        if(s<86400)return 'Active '+Math.floor(s/3600)+'h ago';
+        return 'Active '+Math.floor(s/86400)+'d ago';
+      }
+      document.getElementById('s-up').textContent=fmt(d.up);
+      document.getElementById('s-down').textContent=fmt(d.down);
+      var act=document.getElementById('s-active');
+      if(d.lastOnline)act.textContent=ago(d.lastOnline);
+      el.style.display='block';
+    })
+    .catch(function(){});
 }();
 </script>
 </body>
