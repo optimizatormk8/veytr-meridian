@@ -420,6 +420,9 @@ ansible-playbook playbook.yml</div>
   <details>
     <summary data-i18n="ref.troubleshoot">Troubleshooting <span></span></summary>
     <div class="inner">
+      <p><strong>Not connecting?</strong> Test if the server is reachable from your device:</p>
+      <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian ping</div>
+      <p>Or use the <a href="ping" style="color:var(--ac)">web-based ping tool</a> — no install needed, works from any device.</p>
       <p><strong>Connection fails immediately:</strong> Check device clock is accurate within 30 seconds. Enable "Set Automatically" in date/time settings.</p>
       <p><strong>Connection stops after days:</strong> Server IP may have been blocked. Switch to CDN fallback, or get a new IP and re-run.</p>
       <p><strong>Slow speeds:</strong> Some hosting IP ranges are throttled. Try a different provider or datacenter (Finland, Netherlands, Sweden).</p>

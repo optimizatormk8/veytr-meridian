@@ -124,6 +124,10 @@
       List clients:   meridian client list
       Remove client:  meridian client remove NAME
 
+      --- Not connecting? ---
+      Test from your phone/laptop:  meridian ping
+      Or use the web tool:          https://meridian.msu.rocks/ping
+
       --- Feedback ---
       Something not working? Run: meridian diagnostics
       Then open an issue: https://github.com/uburuntu/meridian/issues
