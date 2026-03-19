@@ -12,6 +12,10 @@
 
 <p align="center">Deploy a censorship-resistant proxy server in one command.<br>Invisible to DPI, active probing, and TLS fingerprinting.</p>
 
+<p align="center">
+  <img src="docs/img/connection-page.png" width="720" alt="Connection page with QR codes">
+</p>
+
 ## Install
 
 ```bash
@@ -26,11 +30,7 @@ meridian setup 1.2.3.4               # deploy to server
 meridian setup 1.2.3.4 --domain d.io # with CDN fallback
 ```
 
-After setup, your server is a fully functional proxy. Each client gets an HTML page with QR codes and deep links:
-
-<img src="docs/img/connection-page.png" width="720" alt="Connection page">
-
-Share access:
+After setup, your server is a fully functional proxy. Share access:
 
 ```bash
 meridian client add alice            # generate keys for a friend
