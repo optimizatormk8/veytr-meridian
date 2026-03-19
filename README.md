@@ -1,9 +1,16 @@
-# Meridian
+<p align="center">
+  <img src="docs/img/logo-512.png" width="80" alt="Meridian">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/uburuntu/meridian)](https://github.com/uburuntu/meridian/stargazers)
+<h1 align="center">Meridian</h1>
 
-Deploy a censorship-resistant proxy server in one command. Invisible to DPI, active probing, and TLS fingerprinting.
+<p align="center">
+  <a href="https://github.com/uburuntu/meridian/actions/workflows/ci.yml"><img src="https://github.com/uburuntu/meridian/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/uburuntu/meridian/stargazers"><img src="https://img.shields.io/github/stars/uburuntu/meridian" alt="GitHub stars"></a>
+</p>
+
+<p align="center">Deploy a censorship-resistant proxy server in one command.<br>Invisible to DPI, active probing, and TLS fingerprinting.</p>
 
 ## Install
 
@@ -19,7 +26,11 @@ meridian setup 1.2.3.4               # deploy to server
 meridian setup 1.2.3.4 --domain d.io # with decoy website + CDN fallback
 ```
 
-After setup, your server is a fully functional proxy. Share access:
+After setup, your server is a fully functional proxy. Each client gets an HTML page with QR codes and deep links:
+
+<img src="docs/img/connection-page.png" width="720" alt="Connection page">
+
+Share access:
 
 ```bash
 meridian client add alice            # generate keys for a friend
@@ -58,18 +69,7 @@ A VPS (Debian/Ubuntu) with root SSH key access. $3–5/month from any provider. 
 
 ## Architecture
 
-```
-                     ┌─────────────────────────────┐
-                     │         Your Server          │
-                     │                              │
-  User ───443───►    │  HAProxy (SNI routing)       │
-                     │    ├─► Xray (VLESS+Reality)  │
-                     │    ├─► Caddy (decoy site)    │
-                     │    └─► Caddy (VLESS+WSS)     │
-                     │                              │
-  Censor ──probe──►  │  → sees microsoft.com TLS ✓  │
-                     └─────────────────────────────┘
-```
+<img src="docs/img/architecture.png" width="720" alt="Meridian architecture">
 
 **Standalone mode** — Xray on port 443. No domain needed.
 

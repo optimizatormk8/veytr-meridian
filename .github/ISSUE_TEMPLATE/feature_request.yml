@@ -21,7 +21,7 @@ body:
     attributes:
       label: Area
       options:
-        - Setup script (setup.sh)
+        - CLI (meridian)
         - Ansible playbook / roles
         - Connection info page
         - Website (meridian.msu.rocks)

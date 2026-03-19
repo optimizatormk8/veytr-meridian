@@ -132,34 +132,34 @@ body{
 <div class="wrap">
 
 <div class="hdr">
-  <h1>Connection Setup</h1>
-  <p>Scan QR code or tap to open in your app</p>
+  <h1 data-t="title">Connection Setup</h1>
+  <p data-t="subtitle">Scan QR code or tap to open in your app</p>
 </div>
 
 <!-- Primary -->
 <div class="card card-blue">
-  <div class="card-label"><i></i> Primary</div>
-  <p class="card-desc">Fastest route. Use this as your default connection.</p>
-  <a href="{{ vless_reality_url }}" class="open-btn">Open in App</a>
+  <div class="card-label"><i></i> <span data-t="primary">Primary</span></div>
+  <p class="card-desc" data-t="primary.desc">Fastest route. Use this as your default connection.</p>
+  <a href="{{ vless_reality_url }}" class="open-btn" data-t="open">Open in App</a>
   <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64_local.stdout }}" alt="QR" loading="lazy"></div>
-  <div class="url" onclick="cp(this)" data-url="{{ vless_reality_url }}">{{ vless_reality_url }}<span class="url-hint">tap to copy</span></div>
+  <div class="url" onclick="cp(this)" data-url="{{ vless_reality_url }}">{{ vless_reality_url }}<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
 
 {% if domain_mode | bool %}
 <!-- Backup -->
 <div class="card card-amber">
-  <div class="card-label"><i></i> Backup</div>
-  <p class="card-desc">CDN fallback. Use if the primary connection is blocked.</p>
-  <a href="{{ vless_wss_url }}" class="open-btn">Open in App</a>
+  <div class="card-label"><i></i> <span data-t="backup">Backup</span></div>
+  <p class="card-desc" data-t="backup.desc">CDN fallback. Use if the primary connection is blocked.</p>
+  <a href="{{ vless_wss_url }}" class="open-btn" data-t="open">Open in App</a>
   <div class="qr"><img src="data:image/png;base64,{{ wss_qr_b64_local.stdout }}" alt="QR" loading="lazy"></div>
-  <div class="url" onclick="cp(this)" data-url="{{ vless_wss_url }}">{{ vless_wss_url }}<span class="url-hint">tap to copy</span></div>
+  <div class="url" onclick="cp(this)" data-url="{{ vless_wss_url }}">{{ vless_wss_url }}<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
 {% endif %}
 
 <!-- Apps -->
 <div class="card">
-  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Client Apps</div>
-  <p class="card-desc">Install one, then tap "Open in App" or scan the QR code.</p>
+  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px" data-t="apps">Client Apps</div>
+  <p class="card-desc" data-t="apps.desc">Install one, then tap "Open in App" or scan the QR code.</p>
   <div class="apps" id="apps">
     <a class="app" href="https://apps.apple.com/app/v2raytun/id6476628951" target="_blank" data-os="iOS">v2RayTun<span>iOS</span></a>
     <a class="app" href="https://github.com/2dust/v2rayNG/releases/latest" target="_blank" data-os="Android">v2rayNG<span>Android</span></a>
@@ -170,19 +170,19 @@ body{
 
 <!-- Steps -->
 <div class="card">
-  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Quick Setup</div>
+  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px" data-t="setup">Quick Setup</div>
   <div class="steps">
-    <div class="step">Install a client app from the list above</div>
-    <div class="step">Tap "Open in App" — the connection imports automatically</div>
-    <div class="step">Or scan the QR code from another device</div>
-    <div class="step">Activate the connection in the app</div>
+    <div class="step" data-t="step1">Install a client app from the list above</div>
+    <div class="step" data-t="step2">Tap "Open in App" — the connection imports automatically</div>
+    <div class="step" data-t="step3">Or scan the QR code from another device</div>
+    <div class="step" data-t="step4">Activate the connection in the app</div>
   </div>
 </div>
 
 <!-- Warning -->
 <div class="warn">
-  <h3>Clock Sync Required</h3>
-  <p>Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
+  <h3 data-t="clock">Clock Sync Required</h3>
+  <p data-t="clock.desc">Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
 </div>
 
 <!-- Footer -->
@@ -206,6 +206,21 @@ function cp(el){
   else{var t=document.createElement('textarea');t.value=u;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);flash()}
 }
 function flash(){var t=document.getElementById('toast');t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1200)}
+/* i18n — auto-detect browser language */
+!function(){
+  var T={
+    ru:{title:'Настройка подключения',subtitle:'Отсканируйте QR-код или нажмите, чтобы открыть в приложении',primary:'Основной',backup:'Резервный','primary.desc':'Самый быстрый маршрут. Используйте как основное подключение.','backup.desc':'CDN-фолбэк. Используйте, если основное подключение заблокировано.',open:'Открыть в приложении','copy.hint':'нажмите для копирования',apps:'Приложения','apps.desc':'Установите одно из них, затем нажмите «Открыть в приложении» или отсканируйте QR-код.',setup:'Быстрая настройка',step1:'Установите клиентское приложение из списка выше',step2:'Нажмите «Открыть в приложении» — подключение импортируется автоматически',step3:'Или отсканируйте QR-код с другого устройства',step4:'Активируйте подключение в приложении',clock:'Синхронизация часов','clock.desc':'Часы устройства должны быть точными с отклонением не более 30 секунд. Откройте Настройки > Дата и время > включите «Автоматически».'},
+    fa:{title:'تنظیم اتصال',subtitle:'کد QR را اسکن کنید یا برای باز کردن در برنامه ضربه بزنید',primary:'اصلی',backup:'پشتیبان','primary.desc':'سریع‌ترین مسیر. به عنوان اتصال پیش‌فرض استفاده کنید.','backup.desc':'فال‌بک CDN. اگر اتصال اصلی مسدود شد استفاده کنید.',open:'باز کردن در برنامه','copy.hint':'برای کپی ضربه بزنید',apps:'برنامه‌ها','apps.desc':'یکی را نصب کنید، سپس «باز کردن در برنامه» را بزنید یا کد QR را اسکن کنید.',setup:'راه‌اندازی سریع',step1:'یک برنامه کلاینت از لیست بالا نصب کنید',step2:'«باز کردن در برنامه» را بزنید — اتصال به‌طور خودکار وارد می‌شود',step3:'یا کد QR را از دستگاه دیگری اسکن کنید',step4:'اتصال را در برنامه فعال کنید',clock:'همگام‌سازی ساعت','clock.desc':'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > «تنظیم خودکار» بروید.'},
+    zh:{title:'连接设置',subtitle:'扫描二维码或点击在应用中打开',primary:'主要',backup:'备用','primary.desc':'最快路线。作为默认连接使用。','backup.desc':'CDN 备用通道。主连接被封锁时使用。',open:'在应用中打开','copy.hint':'点击复制',apps:'客户端应用','apps.desc':'安装一个应用，然后点击"在应用中打开"或扫描二维码。',setup:'快速设置',step1:'从上方列表安装一个客户端应用',step2:'点击"在应用中打开"——连接自动导入',step3:'或从另一台设备扫描二维码',step4:'在应用中激活连接',clock:'时钟同步','clock.desc':'设备时钟必须精确到 30 秒以内。前往设置 > 日期与时间 > 启用"自动设置"。'}
+  };
+  var bl=(navigator.language||'').slice(0,2),lang=T[bl]?bl:null;
+  if(lang){
+    document.querySelectorAll('[data-t]').forEach(function(el){
+      var k=el.dataset.t,v=T[lang][k];if(v)el.textContent=v;
+    });
+    if(lang==='fa')document.documentElement.dir='rtl';
+  }
+}();
 !function(){
   var ua=navigator.userAgent,os=null;
   if(/iPhone|iPad|iPod/i.test(ua))os='iOS';

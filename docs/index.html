@@ -12,11 +12,11 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Meridian — Censorship-Resistant Proxy">
 <meta name="twitter:description" content="One command deploys an undetectable proxy server. Open source.">
+<meta property="og:image" content="https://meridian.msu.rocks/img/og.png">
+<meta name="twitter:image" content="https://meridian.msu.rocks/img/og.png">
 <link rel="canonical" href="https://meridian.msu.rocks">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="apple-touch-icon" href="img/logo-180.png">
 <style>
 :root {
   --bg: #08080a; --s1: #111114; --s2: #19191e;
@@ -25,9 +25,9 @@
   --ac: #d4a24e; --ac2: #d4a24e20;
   --ok: #5ce88e; --ok2: #5ce88e18;
   --r: 8px;
-  --serif: 'Newsreader', Georgia, serif;
-  --sans: 'DM Sans', system-ui, sans-serif;
-  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -151,6 +151,7 @@ details .inner p{margin-bottom:12px}
 <!-- HERO -->
 <section class="hero">
 <div class="w">
+  <img src="img/logo-180.png" alt="Meridian" width="48" height="48" style="margin-bottom:20px;border-radius:10px">
   <div class="chip"><i></i> <span data-i18n="badge">Open Source</span></div>
   <h1 data-i18n="hero.title">Undetectable proxy,<br><em>one command</em></h1>
   <p class="sub" data-i18n="hero.sub">Deploy a VLESS+Reality proxy server that's invisible to DPI, active probing, and TLS fingerprinting. Fully automated. Takes 2&nbsp;minutes.</p>
@@ -294,6 +295,7 @@ details .inner p{margin-bottom:12px}
   <p class="label" data-i18n="connect.label">Connect</p>
   <h2 data-i18n="connect.title">Scan and go</h2>
   <p class="desc" data-i18n="connect.desc">The script generates an HTML file with a QR code and an "Open in App" deep link. Send it to whoever needs it — they tap once and connect.</p>
+  <img src="img/connection-page.png" alt="Connection page preview" style="width:100%;border-radius:var(--r);border:1px solid var(--b1);margin-bottom:16px" loading="lazy">
   <a href="demo.html" target="_blank" class="btn btn-s" style="margin-bottom:16px;font-size:.82rem" data-i18n="connect.demo">See demo page ↗</a>
   <div class="apps">
     <a class="app" href="https://apps.apple.com/app/v2raytun/id6476628951" target="_blank">v2RayTun<span>iOS</span></a>
@@ -313,6 +315,7 @@ details .inner p{margin-bottom:12px}
 <div class="w">
   <p class="label" data-i18n="arch.label">Architecture</p>
   <h2 data-i18n="arch.title">How it works</h2>
+  <img src="img/architecture.png" alt="Meridian architecture" style="width:100%;border-radius:var(--r);border:1px solid var(--b1);margin-bottom:24px" loading="lazy">
 
   <details open>
     <summary data-i18n="arch.standalone">Standalone mode (no domain)</summary>
@@ -680,19 +683,25 @@ function setLang(lang){
   });
   document.querySelectorAll('.lang-picker button').forEach(function(b){b.classList.toggle('active',b.textContent.trim()==={'en':'EN','ru':'RU','fa':'فا','zh':'中文'}[lang])});
   localStorage.setItem('meridian-lang',lang);
+  // Update copy button labels
+  var lbl=(typeof copyLabels!=='undefined'&&copyLabels[lang])||['Copy'];
+  document.querySelectorAll('.cp').forEach(function(b){if(!b.classList.contains('ok'))b.textContent=lbl[0]});
   // Update tab description for current tab
   if(typeof setTab==='function'){var cfg=tabConfig[curTab];if(cfg){var dk='tab.'+curTab+'.desc';var td=(T[lang]&&T[lang][dk])||cfg.desc;document.getElementById('tab-desc').textContent=td;}}
 }
 
 /* --- Copy & flash --- */
+var copyLabels={en:['Copy','Copied'],ru:['Копия','Скопировано'],fa:['کپی','کپی شد'],zh:['复制','已复制']};
+function curLang(){return localStorage.getItem('meridian-lang')||'en'}
 function copyEl(btn){
   const block=btn.closest('.oneliner,.code');
   const pre=block.querySelector('pre')||block;
-  const text=(pre.innerText||block.innerText).replace(/^Copy\n?/,'').trim();
+  var lbl=copyLabels[curLang()]||copyLabels.en;
+  const text=(pre.innerText||block.innerText).replace(new RegExp('^'+lbl[0]+'\\n?'),'').trim();
   if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>flash(btn))}
   else{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);flash(btn)}
 }
-function flash(btn){btn.textContent='Copied';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok')},1200)}
+function flash(btn){var lbl=copyLabels[curLang()]||copyLabels.en;btn.textContent=lbl[1];btn.classList.add('ok');setTimeout(()=>{btn.textContent=lbl[0];btn.classList.remove('ok')},1200)}
 
 /* --- Command builder --- */
 var curTab='install';

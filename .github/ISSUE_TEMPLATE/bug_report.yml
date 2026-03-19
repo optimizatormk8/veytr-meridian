@@ -5,9 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Please run `--rage` to collect diagnostics:
+        Thanks for reporting! Please run diagnostics:
         ```
-        curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- YOUR_IP --rage
+        meridian diagnostics
         ```
         Secrets are auto-redacted. Paste the output below.
 
@@ -36,7 +36,7 @@ body:
     attributes:
       label: When does it fail?
       options:
-        - During setup.sh (before Ansible runs)
+        - During meridian setup (before Ansible runs)
         - During Ansible playbook execution
         - After setup — connection doesn't work
         - After setup — connection stopped working
@@ -47,7 +47,7 @@ body:
   - type: textarea
     attributes:
       label: Diagnostics (--rage output)
-      description: Paste the output from `--rage` here. Review it first — secrets are auto-redacted but double-check.
+      description: Paste the output from `meridian diagnostics` here. Review it first — secrets are auto-redacted but double-check.
       render: text
     validations:
       required: false

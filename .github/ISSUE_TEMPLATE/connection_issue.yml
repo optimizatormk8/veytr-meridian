@@ -8,7 +8,7 @@ body:
         Before reporting, please check:
         - **Clock sync**: Device clock must be accurate within 30 seconds
         - **Client app**: Try a different app (v2rayNG, Hiddify, v2RayTun)
-        - **Pre-flight**: Run `--check` to test your server environment
+        - **Pre-flight**: Run `meridian check` to test your server environment
 
   - type: dropdown
     id: symptom
@@ -54,7 +54,7 @@ body:
     attributes:
       label: Pre-flight check output
       description: |
-        Run: `curl -sS https://meridian.msu.rocks/setup.sh | bash -s -- YOUR_IP --check`
+        Run: `meridian check`
       render: text
     validations:
       required: false
