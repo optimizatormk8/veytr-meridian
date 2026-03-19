@@ -38,6 +38,7 @@ a:hover{text-decoration:underline}
 /* main */
 .main{padding:48px 0 80px}
 h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
+h2{font-family:var(--serif);font-size:1.2rem;font-weight:400;margin-bottom:12px}
 .sub{color:var(--t2);font-size:.88rem;margin-bottom:32px}
 
 /* form */
@@ -46,14 +47,17 @@ h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
 .field input{background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.88rem;padding:11px 14px;border-radius:var(--r);outline:none;width:100%;transition:border-color .06s}
 .field input:focus{border-color:var(--b2)}
 .field input::placeholder{color:var(--t3)}
-.hint{font-size:.72rem;color:var(--t3);margin-top:4px;line-height:1.4}
-.row{display:flex;gap:10px}
-.row .field{flex:1}
+
+.row2{display:flex;gap:10px}
+.row2 .field{flex:1}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:12px 28px;border-radius:var(--r);font-family:var(--sans);font-size:.88rem;font-weight:500;border:none;cursor:pointer;transition:filter .06s,transform .06s;width:100%;margin-top:6px}
 .btn-p{background:var(--ac);color:var(--bg)}
 .btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .btn-p:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+.btn-s{background:var(--s1);color:var(--t1);border:1px solid var(--b1)}
+.btn-s:hover{border-color:var(--b2);background:var(--s2)}
+.btn-s:disabled{opacity:.5;cursor:not-allowed}
 
 /* results */
 .results{margin-top:28px}
@@ -89,6 +93,37 @@ h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
 /* cli hint */
 .cli-hint{margin-top:20px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;font-size:.78rem;color:var(--t2)}
 .cli-hint code{font-family:var(--mono);color:var(--ac);font-size:.78rem}
+
+/* server list */
+.servers{margin-top:40px;border-top:1px solid var(--b1);padding-top:32px}
+.servers-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.server-card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;cursor:pointer;transition:border-color .06s,background .06s;position:relative}
+.server-card:hover{border-color:var(--b2);background:var(--s2)}
+.server-card .sc-top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.server-card .sc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.server-card .sc-dot.ok{background:var(--ok)}
+.server-card .sc-dot.err{background:var(--err)}
+.server-card .sc-dot.unk{background:var(--t3)}
+.server-card .sc-dot.testing{background:var(--ac);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.server-card .sc-name{font-weight:500;font-size:.88rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.server-card .sc-actions{display:flex;gap:4px;flex-shrink:0}
+.server-card .sc-btn{background:none;border:none;color:var(--t3);cursor:pointer;padding:4px 6px;border-radius:4px;font-size:.72rem;transition:color .06s,background .06s}
+.server-card .sc-btn:hover{color:var(--t1);background:var(--s2)}
+.server-card .sc-btn.del:hover{color:var(--err)}
+.server-card .sc-meta{font-size:.75rem;color:var(--t3);font-family:var(--mono);display:flex;gap:12px;flex-wrap:wrap}
+.server-card .sc-status{font-size:.72rem;color:var(--t2);margin-top:4px}
+.server-card.testing{border-color:var(--ac);background:var(--ac2)}
+
+.btn-all{padding:8px 16px;font-size:.78rem;width:auto;margin-top:0}
+.empty-state{text-align:center;padding:24px;color:var(--t3);font-size:.84rem}
+
+/* share link */
+.share-row{margin-top:12px;display:flex;gap:8px;align-items:center}
+.share-link{flex:1;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:8px 12px;font-family:var(--mono);font-size:.72rem;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-copy{background:var(--s2);border:1px solid var(--b1);color:var(--t2);font-family:var(--mono);font-size:.68rem;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .06s;flex-shrink:0}
+.share-copy:hover{color:var(--t1);border-color:var(--b2)}
+.share-copy.copied{color:var(--ok);border-color:var(--ok)}
 </style>
 </head>
 <body>
@@ -106,9 +141,15 @@ h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
   <h1>Ping your server</h1>
   <p class="sub">Test if your proxy is reachable from this device. No install needed.</p>
 
-  <div class="field">
-    <label for="ip">Server IP</label>
-    <input id="ip" type="text" placeholder="123.45.67.89" autocomplete="off" spellcheck="false" inputmode="decimal">
+  <div class="row2">
+    <div class="field" style="flex:1.3">
+      <label for="ip">Server IP</label>
+      <input id="ip" type="text" placeholder="123.45.67.89" autocomplete="off" spellcheck="false" inputmode="decimal">
+    </div>
+    <div class="field" style="flex:1">
+      <label for="name">Name <span style="color:var(--t3);font-weight:400">(optional)</span></label>
+      <input id="name" type="text" placeholder="My server" autocomplete="off" spellcheck="false">
+    </div>
   </div>
   <div class="field">
     <label for="domain">Domain <span style="color:var(--t3);font-weight:400">(optional, for domain mode)</span></label>
@@ -119,6 +160,16 @@ h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
 
   <div id="results" class="results"></div>
   <div id="summary"></div>
+  <div id="share"></div>
+
+  <!-- Server history -->
+  <div id="servers-section" class="servers" style="display:none">
+    <div class="servers-header">
+      <h2>Your servers</h2>
+      <button class="btn btn-s btn-all" id="test-all-btn" onclick="testAll()">Test all</button>
+    </div>
+    <div id="server-list"></div>
+  </div>
 
   <div class="cli-hint">
     Also available in the CLI: <code>meridian ping 1.2.3.4</code>
@@ -132,14 +183,196 @@ h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
 
 <script>
 function $(id) { return document.getElementById(id); }
+var STORAGE_KEY = 'meridian_servers';
 
+// --- Storage ---
+function loadServers() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e) { return []; }
+}
+function saveServers(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+function findServer(ip) {
+  return loadServers().find(function(s) { return s.ip === ip; });
+}
+function upsertServer(ip, domain, name, status, issues) {
+  var list = loadServers();
+  var idx = list.findIndex(function(s) { return s.ip === ip; });
+  var entry = {
+    ip: ip,
+    domain: domain || '',
+    name: name || '',
+    status: status,
+    issues: issues,
+    lastCheck: new Date().toISOString()
+  };
+  if (idx >= 0) {
+    // Preserve name if not provided
+    if (!entry.name && list[idx].name) entry.name = list[idx].name;
+    if (!entry.domain && list[idx].domain) entry.domain = list[idx].domain;
+    list[idx] = entry;
+  } else {
+    list.unshift(entry);
+  }
+  saveServers(list);
+  renderServers();
+}
+function removeServer(ip) {
+  var list = loadServers().filter(function(s) { return s.ip !== ip; });
+  saveServers(list);
+  renderServers();
+}
+function renameServer(ip, newName) {
+  var list = loadServers();
+  var s = list.find(function(s) { return s.ip === ip; });
+  if (s) { s.name = newName; saveServers(list); renderServers(); }
+}
+
+// --- Time formatting ---
+function timeAgo(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var s = Math.floor(diff / 1000);
+  if (s < 60) return 'just now';
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  var d = Math.floor(h / 24);
+  return d + 'd ago';
+}
+
+// --- Render server list ---
+function renderServers() {
+  var list = loadServers();
+  var section = $('servers-section');
+  var container = $('server-list');
+
+  if (list.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = '';
+  container.innerHTML = '';
+
+  list.forEach(function(s) {
+    var card = document.createElement('div');
+    card.className = 'server-card';
+    card.id = 'sc-' + s.ip.replace(/\./g, '-');
+
+    var dotClass = s.status === 'pass' ? 'ok' : s.status === 'fail' ? 'err' : 'unk';
+    var displayName = s.name || s.ip;
+    var meta = s.ip;
+    if (s.domain) meta += ' \u00b7 ' + s.domain;
+    if (s.name) meta = s.ip + (s.domain ? ' \u00b7 ' + s.domain : '');
+
+    var statusText = '';
+    if (s.lastCheck) {
+      if (s.status === 'pass') statusText = 'All checks passed \u00b7 ' + timeAgo(s.lastCheck);
+      else if (s.status === 'fail') statusText = s.issues + ' issue(s) \u00b7 ' + timeAgo(s.lastCheck);
+      else statusText = 'Not tested yet';
+    }
+
+    card.innerHTML =
+      '<div class="sc-top">' +
+        '<div class="sc-dot ' + dotClass + '"></div>' +
+        '<div class="sc-name">' + esc(displayName) + '</div>' +
+        '<div class="sc-actions">' +
+          '<button class="sc-btn" onclick="event.stopPropagation();editServer(\'' + s.ip + '\')" title="Rename">\u270e</button>' +
+          '<button class="sc-btn" onclick="event.stopPropagation();shareServer(\'' + s.ip + '\')" title="Share link">\u21d7</button>' +
+          '<button class="sc-btn del" onclick="event.stopPropagation();confirmDelete(\'' + s.ip + '\')" title="Delete">\u2715</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sc-meta">' + esc(meta) + '</div>' +
+      (statusText ? '<div class="sc-status">' + statusText + '</div>' : '');
+
+    card.onclick = function() { loadAndPing(s.ip); };
+    container.appendChild(card);
+  });
+}
+
+function esc(s) {
+  var d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+
+// --- Server actions ---
+function loadAndPing(ip) {
+  var s = findServer(ip);
+  if (!s) return;
+  $('ip').value = s.ip;
+  $('name').value = s.name || '';
+  $('domain').value = s.domain || '';
+  $('results').innerHTML = '';
+  $('summary').innerHTML = '';
+  $('share').innerHTML = '';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  setTimeout(runPing, 100);
+}
+
+function editServer(ip) {
+  var s = findServer(ip);
+  if (!s) return;
+  var newName = prompt('Server name:', s.name || '');
+  if (newName !== null) renameServer(ip, newName.trim());
+}
+
+function confirmDelete(ip) {
+  var s = findServer(ip);
+  var label = s && s.name ? s.name + ' (' + ip + ')' : ip;
+  if (confirm('Remove ' + label + ' from history?')) removeServer(ip);
+}
+
+function shareServer(ip) {
+  var s = findServer(ip);
+  if (!s) return;
+  var url = location.origin + location.pathname + '?ip=' + s.ip;
+  if (s.domain) url += '&domain=' + encodeURIComponent(s.domain);
+  if (s.name) url += '&name=' + encodeURIComponent(s.name);
+  navigator.clipboard.writeText(url).then(function() {
+    showToast('Link copied');
+  }).catch(function() {
+    prompt('Copy this link:', url);
+  });
+}
+
+// --- Toast ---
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--b1);color:var(--ok);padding:8px 20px;border-radius:6px;font-size:.82rem;z-index:99;transition:opacity .3s';
+  document.body.appendChild(t);
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 1500);
+}
+
+// --- Share link after test ---
+function showShareLink(ip, domain, name) {
+  var url = location.origin + location.pathname + '?ip=' + ip;
+  if (domain) url += '&domain=' + encodeURIComponent(domain);
+  if (name) url += '&name=' + encodeURIComponent(name);
+
+  $('share').innerHTML =
+    '<div class="share-row">' +
+      '<div class="share-link">' + esc(url) + '</div>' +
+      '<button class="share-copy" onclick="copyShareLink(this,\'' + url.replace(/'/g, "\\'") + '\')">Copy link</button>' +
+    '</div>';
+}
+
+function copyShareLink(btn, url) {
+  navigator.clipboard.writeText(url).then(function() {
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = 'Copy link'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// --- Check UI helpers ---
 function addCheck(id, title) {
   var el = document.createElement('div');
   el.className = 'check pending';
   el.id = 'check-' + id;
   el.innerHTML = '<div class="icon"><div class="spinner"></div></div><div class="body"><div class="title">' + title + '</div><div class="detail" style="color:var(--t3)">Testing...</div></div>';
   $('results').appendChild(el);
-  return el;
 }
 
 function setCheck(id, status, detail) {
@@ -160,10 +393,7 @@ function validateIp(ip) {
   return true;
 }
 
-// Probe using fetch — measures time to connect/fail.
-// For raw IPs: cert mismatch causes an error, but any error before timeout
-// means the port is reachable (server responded). Only timeout = unreachable.
-// For domains with valid TLS: fetch succeeds (opaque response in no-cors).
+// --- Probe ---
 async function probePort(host, timeoutMs) {
   var start = performance.now();
   var controller = new AbortController();
@@ -181,15 +411,18 @@ async function probePort(host, timeoutMs) {
     clearTimeout(timer);
     var elapsed = performance.now() - start;
     var timedOut = e.name === 'AbortError';
-    // Any error before timeout means the server responded (TCP RST or TLS error).
-    // Only AbortError (our timeout) means the server didn't respond at all.
     return {reachable: !timedOut, ms: elapsed, timedOut: timedOut};
   }
 }
 
+// --- Main ping ---
+var pingRunning = false;
+
 async function runPing() {
+  if (pingRunning) return;
   var ip = $('ip').value.trim();
   var domain = $('domain').value.trim();
+  var name = $('name').value.trim();
 
   if (!ip) { $('ip').focus(); return; }
   if (!validateIp(ip)) {
@@ -199,49 +432,54 @@ async function runPing() {
     return;
   }
 
+  pingRunning = true;
   $('run').disabled = true;
   $('run').textContent = 'Testing...';
   $('results').innerHTML = '';
   $('summary').innerHTML = '';
+  $('share').innerHTML = '';
+
+  // Mark card as testing
+  var cardId = 'sc-' + ip.replace(/\./g, '-');
+  var card = document.getElementById(cardId);
+  if (card) {
+    card.classList.add('testing');
+    var dot = card.querySelector('.sc-dot');
+    if (dot) { dot.className = 'sc-dot testing'; }
+    var st = card.querySelector('.sc-status');
+    if (st) st.textContent = 'Testing...';
+  }
 
   var issues = 0;
   var checks = 0;
   var domainOk = false;
 
-  // --- Check 1: Domain (run first — its result informs IP checks) ---
+  // --- Check 1: Domain ---
   if (domain) {
     checks++;
     addCheck('domain', 'Domain \u2014 ' + domain);
-
     var rd = await probePort(domain, 10000);
-
     if (rd.reachable) {
       domainOk = true;
       setCheck('domain', 'pass', 'https://' + domain + '/ is reachable (' + Math.round(rd.ms) + ' ms)');
     } else {
       setCheck('domain', 'fail',
         'Domain is not reachable (timed out).<br>' +
-        '\u2022 Check DNS: does <strong>' + domain + '</strong> point to <strong>' + ip + '</strong>?<br>' +
+        '\u2022 Check DNS: does <strong>' + esc(domain) + '</strong> point to <strong>' + ip + '</strong>?<br>' +
         '\u2022 Is Caddy running on the server?');
       issues++;
     }
   }
 
-  // --- Check 2: Port 443 reachability ---
+  // --- Check 2: Port 443 ---
   checks++;
   addCheck('tcp', 'Port 443 \u2014 ' + ip);
-
-  // If domain already passed and it resolves to this IP, port 443 is definitely open
-  // (HAProxy routes both domain and Reality traffic on the same port).
-  // Still run the probe for the timing info, but trust domain result.
   var r1 = await probePort(ip + ':443', 8000);
   var portOk = r1.reachable || domainOk;
 
   if (portOk) {
     var detail = 'Port 443 is reachable (' + Math.round(r1.ms) + ' ms)';
-    if (!r1.reachable && domainOk) {
-      detail = 'Port 443 is reachable (confirmed via domain)';
-    }
+    if (!r1.reachable && domainOk) detail = 'Port 443 is reachable (confirmed via domain)';
     setCheck('tcp', 'pass', detail);
   } else {
     setCheck('tcp', 'fail',
@@ -254,16 +492,12 @@ async function runPing() {
   // --- Check 3: TLS / Reality ---
   checks++;
   addCheck('tls', 'TLS / Reality');
-
   if (portOk) {
     var tlsDetail = 'Server responded on port 443 with a TLS handshake.';
-    if (domainOk) {
-      tlsDetail = 'Confirmed \u2014 domain TLS and Reality both respond on port 443.';
-    }
+    if (domainOk) tlsDetail = 'Confirmed \u2014 domain TLS and Reality both respond on port 443.';
     setCheck('tls', 'pass', tlsDetail);
   } else {
-    setCheck('tls', 'warn',
-      'Cannot verify \u2014 port 443 is not reachable. Fix the port issue first.');
+    setCheck('tls', 'warn', 'Cannot verify \u2014 port 443 is not reachable. Fix the port issue first.');
     issues++;
   }
 
@@ -286,13 +520,94 @@ async function runPing() {
       '\u2022 Your ISP may be blocking this server\'s IP \u2014 try a different server</p></div>';
   }
 
+  // Save to history
+  var status = issues === 0 ? 'pass' : 'fail';
+  upsertServer(ip, domain, name, status, issues);
+
+  // Show share link
+  showShareLink(ip, domain, name);
+
+  // Un-mark card
+  if (card) card.classList.remove('testing');
+
   $('run').disabled = false;
   $('run').textContent = 'Test again';
+  pingRunning = false;
 }
 
-// Allow Enter to submit
+// --- Test all servers ---
+async function testAll() {
+  if (pingRunning) return;
+  var list = loadServers();
+  if (list.length === 0) return;
+
+  var btn = $('test-all-btn');
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+  pingRunning = true;
+
+  // Clear main results area
+  $('results').innerHTML = '';
+  $('summary').innerHTML = '';
+  $('share').innerHTML = '';
+
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    var cardId = 'sc-' + s.ip.replace(/\./g, '-');
+    var card = document.getElementById(cardId);
+    if (card) {
+      card.classList.add('testing');
+      var dot = card.querySelector('.sc-dot');
+      if (dot) dot.className = 'sc-dot testing';
+      var st = card.querySelector('.sc-status');
+      if (st) st.textContent = 'Testing...';
+    }
+
+    // Run checks silently (no UI in main results area)
+    var issues = 0;
+    var domainOk = false;
+
+    if (s.domain) {
+      var rd = await probePort(s.domain, 10000);
+      if (!rd.reachable) issues++;
+      else domainOk = true;
+    }
+
+    var r1 = await probePort(s.ip + ':443', 8000);
+    var portOk = r1.reachable || domainOk;
+    if (!portOk) issues += 2; // port + tls both fail
+
+    var status = issues === 0 ? 'pass' : 'fail';
+    upsertServer(s.ip, s.domain, s.name, status, issues);
+
+    // Card updated by renderServers() inside upsertServer
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Test all';
+  pingRunning = false;
+}
+
+// --- URL params ---
+function loadFromUrl() {
+  var params = new URLSearchParams(location.search);
+  if (params.get('ip')) {
+    $('ip').value = params.get('ip');
+    if (params.get('domain')) $('domain').value = params.get('domain');
+    if (params.get('name')) $('name').value = params.get('name');
+    // Auto-run if IP provided via URL
+    setTimeout(runPing, 300);
+  }
+}
+
+// --- Init ---
+renderServers();
+loadFromUrl();
+
+// Enter to submit
 $('ip').addEventListener('keydown', function(e) { if (e.key === 'Enter') runPing(); });
 $('domain').addEventListener('keydown', function(e) { if (e.key === 'Enter') runPing(); });
+$('name').addEventListener('keydown', function(e) { if (e.key === 'Enter') runPing(); });
 </script>
 
 </body>
