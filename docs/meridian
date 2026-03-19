@@ -1010,6 +1010,110 @@ cmd_version() {
   printf "meridian %s\n" "$MERIDIAN_VERSION"
 }
 
+cmd_ping() {
+  local server_ip="" domain="" sni=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --domain)  domain="$2"; shift 2 ;;
+      --sni)     sni="$2"; shift 2 ;;
+      -*)        fail "Unknown flag: $1" ;;
+      *)         server_ip="$1"; shift ;;
+    esac
+  done
+
+  # Resolve server IP
+  if [[ -n "$server_ip" ]]; then
+    SERVER_IP="$server_ip"
+  else
+    resolve_server || fail "Server IP required. Usage: meridian ping IP"
+  fi
+
+  # Try to load saved credentials for domain and SNI
+  local creds_dir
+  creds_dir=$(server_creds)
+  if [[ -f "$creds_dir/proxy.yml" ]]; then
+    [[ -z "$domain" ]] && domain=$(grep '^domain:' "$creds_dir/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+    [[ -z "$sni" ]] && sni=$(grep '^reality_sni:' "$creds_dir/proxy.yml" 2>/dev/null | awk '{print $2}' | tr -d '"' || true)
+  fi
+
+  local sni_host="${sni:-www.microsoft.com}"
+  local issues=0
+  local checks=0
+
+  printf "  ${B}Ping${R}\n"
+  printf "  ${D}Testing proxy reachability from this device${R}\n"
+  printf "\n"
+
+  # 1. TCP connect to port 443
+  info "Connecting to $SERVER_IP:443..."
+  checks=$((checks + 1))
+  if timeout 5 bash -c "echo >/dev/tcp/$SERVER_IP/443" 2>/dev/null; then
+    ok "Port 443 is reachable"
+  else
+    warn "Port 443 is not reachable"
+    printf "       %s\n" "Possible causes:"
+    printf "       %s\n" "- Cloud firewall / security group blocks port 443"
+    printf "       %s\n" "- Your ISP or network blocks this server's IP"
+    printf "       %s\n" "- Server is down or proxy is not running"
+    issues=$((issues + 1))
+  fi
+
+  # 2. TLS handshake — Reality should present the SNI target's certificate
+  info "Checking TLS handshake (Reality → $sni_host)..."
+  checks=$((checks + 1))
+  local tls_result
+  tls_result=$(timeout 5 bash -c "echo | openssl s_client -connect $SERVER_IP:443 -servername $sni_host 2>/dev/null" || true)
+  if [[ "$tls_result" == *"CONNECTED"* && "$tls_result" == *"Certificate chain"* ]]; then
+    local cert_cn
+    cert_cn=$(echo "$tls_result" | grep -m1 'subject=' | sed 's/.*CN = //' || true)
+    ok "TLS handshake OK${cert_cn:+ (cert: $cert_cn)}"
+  elif [[ "$tls_result" == *"CONNECTED"* ]]; then
+    ok "TLS handshake OK"
+  else
+    warn "TLS handshake failed"
+    printf "       %s\n" "Reality proxy may not be running, or connection is blocked."
+    issues=$((issues + 1))
+  fi
+
+  # 3. If domain mode, check HTTPS to the domain
+  if [[ -n "$domain" ]]; then
+    info "Checking domain https://$domain/ ..."
+    checks=$((checks + 1))
+    local http_code
+    http_code=$(curl -sSf -o /dev/null -w '%{http_code}' --connect-timeout 5 --max-time 10 "https://$domain/" 2>/dev/null || echo "000")
+    if [[ "$http_code" =~ ^[23] ]]; then
+      ok "Domain is responding (HTTP $http_code)"
+    elif [[ "$http_code" == "000" ]]; then
+      warn "Domain is not reachable"
+      printf "       %s\n" "Check DNS settings and that Caddy is running on the server."
+      issues=$((issues + 1))
+    else
+      warn "Domain returned HTTP $http_code"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  # Summary
+  printf "\n"
+  if [[ "$issues" -eq 0 ]]; then
+    printf "  ${G}All $checks checks passed.${R} Server is reachable from this device.\n"
+    printf "  ${D}If your VPN client can't connect, the issue is likely:${R}\n"
+    printf "  ${D}  - Incorrect connection link (re-scan the QR code)${R}\n"
+    printf "  ${D}  - VPN app misconfiguration (try v2rayNG or Hiddify)${R}\n"
+  else
+    printf "  ${RED}$issues issue(s) found.${R} The server is not fully reachable from this device.\n"
+    printf "  ${D}This means the problem is between your device and the server,${R}\n"
+    printf "  ${D}not with the Meridian deployment itself.${R}\n"
+    printf "\n"
+    printf "  ${D}Common fixes:${R}\n"
+    printf "  ${D}  - Open port 443/TCP in your cloud provider's firewall${R}\n"
+    printf "  ${D}  - Try from a different network (mobile data, another Wi-Fi)${R}\n"
+    printf "  ${D}  - Your ISP may be blocking this server's IP — try a different server${R}\n"
+  fi
+  printf "\n"
+}
+
 cmd_help() {
   printf "\n  ${B}Meridian${R} v${MERIDIAN_VERSION} — Censorship-resistant proxy server\n\n"
   printf "  ${B}Commands:${R}\n\n"
@@ -1017,6 +1121,7 @@ cmd_help() {
   printf "    ${C}client${R} add|list|remove     Manage client access keys\n"
   printf "    ${C}server${R} add|list|remove     Manage known servers\n"
   printf "    ${C}check${R} [IP]                 Pre-flight server validation\n"
+  printf "    ${C}ping${R} [IP]                  Test proxy reachability from this device\n"
   printf "    ${C}diagnostics${R} [IP]           Collect info for bug reports\n"
   printf "    ${C}uninstall${R} [IP]             Remove proxy from server\n"
   printf "    ${C}self-update${R}                Update Meridian CLI\n"
@@ -1071,6 +1176,7 @@ main() {
     client)       cmd_client "$@" ;;
     server)       cmd_server "$@" ;;
     check)        cmd_check "$@" ;;
+    ping)         cmd_ping "$@" ;;
     diagnostics)  cmd_diagnostics "$@" ;;
     uninstall)    cmd_uninstall "$@" ;;
     self-update)  cmd_self_update ;;
