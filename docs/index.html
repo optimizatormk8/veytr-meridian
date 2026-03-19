@@ -743,6 +743,8 @@ function buildCmd(){
   var cmd='meridian '+cfg.cmd;
   if(args.length)cmd+=' '+args.join(' ');
   document.getElementById('cmd-pre').textContent=cmd;
+  // Persist builder inputs
+  try{localStorage.setItem('meridian-builder',JSON.stringify({ip:ip,user:user,domOn:domOn,dom:dom,sniOn:sniOn,sni:sni,yes:yes,tab:curTab}))}catch(e){}
   if(curTab==='install'){
     if(!ip){hint.textContent='Enter your server IP, or just run the base command — the interactive wizard will ask.';hint.style.color='var(--t3)';}
     else if(domOn&&!dom){hint.textContent='Enter a domain or uncheck to skip.';hint.style.color='var(--t3)';}
@@ -766,11 +768,24 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
 /* --- Auto-detect language on load --- */
 !function(){
   var saved=localStorage.getItem('meridian-lang');
-  if(saved&&T[saved]){setLang(saved);return}
-  var bl=navigator.language||navigator.userLanguage||'en';
-  if(bl.startsWith('ru'))setLang('ru');
-  else if(bl.startsWith('fa'))setLang('fa');
-  else if(bl.startsWith('zh'))setLang('zh');
+  if(saved&&T[saved]){setLang(saved)}
+  else{var bl=navigator.language||navigator.userLanguage||'en';
+    if(bl.startsWith('ru'))setLang('ru');
+    else if(bl.startsWith('fa'))setLang('fa');
+    else if(bl.startsWith('zh'))setLang('zh');
+  }
+  // Restore builder inputs
+  try{
+    var b=JSON.parse(localStorage.getItem('meridian-builder'));
+    if(b){
+      if(b.ip)document.getElementById('f-ip').value=b.ip;
+      if(b.user&&b.user!=='root')document.getElementById('f-user').value=b.user;
+      if(b.domOn){document.getElementById('f-domain-on').checked=true;if(b.dom)document.getElementById('f-domain').value=b.dom}
+      if(b.sniOn){document.getElementById('f-sni-on').checked=true;if(b.sni)document.getElementById('f-sni').value=b.sni}
+      if(b.yes)document.getElementById('f-yes').checked=true;
+      if(b.tab)setTab(b.tab);else buildCmd();
+    }
+  }catch(e){}
 }();
 </script>
 </body>
