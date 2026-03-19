@@ -385,7 +385,7 @@ run_playbook() {
   mkdir -p "$creds_dir"
 
   cd "$PLAYBOOKS_DIR"
-  ansible-playbook "$playbook" \
+  ansible-playbook -i inventory.yml "$playbook" \
     -e "server_public_ip=$SERVER_IP" \
     -e "credentials_dir=$creds_dir" \
     "$@"
