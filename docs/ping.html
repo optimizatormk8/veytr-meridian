@@ -393,8 +393,10 @@ function validateIp(ip) {
   return true;
 }
 
-// --- Probe ---
-async function probePort(host, timeoutMs) {
+// --- Probes ---
+// For IPs: any error before timeout means the server responded (TCP RST or
+// TLS cert mismatch — both confirm the port is reachable). Only timeout = unreachable.
+async function probeIp(host, timeoutMs) {
   var start = performance.now();
   var controller = new AbortController();
   var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
@@ -412,6 +414,30 @@ async function probePort(host, timeoutMs) {
     var elapsed = performance.now() - start;
     var timedOut = e.name === 'AbortError';
     return {reachable: !timedOut, ms: elapsed, timedOut: timedOut};
+  }
+}
+
+// For domains: only pass if fetch succeeds (valid TLS returns opaque response).
+// Any error (DNS failure, cert mismatch, timeout) = not reachable.
+async function probeDomain(host, timeoutMs) {
+  var start = performance.now();
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+
+  try {
+    await fetch('https://' + host + '/', {
+      signal: controller.signal,
+      mode: 'no-cors',
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    return {reachable: true, ms: performance.now() - start};
+  } catch (e) {
+    clearTimeout(timer);
+    var elapsed = performance.now() - start;
+    var timedOut = e.name === 'AbortError';
+    // DNS failure, cert error, or timeout — all mean domain is NOT working.
+    return {reachable: false, ms: elapsed, timedOut: timedOut};
   }
 }
 
@@ -458,15 +484,19 @@ async function runPing() {
   if (domain) {
     checks++;
     addCheck('domain', 'Domain \u2014 ' + domain);
-    var rd = await probePort(domain, 10000);
+    var rd = await probeDomain(domain, 10000);
     if (rd.reachable) {
       domainOk = true;
       setCheck('domain', 'pass', 'https://' + domain + '/ is reachable (' + Math.round(rd.ms) + ' ms)');
     } else {
+      var domainDetail = rd.timedOut
+        ? 'Domain is not reachable (timed out).'
+        : 'Domain is not reachable (' + Math.round(rd.ms) + ' ms).';
       setCheck('domain', 'fail',
-        'Domain is not reachable (timed out).<br>' +
+        domainDetail + '<br>' +
         '\u2022 Check DNS: does <strong>' + esc(domain) + '</strong> point to <strong>' + ip + '</strong>?<br>' +
-        '\u2022 Is Caddy running on the server?');
+        '\u2022 Is Caddy running on the server?<br>' +
+        '\u2022 Does the domain exist and have correct DNS records?');
       issues++;
     }
   }
@@ -474,7 +504,7 @@ async function runPing() {
   // --- Check 2: Port 443 ---
   checks++;
   addCheck('tcp', 'Port 443 \u2014 ' + ip);
-  var r1 = await probePort(ip + ':443', 8000);
+  var r1 = await probeIp(ip + ':443', 8000);
   var portOk = r1.reachable || domainOk;
 
   if (portOk) {
@@ -568,12 +598,12 @@ async function testAll() {
     var domainOk = false;
 
     if (s.domain) {
-      var rd = await probePort(s.domain, 10000);
+      var rd = await probeDomain(s.domain, 10000);
       if (!rd.reachable) issues++;
       else domainOk = true;
     }
 
-    var r1 = await probePort(s.ip + ':443', 8000);
+    var r1 = await probeIp(s.ip + ':443', 8000);
     var portOk = r1.reachable || domainOk;
     if (!portOk) issues += 2; // port + tls both fail
 
