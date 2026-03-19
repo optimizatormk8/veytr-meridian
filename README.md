@@ -38,6 +38,8 @@ meridian client list                 # see all clients
 meridian client remove alice         # revoke access
 ```
 
+Each client gets an HTML page with QR codes and one-tap deep links. In domain mode, the page is also hosted on the server with [live usage stats](https://meridian.msu.rocks/demo).
+
 ## How it works
 
 Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protocol that makes your server indistinguishable from a legitimate website:
@@ -51,7 +53,9 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 
 ## What you need
 
-A VPS (Debian/Ubuntu) with root SSH key access. $3–5/month from any provider. Meridian handles the rest.
+- A VPS (Debian/Ubuntu) with root SSH key access — $3–5/month from any provider
+- Recommended: Finland, Netherlands, Sweden, Germany (low latency, not flagged)
+- Optional: a domain pointed to the server (for CDN fallback via Cloudflare)
 
 ## Commands
 
@@ -77,9 +81,20 @@ A VPS (Debian/Ubuntu) with root SSH key access. $3–5/month from any provider. 
 
 **Chain mode** — Two servers: a relay on a whitelisted IP (e.g., Russia) forwards to an exit node abroad via VLESS+Reality+XHTTP.
 
+## Client apps
+
+After setup, connect with any of these apps:
+
+| Platform | App |
+|----------|-----|
+| iOS | [v2RayTun](https://apps.apple.com/app/v2raytun/id6476628951) |
+| Android | [v2rayNG](https://github.com/2dust/v2rayNG/releases/latest) |
+| Windows | [v2rayN](https://github.com/2dust/v2rayN/releases/latest) |
+| All platforms | [Hiddify](https://github.com/hiddify/hiddify-app/releases/latest) |
+
 ## Docs
 
-Full documentation, interactive command builder, and client app links:
+Full documentation, interactive command builder, and setup guides:
 
 **[meridian.msu.rocks](https://meridian.msu.rocks)** · [Connection page demo](https://meridian.msu.rocks/demo)
 

@@ -124,6 +124,16 @@ body{
   opacity:0;transition:opacity .08s,transform .08s;pointer-events:none;z-index:10;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.stats{
+  background:var(--sf);border:1px solid var(--br);
+  border-radius:var(--r2);padding:16px 20px;margin-bottom:14px;
+}
+.stats-title{font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--tx3);margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stats-item{text-align:center}
+.stats-val{font-size:1.1rem;font-weight:600;color:var(--tx)}
+.stats-label{font-size:.65rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.stats-active{grid-column:1/-1;text-align:center;font-size:.72rem;color:var(--tx3);margin-top:4px;padding-top:10px;border-top:1px solid var(--br)}
 </style>
 </head>
 <body>
@@ -133,6 +143,16 @@ body{
   <div class="demo-badge">Demo Preview</div>
   <h1>Connection Setup</h1>
   <p>This is what Meridian generates for your friends. Real pages have working QR codes and deep links.</p>
+</div>
+
+<!-- Usage stats (demo) -->
+<div class="stats" id="stats" style="display:block">
+  <div class="stats-title">Usage</div>
+  <div class="stats-grid">
+    <div class="stats-item"><div class="stats-val">0.4 GB</div><div class="stats-label">Upload</div></div>
+    <div class="stats-item"><div class="stats-val">9.5 GB</div><div class="stats-label">Download</div></div>
+  </div>
+  <div class="stats-active">Active 2m ago</div>
 </div>
 
 <!-- Primary -->

@@ -143,6 +143,16 @@ body{
   <p>Scan QR code or tap to open in your app</p>
 </div>
 
+<!-- Usage stats (loaded via JS) -->
+<div class="stats" id="stats">
+  <div class="stats-title">Usage</div>
+  <div class="stats-grid">
+    <div class="stats-item"><div class="stats-val" id="s-up">—</div><div class="stats-label">Upload</div></div>
+    <div class="stats-item"><div class="stats-val" id="s-down">—</div><div class="stats-label">Download</div></div>
+  </div>
+  <div class="stats-active" id="s-active"></div>
+</div>
+
 <div class="card card-blue">
   <div class="card-label"><i></i> Primary</div>
   <p class="card-desc">Fastest route. Use this as your default connection.</p>
@@ -183,16 +193,6 @@ body{
 <div class="warn">
   <h3>Clock Sync Required</h3>
   <p>Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
-</div>
-
-<!-- Usage stats (loaded via JS) -->
-<div class="stats" id="stats">
-  <div class="stats-title">Usage</div>
-  <div class="stats-grid">
-    <div class="stats-item"><div class="stats-val" id="s-up">—</div><div class="stats-label">Upload</div></div>
-    <div class="stats-item"><div class="stats-val" id="s-down">—</div><div class="stats-label">Download</div></div>
-  </div>
-  <div class="stats-active" id="s-active"></div>
 </div>
 
 <div class="foot">
