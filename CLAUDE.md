@@ -29,7 +29,7 @@ playbook.yml              Standalone mode
 playbook-chain.yml         Chain mode (exit first, then relay)
 playbook-client.yml        Client management (add/list/remove)
 playbook-uninstall.yml     Clean removal of proxy components + credentials
-inventory.yml              Standalone inventory
+inventory.yml.example      Standalone inventory template
 inventory-chain.yml.example Chain inventory template
 group_vars/all.yml         Shared defaults (version pin, ports, limits)
 group_vars/exit.yml        Exit node defaults (chain)
@@ -44,7 +44,7 @@ docs/install.sh            Installer served from website (CD sync)
 docs/setup.sh              Compat shim served from website (CD sync)
 docs/version               Version file served from website (CD sync)
 docs/CNAME                 Custom domain for GitHub Pages
-pre_tasks/                 Shared pre-task files (resolve_ip, check_qrencode, load_credentials)
+roles/_shared/tasks/       Shared task files (resolve_ip, check_qrencode, load_credentials)
 tests/render_templates.py  CI template rendering test (with Ansible filter mocks)
 .github/workflows/ci.yml   CI pipeline (lint, syntax, templates, shell, dry-run)
 .github/workflows/cd.yml   CD pipeline (sync CLI files → docs/)

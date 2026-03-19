@@ -33,10 +33,10 @@
       when: ansible_host == 'EXIT_SERVER_IP'
 
     - name: Resolve server public IP
-      ansible.builtin.include_tasks: pre_tasks/resolve_ip.yml
+      ansible.builtin.include_tasks: roles/_shared/tasks/resolve_ip.yml
 
     - name: Check qrencode dependency
-      ansible.builtin.include_tasks: pre_tasks/check_qrencode.yml
+      ansible.builtin.include_tasks: roles/_shared/tasks/check_qrencode.yml
 
     - name: Set exit mode flags
       ansible.builtin.set_fact:
@@ -45,7 +45,7 @@
         reality_port: "{{ reality_direct_port | default(8444) }}"
 
     - name: Load saved credentials
-      ansible.builtin.include_tasks: pre_tasks/load_credentials.yml
+      ansible.builtin.include_tasks: roles/_shared/tasks/load_credentials.yml
 
     - name: Apply saved credentials as facts
       ansible.builtin.set_fact:
@@ -102,7 +102,7 @@
       when: exit_node is not defined or exit_node == ''
 
     - name: Check qrencode dependency
-      ansible.builtin.include_tasks: pre_tasks/check_qrencode.yml
+      ansible.builtin.include_tasks: roles/_shared/tasks/check_qrencode.yml
 
     # -- Load exit node credentials --
     - name: Build exit node credentials file path
@@ -152,7 +152,7 @@
 
     # -- Load relay credentials --
     - name: Load saved credentials
-      ansible.builtin.include_tasks: pre_tasks/load_credentials.yml
+      ansible.builtin.include_tasks: roles/_shared/tasks/load_credentials.yml
 
     - name: Apply saved relay credentials as facts
       ansible.builtin.set_fact:
