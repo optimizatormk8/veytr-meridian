@@ -67,7 +67,6 @@
         state: absent
       loop:
         - /etc/caddy/conf.d/meridian.caddy
-        - /var/www/html/index.html
         - /var/www/private
       failed_when: false
 

@@ -6,7 +6,7 @@ Ansible automation for deploying censorship-resistant VLESS+Reality proxy server
 
 ## Architecture
 
-- **Standalone mode** (`playbook.yml`): Single server with VLESS+Reality. Optional domain mode adds HAProxy (SNI routing), Caddy (TLS + decoy site), and VLESS+WSS (CDN fallback via Cloudflare).
+- **Standalone mode** (`playbook.yml`): Single server with VLESS+Reality. Optional domain mode adds HAProxy (SNI routing), Caddy (TLS), and VLESS+WSS (CDN fallback via Cloudflare).
 - **Chain mode** (`playbook-chain.yml`): Exit node (Germany) + Relay node (Russia on whitelisted IP). User connects to relay via plain VLESS+TCP; relay forwards to exit via VLESS+Reality+XHTTP.
 
 ### Key design decisions
@@ -58,8 +58,7 @@ roles/
   xray_relay/              Relay node: user inbound + exit outbound + routing
                            (reuses xray/templates/docker-compose.yml.j2)
   haproxy/                 TCP SNI router (domain mode)
-  caddy/                   Reverse proxy + auto-TLS (domain mode)
-  decoy_site/              Static decoy website + connection info page
+  caddy/                   Auto-TLS + WSS proxy + panel proxy + connection info page (domain mode)
   output/                  Terminal display + local file generation + port verification
                            (generate_client_output.yml is shared with client_management)
   output_relay/            Relay-specific output
@@ -105,7 +104,7 @@ These are easy to break by editing one file without updating the others:
 - Website references the same app download links as the HTML templates in roles
 
 ### Connection info HTML templates (3 copies)
-- `roles/decoy_site/templates/connection-info.html.j2` — served on the server (domain mode)
+- `roles/caddy/templates/connection-info.html.j2` — served on the server (domain mode)
 - `roles/output/templates/connection-info.html.j2` — saved locally (standalone/exit)
 - `roles/output_relay/templates/connection-info.html.j2` — saved locally (relay)
 - All three have similar CSS/JS but different Jinja2 variables; app download links must be kept in sync across all three
@@ -224,7 +223,7 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - **Ansible debug vs shell for terminal output**: use `shell` with `printf`/`cat` for output containing ANSI codes (QR codes); `debug msg:` JSON-escapes them
 - **pip3 install on modern Debian/Ubuntu**: must handle PEP 668 "externally managed environment" — try pipx, then `--user`, then `--break-system-packages`, then apt
 - **pip user bin PATH**: after pip3 install --user, add `~/.local/bin` (Linux) and `~/Library/Python/*/bin` (macOS) to PATH
-- **Decoy site default title**: must NOT contain "Meridian" — would link the decoy site back to this GitHub repo. Currently "Westbridge Partners", randomized per deployment via hostname hash
+- **No decoy site**: domain mode serves only proxy paths (WSS, panel, connection info). No default handler — unknown paths get Caddy's default 404. The old static templated decoy was removed as it was fingerprintable.
 - **meridian interactive prompts**: use `read -r VAR < /dev/tty` for robustness; detect public IPv4 with `curl -4` to avoid IPv6; suggest domain from saved credentials
 - **info() function**: uses `printf "%s"` which prints arguments literally — do NOT embed escape codes like `${B}` in arguments passed to `info()`
 - **GitHub raw CDN caching**: raw.githubusercontent.com caches for ~60-120s; can't bust with query params or headers, just wait. Serving from meridian.msu.rocks avoids this.

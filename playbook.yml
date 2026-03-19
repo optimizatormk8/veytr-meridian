@@ -68,8 +68,6 @@
       when: domain_mode | bool
     - role: caddy
       when: domain_mode | bool
-    - role: decoy_site
-      when: domain_mode | bool
     - role: output
 
   post_tasks:

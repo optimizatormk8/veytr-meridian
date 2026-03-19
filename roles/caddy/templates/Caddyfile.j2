@@ -32,13 +32,6 @@
         header Cache-Control "no-store"
     }
 
-    # --- Decoy Website (default for all other requests) ---
-    handle {
-        root * /var/www/html
-        file_server
-        encode zstd gzip
-    }
-
     header -Server
     header X-Content-Type-Options "nosniff"
     header X-Frame-Options "DENY"

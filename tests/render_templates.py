@@ -118,8 +118,7 @@ MOCK_VARS = {
 }
 
 TEMPLATES = [
-    ("roles/decoy_site/templates", "index.html.j2"),
-    ("roles/decoy_site/templates", "connection-info.html.j2"),
+    ("roles/caddy/templates", "connection-info.html.j2"),
     ("roles/output/templates", "connection-info.html.j2"),
     ("roles/output/templates", "connection-summary.txt.j2"),
     ("roles/output/templates", "connection-summary-client.txt.j2"),

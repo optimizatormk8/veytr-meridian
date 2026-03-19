@@ -15,7 +15,7 @@
 #   - HAProxy SNI router on port 443
 #   - Caddy reverse proxy with automatic Let's Encrypt TLS
 #   - VLESS+WSS fallback through Cloudflare CDN
-#   - Decoy website + connection info page
+#   - CDN fallback + connection info page
 domain: ""
 
 # Optional: email for Let's Encrypt notifications. Caddy works without it.
@@ -99,9 +99,3 @@ exit_mode: false
 # Override with: -e server_public_ip=1.2.3.4
 server_public_ip: ""
 
-# -----------------------------------------------------------------------------
-# Decoy Site
-# -----------------------------------------------------------------------------
-# Title for the decoy landing page served by Caddy (domain mode only)
-decoy_site_title: "Westbridge Partners"
-decoy_site_tagline: "Strategic advisory for modern enterprises"

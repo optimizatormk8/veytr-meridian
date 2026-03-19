@@ -23,7 +23,7 @@ curl -sSf https://meridian.msu.rocks/install.sh | bash
 ```bash
 meridian setup                       # interactive wizard
 meridian setup 1.2.3.4               # deploy to server
-meridian setup 1.2.3.4 --domain d.io # with decoy website + CDN fallback
+meridian setup 1.2.3.4 --domain d.io # with CDN fallback
 ```
 
 After setup, your server is a fully functional proxy. Each client gets an HTML page with QR codes and deep links:
@@ -73,7 +73,7 @@ A VPS (Debian/Ubuntu) with root SSH key access. $3–5/month from any provider. 
 
 **Standalone mode** — Xray on port 443. No domain needed.
 
-**Domain mode** — HAProxy routes by SNI: Reality traffic goes to Xray, everything else to Caddy (auto-TLS + decoy site). Adds VLESS+WSS through Cloudflare CDN as a fallback.
+**Domain mode** — HAProxy routes by SNI: Reality traffic goes to Xray, everything else to Caddy (auto-TLS). Adds VLESS+WSS through Cloudflare CDN as a fallback.
 
 **Chain mode** — Two servers: a relay on a whitelisted IP (e.g., Russia) forwards to an exit node abroad via VLESS+Reality+XHTTP.
 
