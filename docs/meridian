@@ -793,6 +793,8 @@ cmd_check() {
       ok "Port 443 not yet listening (expected before install)"
     else
       warn "Port 443 is listening on server but not reachable from outside"
+      printf "       %s\n" "Check your cloud provider's firewall / security group settings."
+      printf "       %s\n" "Port 443 (TCP) must be allowed for inbound traffic."
       issues=$((issues + 1))
     fi
   fi
