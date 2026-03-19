@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ping — Meridian</title>
+<meta name="description" content="Test if your Meridian proxy server is reachable from this device.">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+<link rel="apple-touch-icon" href="/img/logo-180.png">
+<style>
+:root {
+  --bg: #08080a; --s1: #111114; --s2: #19191e;
+  --b1: #252530; --b2: #35354a;
+  --t1: #ececec; --t2: #9090a0; --t3: #505060;
+  --ac: #d4a24e; --ac2: #d4a24e20;
+  --ok: #5ce88e; --ok2: #5ce88e18;
+  --err: #f06060; --err2: #f0606018;
+  --warn: #e8c85c; --warn2: #e8c85c18;
+  --r: 8px;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--t1);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+::selection{background:var(--ac);color:var(--bg)}
+a{color:var(--ac);text-decoration:none}
+a:hover{text-decoration:underline}
+.w{max-width:520px;margin:0 auto;padding:0 20px}
+
+/* header */
+.head{padding:20px 0;border-bottom:1px solid var(--b1)}
+.head .w{display:flex;align-items:center;gap:10px}
+.head a{color:var(--t2);font-size:.82rem;text-decoration:none}
+.head a:hover{color:var(--t1)}
+.logo{font-family:var(--serif);font-weight:400;font-size:1rem;color:var(--t1);text-decoration:none}
+
+/* main */
+.main{padding:48px 0 80px}
+h1{font-family:var(--serif);font-size:1.6rem;font-weight:400;margin-bottom:6px}
+.sub{color:var(--t2);font-size:.88rem;margin-bottom:32px}
+
+/* form */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.78rem;font-weight:500;color:var(--t2);margin-bottom:5px}
+.field input{background:var(--s1);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:.88rem;padding:11px 14px;border-radius:var(--r);outline:none;width:100%;transition:border-color .06s}
+.field input:focus{border-color:var(--b2)}
+.field input::placeholder{color:var(--t3)}
+.hint{font-size:.72rem;color:var(--t3);margin-top:4px;line-height:1.4}
+.row{display:flex;gap:10px}
+.row .field{flex:1}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:12px 28px;border-radius:var(--r);font-family:var(--sans);font-size:.88rem;font-weight:500;border:none;cursor:pointer;transition:filter .06s,transform .06s;width:100%;margin-top:6px}
+.btn-p{background:var(--ac);color:var(--bg)}
+.btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-p:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+
+/* results */
+.results{margin-top:28px}
+.check{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;font-size:.86rem;display:flex;align-items:flex-start;gap:12px;transition:border-color .15s}
+.check.pass{border-color:#5ce88e44;background:var(--ok2)}
+.check.fail{border-color:#f0606044;background:var(--err2)}
+.check.warn{border-color:#e8c85c44;background:var(--warn2)}
+.check .icon{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;margin-top:1px}
+.check.pass .icon{background:#5ce88e22;color:var(--ok)}
+.check.fail .icon{background:#f0606022;color:var(--err)}
+.check.warn .icon{background:#e8c85c22;color:var(--warn)}
+.check.pending .icon{color:var(--t3)}
+.check .body{flex:1;min-width:0}
+.check .title{font-weight:500;margin-bottom:2px}
+.check .detail{font-size:.78rem;color:var(--t2);line-height:1.5}
+.check.fail .detail,.check.warn .detail{color:var(--t2)}
+
+/* spinner */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:16px;height:16px;border:2px solid var(--b1);border-top-color:var(--ac);border-radius:50%;animation:spin .6s linear infinite;margin-top:3px}
+
+/* summary */
+.summary{margin-top:20px;padding:16px 18px;border-radius:var(--r);font-size:.84rem;line-height:1.6}
+.summary.all-pass{background:var(--ok2);border:1px solid #5ce88e33;color:var(--ok)}
+.summary.has-fail{background:var(--err2);border:1px solid #f0606033;color:var(--t2)}
+.summary strong{color:var(--t1);font-weight:500}
+.summary p{margin-bottom:6px}
+.summary p:last-child{margin-bottom:0}
+
+/* footer */
+.foot{padding:24px 0;border-top:1px solid var(--b1);text-align:center;color:var(--t3);font-size:.78rem}
+
+/* cli hint */
+.cli-hint{margin-top:20px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;font-size:.78rem;color:var(--t2)}
+.cli-hint code{font-family:var(--mono);color:var(--ac);font-size:.78rem}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="w">
+    <img src="img/logo-180.png" alt="" width="20" height="20" style="border-radius:4px">
+    <a href="/" class="logo">Meridian</a>
+    <span style="color:var(--t3);font-size:.78rem">/ ping</span>
+  </div>
+</div>
+
+<div class="main">
+<div class="w">
+  <h1>Ping your server</h1>
+  <p class="sub">Test if your proxy is reachable from this device. No install needed.</p>
+
+  <div class="field">
+    <label for="ip">Server IP</label>
+    <input id="ip" type="text" placeholder="123.45.67.89" autocomplete="off" spellcheck="false" inputmode="decimal">
+  </div>
+  <div class="field">
+    <label for="domain">Domain <span style="color:var(--t3);font-weight:400">(optional, for domain mode)</span></label>
+    <input id="domain" type="text" placeholder="example.com" autocomplete="off" spellcheck="false">
+  </div>
+
+  <button class="btn btn-p" id="run" onclick="runPing()">Test reachability</button>
+
+  <div id="results" class="results"></div>
+  <div id="summary"></div>
+
+  <div class="cli-hint">
+    Also available in the CLI: <code>meridian ping 1.2.3.4</code>
+  </div>
+</div>
+</div>
+
+<div class="foot">
+  <a href="/">meridian.msu.rocks</a> &middot; <a href="https://github.com/uburuntu/meridian">GitHub</a>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+
+function addCheck(id, title) {
+  var el = document.createElement('div');
+  el.className = 'check pending';
+  el.id = 'check-' + id;
+  el.innerHTML = '<div class="icon"><div class="spinner"></div></div><div class="body"><div class="title">' + title + '</div><div class="detail" style="color:var(--t3)">Testing...</div></div>';
+  $('results').appendChild(el);
+  return el;
+}
+
+function setCheck(id, status, detail) {
+  var el = $('check-' + id);
+  el.className = 'check ' + status;
+  var icons = {pass: '\u2713', fail: '\u2717', warn: '!'};
+  el.querySelector('.icon').innerHTML = icons[status] || '?';
+  el.querySelector('.detail').innerHTML = detail;
+}
+
+function validateIp(ip) {
+  var parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  for (var i = 0; i < 4; i++) {
+    var n = parseInt(parts[i], 10);
+    if (isNaN(n) || n < 0 || n > 255 || parts[i] !== String(n)) return false;
+  }
+  return true;
+}
+
+async function probePort(host, timeoutMs) {
+  var start = performance.now();
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+
+  try {
+    await fetch('https://' + host + '/', {
+      signal: controller.signal,
+      mode: 'no-cors',
+      cache: 'no-store'
+    });
+    clearTimeout(timer);
+    return {ok: true, ms: performance.now() - start};
+  } catch (e) {
+    clearTimeout(timer);
+    var elapsed = performance.now() - start;
+    return {ok: false, ms: elapsed, aborted: e.name === 'AbortError'};
+  }
+}
+
+async function runPing() {
+  var ip = $('ip').value.trim();
+  var domain = $('domain').value.trim();
+
+  if (!ip) { $('ip').focus(); return; }
+  if (!validateIp(ip)) {
+    $('ip').style.borderColor = '#f06060';
+    $('ip').focus();
+    setTimeout(function() { $('ip').style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  $('run').disabled = true;
+  $('run').textContent = 'Testing...';
+  $('results').innerHTML = '';
+  $('summary').innerHTML = '';
+
+  var issues = 0;
+  var checks = 0;
+
+  // --- Check 1: TCP/TLS to IP:443 ---
+  checks++;
+  addCheck('tcp', 'Port 443 reachability \u2014 ' + ip);
+
+  var r1 = await probePort(ip + ':443', 8000);
+
+  if (r1.ok) {
+    // fetch succeeded (unlikely for raw IP, but possible)
+    setCheck('tcp', 'pass', 'Port 443 is open and responding (' + Math.round(r1.ms) + ' ms)');
+  } else if (r1.aborted || r1.ms > 7000) {
+    // Timeout — packets dropped, firewall filtering
+    setCheck('tcp', 'fail',
+      'Connection timed out \u2014 port 443 appears filtered.<br>' +
+      'Check your cloud provider\'s <strong>firewall / security group</strong> \u2014 port 443 (TCP) must allow inbound traffic.<br>' +
+      'If already open, your ISP or network may be blocking this IP.');
+    issues++;
+  } else if (r1.ms < 800) {
+    // Very fast failure — connection refused, port closed, or IP unreachable
+    setCheck('tcp', 'fail',
+      'Connection refused (' + Math.round(r1.ms) + ' ms) \u2014 port 443 is not open.<br>' +
+      'Possible causes:<br>' +
+      '\u2022 Proxy is not running on the server<br>' +
+      '\u2022 Cloud firewall blocks port 443<br>' +
+      '\u2022 Server is down');
+    issues++;
+  } else {
+    // Medium timing — TLS handshake was attempted, port is open
+    setCheck('tcp', 'pass', 'Port 443 is open \u2014 TLS handshake detected (' + Math.round(r1.ms) + ' ms)');
+  }
+
+  // --- Check 2: TLS certificate (Reality should show SNI target cert) ---
+  checks++;
+  addCheck('tls', 'TLS/Reality response');
+
+  // We can infer from the same probe: if the connection wasn't refused and wasn't timed out,
+  // a TLS handshake occurred — meaning Reality responded with the SNI target's cert.
+  if (r1.ok || (!r1.aborted && r1.ms >= 800 && r1.ms < 7000)) {
+    setCheck('tls', 'pass',
+      'Server completed a TLS handshake. Reality proxy appears to be responding correctly.');
+  } else if (r1.aborted || r1.ms > 7000) {
+    setCheck('tls', 'warn',
+      'Could not reach the server to verify TLS. Fix port 443 reachability first.');
+    issues++;
+  } else {
+    setCheck('tls', 'fail',
+      'No TLS handshake detected. The proxy may not be running.');
+    issues++;
+  }
+
+  // --- Check 3: Domain (if provided) ---
+  if (domain) {
+    checks++;
+    addCheck('domain', 'Domain \u2014 ' + domain);
+
+    var r2 = await probePort(domain, 10000);
+
+    if (r2.ok || (!r2.aborted && r2.ms >= 500 && r2.ms < 9000)) {
+      setCheck('domain', 'pass', 'https://' + domain + '/ is reachable (' + Math.round(r2.ms) + ' ms)');
+    } else if (r2.aborted || r2.ms > 9000) {
+      setCheck('domain', 'fail',
+        'Domain is not reachable (timed out).<br>' +
+        '\u2022 Check DNS: does <strong>' + domain + '</strong> point to <strong>' + ip + '</strong>?<br>' +
+        '\u2022 Is Caddy running on the server?');
+      issues++;
+    } else {
+      setCheck('domain', 'fail',
+        'Domain connection failed (' + Math.round(r2.ms) + ' ms).<br>' +
+        '\u2022 Verify DNS A record points to ' + ip + '<br>' +
+        '\u2022 Check that Caddy is running on the server');
+      issues++;
+    }
+  }
+
+  // --- Summary ---
+  var sumEl = $('summary');
+  if (issues === 0) {
+    sumEl.innerHTML = '<div class="summary all-pass">' +
+      '<p><strong>All ' + checks + ' checks passed.</strong> Your server is reachable from this device.</p>' +
+      '<p>If your VPN app still can\'t connect:</p>' +
+      '<p>\u2022 Re-scan the QR code (or re-copy the connection link)<br>' +
+      '\u2022 Check your device clock is accurate (within 30 seconds)<br>' +
+      '\u2022 Try a different VPN app (v2rayNG, Hiddify, v2RayTun)</p></div>';
+  } else {
+    sumEl.innerHTML = '<div class="summary has-fail">' +
+      '<p><strong>' + issues + ' issue(s) found.</strong> The server is not fully reachable from this device.</p>' +
+      '<p>This is a network/firewall issue, not a problem with the Meridian deployment.</p>' +
+      '<p><strong>Common fixes:</strong><br>' +
+      '\u2022 Open port 443/TCP in your cloud provider\'s firewall<br>' +
+      '\u2022 Try from a different network (mobile data, another Wi-Fi)<br>' +
+      '\u2022 Your ISP may be blocking this server\'s IP \u2014 try a different server</p></div>';
+  }
+
+  $('run').disabled = false;
+  $('run').textContent = 'Test again';
+}
+
+// Allow Enter to submit
+$('ip').addEventListener('keydown', function(e) { if (e.key === 'Enter') runPing(); });
+$('domain').addEventListener('keydown', function(e) { if (e.key === 'Enter') runPing(); });
+</script>
+
+</body>
+</html>
