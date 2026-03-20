@@ -386,23 +386,9 @@ After completing a feature or fix, **always bump the version as part of the comm
 
 CI validates that `VERSION` and `MERIDIAN_VERSION` match on every push.
 
-## Backlog
+## Backlog & tech debt
 
-- **Proactive IP block notification**: scheduled reachability check → alert (Telegram/webhook) when server becomes unreachable
-- **Self-steal mode**: Reality masquerades as your own domain (Reality fallback replaces HAProxy SNI routing). Good hygiene but not a silver bullet — behavioral analysis affects both self-steal and external SNI equally
-- **Zero-to-VPN onboarding page**: guided wizard on meridian.msu.rocks for non-technical users (VPS selection → SSH keys → `meridian setup`)
-- **Password-protected connection page**: PIN/password on the domain-mode connection info page for family sharing
-
-## Known issues / tech debt
-
-- Three connection-info HTML templates share the same design but different Jinja2 variables. CSS/JS is duplicated across all three. A single template with conditional blocks would reduce drift risk.
-- No key/credential rotation mechanism. To rotate: uninstall (deletes credentials) then reinstall.
-- No post-deployment monitoring beyond cron-based cleanup. No watchdog or alerting.
-
-### Recently addressed
-- Panel settings payload extracted to `roles/xray/tasks/apply_panel_settings.yml` — shared by both `xray` and `xray_relay` roles.
-- Shared tasks in `roles/shared/tasks/` — `resolve_ip.yml`, `check_qrencode.yml`, `load_credentials.yml` used by all playbooks.
-- Database and log growth: weekly cron jobs vacuum the 3x-ui database (deletes traffic stats older than 30 days) and truncate Docker container logs.
+See `BACKLOG.md` for the full prioritized task list with completion status.
 
 ## GitHub community files
 
