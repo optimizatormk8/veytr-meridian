@@ -54,11 +54,9 @@ def prompt(message: str, default: str = "") -> str:
     """Interactive prompt that reads from /dev/tty for pipe safety."""
     suffix = f" [{default}]" if default else ""
     try:
-        # Read from /dev/tty to work even when stdin is piped
-        tty = open("/dev/tty", "r")
-        err_console.print(f"  [info]\u2192[/info] {message}{suffix}: ", end="")
-        value = tty.readline().strip()
-        tty.close()
+        with open("/dev/tty") as tty:
+            err_console.print(f"  [info]\u2192[/info] {message}{suffix}: ", end="")
+            value = tty.readline().strip()
     except OSError:
         # No TTY available (CI, non-interactive)
         value = ""
@@ -68,9 +66,8 @@ def prompt(message: str, default: str = "") -> str:
 def confirm(message: str = "Press Enter to continue...") -> None:
     """Wait for user to press Enter."""
     try:
-        tty = open("/dev/tty", "r")
-        err_console.print(f"\n  [dim]{message}[/dim]", end="")
-        tty.readline()
-        tty.close()
+        with open("/dev/tty") as tty:
+            err_console.print(f"\n  [dim]{message}[/dim]", end="")
+            tty.readline()
     except OSError:
         pass

@@ -41,7 +41,7 @@ class TestWriteInventory:
         inv = write_inventory("1.2.3.4", "root", local_mode=False)
         assert inv.exists()
         data = yaml.safe_load(inv.read_text())
-        host = data["all"]["hosts"]["server"]
+        host = data["all"]["hosts"]["proxy"]
         assert host["ansible_host"] == "1.2.3.4"
         assert host["ansible_user"] == "root"
         assert "ansible_connection" not in host
@@ -49,18 +49,18 @@ class TestWriteInventory:
     def test_local_mode_inventory(self, tmp_home: Path) -> None:
         inv = write_inventory("1.2.3.4", "root", local_mode=True)
         data = yaml.safe_load(inv.read_text())
-        host = data["all"]["hosts"]["server"]
+        host = data["all"]["hosts"]["proxy"]
         assert host["ansible_connection"] == "local"
         assert "ansible_host" not in host
 
     def test_non_root_gets_become(self, tmp_home: Path) -> None:
         inv = write_inventory("1.2.3.4", "ubuntu", local_mode=False)
         data = yaml.safe_load(inv.read_text())
-        host = data["all"]["hosts"]["server"]
+        host = data["all"]["hosts"]["proxy"]
         assert host["ansible_become"] is True
 
     def test_root_no_become(self, tmp_home: Path) -> None:
         inv = write_inventory("1.2.3.4", "root", local_mode=False)
         data = yaml.safe_load(inv.read_text())
-        host = data["all"]["hosts"]["server"]
+        host = data["all"]["hosts"]["proxy"]
         assert "ansible_become" not in host

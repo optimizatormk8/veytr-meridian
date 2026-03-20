@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from meridian.console import fail, info, ok
+from meridian.console import err_console, fail, info, ok
 
 
 class ServerConnection:
@@ -35,6 +35,7 @@ class ServerConnection:
                 capture_output=True,
                 text=True,
                 timeout=timeout,
+                stdin=subprocess.DEVNULL,
             )
         cmd = ["ssh", *self._ssh_opts, f"{self.user}@{self.ip}", command]
         return subprocess.run(
@@ -54,7 +55,11 @@ class ServerConnection:
             result = self.run("echo ok", timeout=10)
             if result.returncode != 0:
                 stderr = result.stderr.strip()
-                fail(f"SSH connection failed: {stderr}")
+                err_console.print(f"\n  [error]SSH connection failed:[/error] {stderr}")
+                err_console.print(f"  [dim]1. Copy your SSH key:  ssh-copy-id {self.user}@{self.ip}[/dim]")
+                err_console.print(f"  [dim]2. Test manually:      ssh {self.user}@{self.ip}[/dim]")
+                err_console.print("  [dim]3. Different user:     meridian setup IP --user ubuntu[/dim]")
+                fail(f"SSH connection failed to {self.user}@{self.ip}")
             ok("SSH connection successful")
         except subprocess.TimeoutExpired:
             fail(f"SSH connection timed out (10s) to {self.user}@{self.ip}")
@@ -104,6 +109,22 @@ class ServerConnection:
             )
             if result.returncode == 0:
                 (local_creds_dir / "proxy.yml").chmod(0o600)
+                # Also fetch clients tracking file (best-effort)
+                subprocess.run(
+                    [
+                        "scp",
+                        *self._ssh_opts,
+                        f"{self.user}@{self.ip}:/etc/meridian/proxy-clients.yml",
+                        str(local_creds_dir / "proxy-clients.yml"),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    stdin=subprocess.DEVNULL,
+                )
+                clients_file = local_creds_dir / "proxy-clients.yml"
+                if clients_file.exists():
+                    clients_file.chmod(0o600)
                 return True
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass

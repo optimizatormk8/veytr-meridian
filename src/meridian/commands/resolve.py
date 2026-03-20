@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR
+from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ipv4
 from meridian.console import err_console, fail, info
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
@@ -72,7 +72,7 @@ def resolve_server(
         if entry:
             ip = entry.host
             user = entry.user
-        elif _is_ipv4(requested_server):
+        elif is_ipv4(requested_server):
             ip = requested_server
         else:
             fail(f"Server '{requested_server}' not found. Run: meridian server list")
@@ -138,11 +138,3 @@ def fetch_credentials(resolved: ResolvedServer) -> bool:
         return True
     resolved.creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return resolved.conn.fetch_credentials(resolved.creds_dir)
-
-
-def _is_ipv4(s: str) -> bool:
-    """Check if string looks like an IPv4 address."""
-    parts = s.split(".")
-    if len(parts) != 4:
-        return False
-    return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)

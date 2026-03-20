@@ -95,13 +95,15 @@ def do_upgrade() -> bool:
             return True
 
     if shutil.which("pip3"):
-        result = subprocess.run(
-            ["pip3", "install", "--upgrade", PYPI_PACKAGE],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            return True
+        # Try --user first, then --break-system-packages for PEP 668
+        for extra_args in [["--user"], ["--user", "--break-system-packages"]]:
+            result = subprocess.run(
+                ["pip3", "install", "--upgrade", *extra_args, PYPI_PACKAGE],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return True
 
     return False
 

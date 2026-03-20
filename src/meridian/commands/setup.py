@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import subprocess
 
-from meridian.ansible import ensure_ansible, ensure_collections, get_playbooks_dir, run_playbook
+from meridian.ansible import ensure_ansible, ensure_collections, ensure_qrencode, get_playbooks_dir, run_playbook
 from meridian.commands.resolve import (
     ensure_server_connection,
     fetch_credentials,
     resolve_server,
 )
-from meridian.config import CREDS_BASE, SERVERS_FILE
+from meridian.config import CREDS_BASE, SERVERS_FILE, is_ipv4
 from meridian.console import confirm, err_console, fail, info, line, prompt
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
@@ -19,6 +19,7 @@ from meridian.servers import ServerEntry, ServerRegistry
 def run(
     ip: str = "",
     domain: str = "",
+    email: str = "",
     sni: str = "",
     xhttp: bool = False,
     name: str = "",
@@ -47,7 +48,7 @@ def run(
 
         while True:
             server_ip = prompt("IP address", default=detected_ip)
-            if _is_ipv4(server_ip):
+            if is_ipv4(server_ip):
                 break
             err_console.print("  [error]Enter a valid IPv4 address (e.g. 123.45.67.89)[/error]")
 
@@ -91,7 +92,7 @@ def run(
         err_console.print()
 
     # Validate IP
-    if not _is_ipv4(server_ip):
+    if not is_ipv4(server_ip):
         fail(f"Invalid IP address: {server_ip}")
 
     # Resolve and prepare
@@ -103,6 +104,7 @@ def run(
     )
 
     ensure_ansible()
+    ensure_qrencode()
     playbooks_dir = get_playbooks_dir()
     ensure_collections(playbooks_dir)
 
@@ -127,6 +129,8 @@ def run(
     extra_vars: dict[str, str] = {}
     if domain:
         extra_vars["domain"] = domain
+    if email:
+        extra_vars["email"] = email
     if sni:
         extra_vars["reality_sni"] = sni
     if name:
@@ -196,16 +200,8 @@ def _detect_public_ip() -> str:
                 stdin=subprocess.DEVNULL,
             )
             ip = result.stdout.strip()
-            if _is_ipv4(ip):
+            if is_ipv4(ip):
                 return ip
         except (subprocess.TimeoutExpired, FileNotFoundError):
             continue
     return ""
-
-
-def _is_ipv4(s: str) -> bool:
-    """Check if string looks like an IPv4 address."""
-    parts = s.split(".")
-    if len(parts) != 4:
-        return False
-    return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)

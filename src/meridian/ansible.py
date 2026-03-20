@@ -23,7 +23,7 @@ def write_inventory(ip: str, user: str, local_mode: bool) -> Path:
     inv_path = MERIDIAN_HOME / "inventory.yml"
     MERIDIAN_HOME.mkdir(parents=True, exist_ok=True)
 
-    lines = ["---", "all:", "  hosts:", "    server:"]
+    lines = ["---", "all:", "  hosts:", "    proxy:"]
     if local_mode:
         lines.append("      ansible_connection: local")
     else:
@@ -34,6 +34,14 @@ def write_inventory(ip: str, user: str, local_mode: bool) -> Path:
 
     inv_path.write_text("\n".join(lines) + "\n")
     return inv_path
+
+
+def ensure_qrencode() -> None:
+    """Warn if qrencode is not installed (needed for QR code generation)."""
+    if shutil.which("qrencode"):
+        return
+    warn("qrencode not found — QR codes will not be generated")
+    info("Install it: brew install qrencode (macOS) or apt install qrencode (Linux)")
 
 
 def ensure_ansible() -> None:

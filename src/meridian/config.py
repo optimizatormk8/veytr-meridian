@@ -26,6 +26,14 @@ def is_macos() -> bool:
     return platform.system() == "Darwin"
 
 
+def is_ipv4(s: str) -> bool:
+    """Check if string looks like an IPv4 address."""
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+
+
 def ensure_dirs() -> None:
     """Create standard directories with proper permissions."""
     MERIDIAN_HOME.mkdir(parents=True, exist_ok=True)
