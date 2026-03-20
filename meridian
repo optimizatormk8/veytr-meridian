@@ -322,6 +322,7 @@ check_for_update() {
     # Patch update: auto-update silently
     if do_self_update "$latest"; then
       printf "  ${G}Auto-updated: v${MERIDIAN_VERSION} → v${latest}${R}\n\n"
+      MERIDIAN_AUTO_UPDATED=1
     fi
   else
     # Minor or major update: prompt user
@@ -1660,6 +1661,11 @@ main() {
     self-update|version|help|"") ;;
     *) check_for_update ;;
   esac
+
+  # Re-exec after auto-update so new MERIDIAN_VERSION is used for playbook download
+  if [[ "${MERIDIAN_AUTO_UPDATED:-}" == 1 ]]; then
+    exec "$0" ${args[@]+"${args[@]}"}
+  fi
 
   # Dispatch
   case "$cmd" in
