@@ -273,6 +273,7 @@ version_parse() {
 
 do_self_update() {
   # Perform the actual CLI update (shared by auto-patch and manual self-update)
+  # shellcheck disable=SC2034
   local target_version="$1"
   local self_path
   self_path=$(command -v meridian 2>/dev/null || echo "$HOME/.local/bin/meridian")
@@ -896,7 +897,7 @@ cmd_client() {
       else
         json=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
           "${ANSIBLE_USER:-root}@${SERVER_IP}" \
-          "bash -s" </dev/null 2>/dev/null <<REMOTESCRIPT
+          "bash -s" 2>/dev/null <<REMOTESCRIPT
 curl -s -c /tmp/.mc -d "username=${panel_user}&password=${panel_pass}" \
   "http://127.0.0.1:${panel_port}/${panel_path}/login" > /dev/null && \
 curl -s -b /tmp/.mc "http://127.0.0.1:${panel_port}/${panel_path}/panel/api/inbounds/list"
@@ -1275,8 +1276,9 @@ cmd_scan() {
 
   # Parse CSV: extract cert_domain (column 3), skip header, deduplicate, filter bad targets
   local domains=()
-  while IFS=',' read -r ip origin cert_domain cert_issuer geo; do
-    [[ "$ip" == "IP" ]] && continue  # skip header
+  # shellcheck disable=SC2034
+  while IFS=',' read -r _ip _origin cert_domain _cert_issuer _geo; do
+    [[ "$_ip" == "IP" ]] && continue  # skip header
     [[ -z "$cert_domain" ]] && continue
     # Skip wildcard certs (less useful as SNI targets)
     [[ "$cert_domain" == \** ]] && continue
