@@ -1,4 +1,6 @@
 """Render all Jinja2 templates with mock variables to catch undefined vars and syntax errors."""
+import glob
+import os
 import sys
 from jinja2 import Environment, FileSystemLoader, Undefined
 import re
@@ -121,17 +123,14 @@ MOCK_VARS = {
     "first_client_name": "default",
 }
 
+# Auto-discover all Jinja2 templates in roles/
 TEMPLATES = [
-    ("roles/caddy/templates", "connection-info.html.j2"),
-    ("roles/output/templates", "connection-info.html.j2"),
-    ("roles/output/templates", "connection-summary.txt.j2"),
-    ("roles/output/templates", "connection-summary-client.txt.j2"),
-    ("roles/output_relay/templates", "connection-info.html.j2"),
-    ("roles/output_relay/templates", "connection-summary.txt.j2"),
-    ("roles/xray/templates", "docker-compose.yml.j2"),
-    ("roles/caddy/templates", "Caddyfile.j2"),
-    ("roles/haproxy/templates", "haproxy.cfg.j2"),
+    (os.path.dirname(f), os.path.basename(f))
+    for f in sorted(glob.glob("roles/*/templates/*.j2"))
 ]
+if not TEMPLATES:
+    print("FAIL: No templates found — run from repo root")
+    sys.exit(1)
 
 failed = False
 for tpl_dir, tpl_name in TEMPLATES:
