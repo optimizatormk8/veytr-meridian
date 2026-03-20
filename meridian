@@ -11,7 +11,7 @@
 # =============================================================================
 set -euo pipefail
 
-MERIDIAN_VERSION="1.0.0"
+MERIDIAN_VERSION="1.1.0"
 
 # --- Directories & paths ---
 MERIDIAN_HOME="${MERIDIAN_HOME:-$HOME/.meridian}"
@@ -22,7 +22,8 @@ SERVERS_FILE="$MERIDIAN_HOME/servers"
 SERVER_CREDS_DIR="/etc/meridian"
 
 # --- URLs ---
-TARBALL_URL="https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz"
+TARBALL_URL="https://github.com/uburuntu/meridian/archive/refs/tags/v${MERIDIAN_VERSION}.tar.gz"
+TARBALL_FALLBACK_URL="https://github.com/uburuntu/meridian/archive/refs/heads/main.tar.gz"
 VERSION_URL="https://meridian.msu.rocks/version"
 CLI_URL="https://meridian.msu.rocks/meridian"
 AI_DOCS_URL="https://meridian.msu.rocks/ai/reference.md"
@@ -262,6 +263,35 @@ server_creds() {
 # Core infrastructure
 # =============================================================================
 
+version_parse() {
+  # Parse X.Y.Z from version string, sets v_major, v_minor, v_patch
+  local ver="$1" prefix="${2:-v}"
+  ver="${ver#v}"  # strip leading v
+  IFS='.' read -r "${prefix}_major" "${prefix}_minor" "${prefix}_patch" <<< "$ver"
+}
+
+do_self_update() {
+  # Perform the actual CLI update (shared by auto-patch and manual self-update)
+  local target_version="$1"
+  local self_path
+  self_path=$(command -v meridian 2>/dev/null || echo "$HOME/.local/bin/meridian")
+  [[ ! -w "$self_path" ]] && return 1
+
+  local new_cli
+  new_cli=$(curl -sSf "$CLI_URL" </dev/null 2>/dev/null) || \
+  new_cli=$(curl -sSf "https://raw.githubusercontent.com/uburuntu/meridian/main/meridian" </dev/null 2>/dev/null) || \
+    return 1
+
+  [[ "$new_cli" == *"MERIDIAN_VERSION"* ]] || return 1
+
+  printf '%s\n' "$new_cli" > "$self_path"
+  chmod +x "$self_path"
+  rm -rf "${PLAYBOOKS_DIR:?}"
+  mkdir -p "$CACHE_DIR"
+  date +%s > "$CACHE_DIR/last_update_check"
+  return 0
+}
+
 check_for_update() {
   local check_file="$CACHE_DIR/last_update_check"
   mkdir -p "$CACHE_DIR"
@@ -281,8 +311,25 @@ check_for_update() {
   latest=$(curl -sSf --max-time 3 "$VERSION_URL" </dev/null 2>/dev/null | tr -d '[:space:]') || return 0
   date +%s > "$check_file"
 
-  if [[ -n "$latest" && "$latest" != "$MERIDIAN_VERSION" ]]; then
-    printf "  ${Y}Update available: ${MERIDIAN_VERSION} → ${latest}${R}\n"
+  [[ -z "$latest" || "$latest" == "$MERIDIAN_VERSION" ]] && return 0
+
+  # Parse semver to decide update behavior
+  local v_major v_minor v_patch l_major l_minor l_patch
+  version_parse "$MERIDIAN_VERSION" "v"
+  version_parse "$latest" "l"
+
+  if [[ "$v_major" == "$l_major" && "$v_minor" == "$l_minor" && "$v_patch" != "$l_patch" ]]; then
+    # Patch update: auto-update silently
+    if do_self_update "$latest"; then
+      printf "  ${G}Auto-updated: v${MERIDIAN_VERSION} → v${latest}${R}\n\n"
+    fi
+  else
+    # Minor or major update: prompt user
+    if [[ "$v_major" != "$l_major" ]]; then
+      printf "  ${Y}Major update available: v${MERIDIAN_VERSION} → v${latest}${R}\n"
+    else
+      printf "  ${Y}Update available: v${MERIDIAN_VERSION} → v${latest}${R}\n"
+    fi
     printf "  ${D}Run: meridian self-update${R}\n\n"
   fi
 }
@@ -344,13 +391,17 @@ ensure_playbooks() {
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
+  local downloaded=false
   if command -v curl &>/dev/null; then
-    curl -sL "$TARBALL_URL" </dev/null | tar xz -C "$tmp_dir" --strip-components=1
+    curl -sSfL "$TARBALL_URL" </dev/null 2>/dev/null | tar xz -C "$tmp_dir" --strip-components=1 && downloaded=true
+    [[ "$downloaded" != true ]] && curl -sL "$TARBALL_FALLBACK_URL" </dev/null | tar xz -C "$tmp_dir" --strip-components=1 && downloaded=true
   elif command -v wget &>/dev/null; then
-    wget -qO- "$TARBALL_URL" </dev/null | tar xz -C "$tmp_dir" --strip-components=1
-  else
+    wget -qO- "$TARBALL_URL" </dev/null 2>/dev/null | tar xz -C "$tmp_dir" --strip-components=1 && downloaded=true
+    [[ "$downloaded" != true ]] && wget -qO- "$TARBALL_FALLBACK_URL" </dev/null | tar xz -C "$tmp_dir" --strip-components=1 && downloaded=true
+  fi
+  if [[ "$downloaded" != true ]]; then
     rm -rf "$tmp_dir"
-    fail "curl or wget is required"
+    fail "Failed to download playbooks. curl or wget required."
   fi
 
   rm -rf "${PLAYBOOKS_DIR:?}.tmp"
@@ -1292,25 +1343,9 @@ cmd_self_update() {
 
   local self_path
   self_path=$(command -v meridian 2>/dev/null || echo "$HOME/.local/bin/meridian")
+  [[ ! -w "$self_path" ]] && fail "Cannot update $self_path — permission denied. Try: sudo meridian self-update"
 
-  if [[ ! -w "$self_path" ]]; then
-    fail "Cannot update $self_path — permission denied. Try: sudo meridian self-update"
-  fi
-
-  local new_cli
-  new_cli=$(curl -sSf "$CLI_URL" </dev/null 2>/dev/null) || \
-  new_cli=$(curl -sSf "https://raw.githubusercontent.com/uburuntu/meridian/main/meridian" </dev/null 2>/dev/null) || \
-    fail "Failed to download update"
-
-  [[ "$new_cli" == *"MERIDIAN_VERSION"* ]] || fail "Downloaded file doesn't look like the meridian CLI"
-
-  printf '%s\n' "$new_cli" > "$self_path"
-  chmod +x "$self_path"
-
-  rm -rf "${PLAYBOOKS_DIR:?}"
-
-  mkdir -p "$CACHE_DIR"
-  date +%s > "$CACHE_DIR/last_update_check"
+  do_self_update "$latest" || fail "Failed to download update"
 
   ok "Updated to v${latest}"
   printf "  ${D}Playbooks will be re-downloaded on next command.${R}\n\n"

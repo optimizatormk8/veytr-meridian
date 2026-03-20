@@ -336,16 +336,42 @@ All previously tracked inconsistencies have been resolved:
 - Auto-commits with `[skip ci]`
 - Ensures `meridian.msu.rocks/` always serves the latest CLI, installer, and version
 
-## Version bumping
+## Versioning & releases
 
-To release a new version:
+### Semver: X.Y.Z
 
-1. Update `VERSION` file with the new version (e.g., `1.1.0`)
-2. Update `MERIDIAN_VERSION="1.1.0"` in the `meridian` script (line 14) to match
-3. Commit both changes together
-4. Push to main — CD workflow syncs `VERSION` → `docs/version` and `meridian` → `docs/meridian`
-5. Users running `meridian self-update` will pick up the new version (checked against `meridian.msu.rocks/version`)
-6. The playbook cache (`~/.meridian/playbooks/`) auto-invalidates when the CLI version changes
+| Bump | When | User experience |
+|------|------|----------------|
+| **Z** (patch) | Bug fixes, docs, safe tweaks | Auto-updated silently (next CLI run) |
+| **Y** (minor) | New features, opt-in changes (e.g., `--xhttp`, `scan`) | Prompted: "Update available", user runs `self-update` |
+| **X** (major) | Breaking changes, defaults change | Prompted: "Major update available", user runs `self-update` |
+
+### How to release
+
+1. Update `VERSION` file with the new version
+2. Update `MERIDIAN_VERSION` in `meridian` script (line 14) to match
+3. Commit both together — include the feature commits in the same push or push after them
+4. Push to main → three workflows trigger:
+   - **CI**: validates VERSION matches MERIDIAN_VERSION
+   - **CD**: syncs CLI files to GitHub Pages (`meridian.msu.rocks/version`)
+   - **Release**: creates git tag `vX.Y.Z` + GitHub Release with auto-generated notes from commit history
+5. Playbooks are fetched from the release tag tarball (`archive/refs/tags/vX.Y.Z.tar.gz`), with fallback to `main` for unreleased versions during development
+
+### When to bump (guidance for Claude)
+
+After completing a feature or fix, **always bump the version as part of the commit workflow**:
+- Fixed a bug or updated docs? → Bump Z (patch): `1.1.0` → `1.1.1`
+- Added a new command, flag, or transport? → Bump Y (minor): `1.1.0` → `1.2.0`
+- Changed defaults or broke backward compat? → Bump X (major): `1.2.0` → `2.0.0`
+
+**Do NOT skip version bumps.** Every meaningful change to the CLI or playbooks should get a version bump so users on auto-patch get fixes and users on manual update see the prompt. If multiple features are in one session, one version bump at the end is fine.
+
+### Release artifacts
+
+- **CLI binary**: `meridian.msu.rocks/meridian` (CD sync from repo root)
+- **Version file**: `meridian.msu.rocks/version` (CD sync from VERSION)
+- **Playbook tarball**: `github.com/.../archive/refs/tags/vX.Y.Z.tar.gz` (from release tag)
+- **GitHub Release**: auto-created by `.github/workflows/release.yml` when VERSION changes
 
 CI validates that `VERSION` and `MERIDIAN_VERSION` match on every push.
 
