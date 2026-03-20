@@ -863,7 +863,7 @@ cmd_check() {
   info "Checking SNI target ASN match..."
   local server_org sni_ip sni_org
   server_org=$(run_on_server "curl -s --max-time 5 https://ipinfo.io/org 2>/dev/null" || true)
-  sni_ip=$(run_on_server "dig +short $sni_host @8.8.8.8 2>/dev/null | head -1" || true)
+  sni_ip=$(run_on_server "dig +short $sni_host @8.8.8.8 2>/dev/null | grep -E '^[0-9]+\.' | head -1" || true)
   if [[ -n "$server_org" && -n "$sni_ip" && "$sni_ip" =~ ^[0-9]+\. ]]; then
     sni_org=$(run_on_server "curl -s --max-time 5 https://ipinfo.io/$sni_ip/org 2>/dev/null" || true)
     if [[ -n "$sni_org" ]]; then
@@ -874,9 +874,9 @@ cmd_check() {
       if [[ "$server_asn" == "$sni_asn" ]]; then
         ok "SNI target is on the same ASN ($server_asn)"
       else
-        # Check for known-bad SNI targets (proprietary ASNs)
-        if [[ "$sni_org" == *"Apple"* || "$sni_org" == *"iCloud"* ]]; then
-          warn "SNI target is on $sni_org — Apple-owned ASN, instant detection"
+        # Check for known-bad SNI targets (proprietary ASNs or domains)
+        if [[ "$sni_org" == *"Apple"* || "$sni_host" == *"icloud.com"* || "$sni_host" == *"apple.com"* ]]; then
+          warn "SNI target ($sni_host) is risky — Apple infrastructure, detectable ASN mismatch"
           printf "       %s\n" "Use a global CDN domain: www.microsoft.com, www.twitch.tv, github.com"
           issues=$((issues + 1))
         else
@@ -1019,51 +1019,61 @@ cmd_scan() {
   local arch
   arch=$(run_on_server "uname -m" || true)
   case "$arch" in
-    x86_64)  arch="amd64" ;;
-    aarch64) arch="arm64" ;;
+    x86_64)  arch="64" ;;
+    aarch64) warn "RealiTLScanner has no arm64 build. You can set SNI manually with --sni."; return 0 ;;
     *)       fail "Unsupported architecture: $arch" ;;
   esac
 
   # Download RealiTLScanner to server
-  local scanner_url="https://github.com/XTLS/RealiTLScanner/releases/latest/download/RealiTLScanner_linux_${arch}"
-  info "Downloading RealiTLScanner ($arch)..."
+  local scanner_url="https://github.com/XTLS/RealiTLScanner/releases/latest/download/RealiTLScanner-linux-${arch}"
+  info "Downloading RealiTLScanner..."
   run_on_server "curl -sSfL --max-time 30 -o /tmp/realitlscanner '$scanner_url' </dev/null && chmod +x /tmp/realitlscanner" || \
     fail "Failed to download RealiTLScanner. Check network connectivity."
 
-  # Run scan
-  info "Scanning nearby targets (this takes 30-60 seconds)..."
-  local scan_output
-  scan_output=$(run_on_server "timeout 90 /tmp/realitlscanner -addr $SERVER_IP -count 10 2>&1" || true)
+  # Get server's subnet CIDR for scanning
+  local server_cidr
+  server_cidr=$(run_on_server "ip addr show | grep 'inet ' | grep -v '127.0.0\|172.17\|10.0\|192.168' | head -1 | awk '{print \$2}'" || true)
+  [[ -z "$server_cidr" ]] && server_cidr="${SERVER_IP}/24"
 
-  # Clean up
+  # Run scan on the server's subnet
+  info "Scanning $server_cidr for TLS targets (this takes 30-60 seconds)..."
+  run_on_server "cd /tmp && rm -f out.csv && timeout 90 ./realitlscanner -addr '$server_cidr' -thread 4 -timeout 5 >/dev/null 2>&1" || true
+
+  # Clean up binary (keep out.csv for parsing)
   run_on_server "rm -f /tmp/realitlscanner" 2>/dev/null || true
 
-  if [[ -z "$scan_output" ]]; then
+  # Read CSV results
+  local csv_output
+  csv_output=$(run_on_server "cat /tmp/out.csv 2>/dev/null" || true)
+  run_on_server "rm -f /tmp/out.csv" 2>/dev/null || true
+
+  if [[ -z "$csv_output" || "$csv_output" == "IP,ORIGIN,CERT_DOMAIN,CERT_ISSUER,GEO_CODE" ]]; then
     warn "Scan produced no results. The server may have limited network visibility."
     printf "\n  ${D}You can manually set SNI with: meridian setup $SERVER_IP --sni DOMAIN${R}\n\n"
     return 0
   fi
 
-  # Parse results — RealiTLScanner outputs lines with domain names
+  # Parse CSV: extract cert_domain (column 3), skip header, deduplicate, filter bad targets
   local domains=()
-  while IFS= read -r line; do
-    # Extract domain from scan output (format varies, look for domain-like strings)
-    local domain
-    domain=$(echo "$line" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})?' | head -1)
-    if [[ -n "$domain" ]]; then
-      # Filter out known-bad targets
-      case "$domain" in
-        *apple.com|*icloud.com) continue ;;
-      esac
-      # Deduplicate
-      local dup=false
-      for d in "${domains[@]:-}"; do
-        [[ "$d" == "$domain" ]] && { dup=true; break; }
-      done
-      [[ "$dup" == true ]] && continue
-      domains+=("$domain")
-    fi
-  done <<< "$scan_output"
+  while IFS=',' read -r ip origin cert_domain cert_issuer geo; do
+    [[ "$ip" == "IP" ]] && continue  # skip header
+    [[ -z "$cert_domain" ]] && continue
+    # Skip wildcard certs (less useful as SNI targets)
+    [[ "$cert_domain" == \** ]] && continue
+    # Filter out known-bad targets
+    case "$cert_domain" in
+      *apple.com|*icloud.com) continue ;;
+    esac
+    # Skip the server's own domain
+    [[ "$cert_domain" == *"$SERVER_IP"* ]] && continue
+    # Deduplicate
+    local dup=false
+    for d in "${domains[@]:-}"; do
+      [[ "$d" == "$cert_domain" ]] && { dup=true; break; }
+    done
+    [[ "$dup" == true ]] && continue
+    domains+=("$cert_domain")
+  done <<< "$csv_output"
 
   if [[ ${#domains[@]} -eq 0 ]]; then
     warn "No suitable SNI targets found."
