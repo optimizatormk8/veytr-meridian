@@ -31,11 +31,13 @@ OLD_MERIDIAN=$(command -v meridian 2>/dev/null || true)
 if [[ -n "$OLD_MERIDIAN" ]] && grep -q 'MERIDIAN_VERSION=' "$OLD_MERIDIAN" 2>/dev/null; then
   warn "Found old bash CLI at $OLD_MERIDIAN"
   info "Migrating to Python package..."
-  rm -f "$OLD_MERIDIAN"
+  if rm -f "$OLD_MERIDIAN" 2>/dev/null; then
+    ok "Old CLI removed (credentials preserved)"
+  else
+    warn "Cannot remove $OLD_MERIDIAN (permission denied). Remove manually: sudo rm $OLD_MERIDIAN"
+  fi
   # Clean up old playbook cache (now bundled in package)
-  rm -rf "$HOME/.meridian/playbooks"
-  # Credentials, servers, and cache are preserved (compatible format)
-  ok "Old CLI removed (credentials preserved)"
+  rm -rf "$HOME/.meridian/playbooks" 2>/dev/null || true
 fi
 
 # =============================================================================
