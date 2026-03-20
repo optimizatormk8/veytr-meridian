@@ -318,7 +318,14 @@ check_for_update() {
   version_parse "$MERIDIAN_VERSION" "v"
   version_parse "$latest" "l"
 
-  if [[ "$v_major" == "$l_major" && "$v_minor" == "$l_minor" && "$v_patch" != "$l_patch" ]]; then
+  # Skip if local version is newer than remote (dev/pre-release)
+  if [[ "$l_major" -lt "$v_major" ]] || \
+     [[ "$l_major" -eq "$v_major" && "$l_minor" -lt "$v_minor" ]] || \
+     [[ "$l_major" -eq "$v_major" && "$l_minor" -eq "$v_minor" && "$l_patch" -le "$v_patch" ]]; then
+    return 0
+  fi
+
+  if [[ "$v_major" == "$l_major" && "$v_minor" == "$l_minor" && "$l_patch" -gt "$v_patch" ]]; then
     # Patch update: auto-update silently
     if do_self_update "$latest"; then
       printf "  ${G}Auto-updated: v${MERIDIAN_VERSION} → v${latest}${R}\n\n"
