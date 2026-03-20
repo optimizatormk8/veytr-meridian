@@ -37,8 +37,8 @@ jobs:
       - name: Install package with dev dependencies
         run: pip install ".[dev]"
 
-      - name: Run tests
-        run: pytest tests/ -v --tb=short
+      - name: Run tests (skip integration — no Docker)
+        run: pytest tests/ -v --tb=short --ignore=tests/test_integration_3xui.py
 
   python-lint:
     name: Python Lint
@@ -159,6 +159,45 @@ jobs:
             exit 1
           fi
           echo "OK: VERSION=$VERSION"
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package with dev dependencies
+        run: pip install ".[dev]"
+
+      - name: Start 3x-ui container
+        run: docker compose -f docker-compose.test.yml up -d
+
+      - name: Wait for panel
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:2053/ 2>/dev/null || echo "000")
+            if [ "$code" != "000" ]; then
+              echo "Panel ready (HTTP $code)"
+              break
+            fi
+            echo "Waiting... attempt $i"
+            sleep 2
+          done
+
+      - name: Run integration tests
+        run: pytest tests/test_integration_3xui.py -v --tb=short
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs
+
+      - name: Stop container
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   dry-run:
     name: Dry Run

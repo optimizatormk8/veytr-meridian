@@ -33,7 +33,7 @@
 
 - [ ] Pin ansible-lint via `gh_action_ref: "v25.5.0"` — `@main` is upstream-recommended but a breaking change could randomly fail CI
 - [ ] Add `ansible.cfg` validation to CI — verify `jinja2_native = True` exists (critical for `body_format: json` integer typing)
-- [ ] Add Docker integration test for 3x-ui API — spin up 3x-ui in CI, run login/create-inbound/list/verify JSON round-trip
+- [x] Add Docker integration test for 3x-ui API — spin up 3x-ui in CI, run login/create-inbound/list/verify JSON round-trip
 - [x] Configure PyPI trusted publisher — required for automated PyPI publishing from GitHub Actions
 - [x] Register `meridian-vpn` on PyPI — publish initial package to reserve name
 
