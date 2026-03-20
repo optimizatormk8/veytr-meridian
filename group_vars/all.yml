@@ -92,10 +92,13 @@ credentials_file: "{{ credentials_dir }}/{{ inventory_hostname }}.yml"
 # -----------------------------------------------------------------------------
 # XHTTP Transport (opt-in for enhanced post-handshake stealth)
 # -----------------------------------------------------------------------------
-# When enabled, creates a second VLESS+Reality+XHTTP inbound alongside TCP.
-# XHTTP makes traffic statistically indistinguishable from normal browsing.
-# Requires compatible client apps (v2rayNG 1.9+, Hiddify).
-xhttp_enabled: false
+# Creates a second VLESS+Reality+XHTTP inbound alongside TCP Reality.
+# XHTTP makes post-handshake traffic indistinguishable from normal browsing,
+# defeating behavioral analysis (TSPU Layer 4). All recommended client apps
+# support XHTTP (v2rayNG 1.9+, v2RayTun 3.12+, Hiddify 2.0+, Shadowrocket 2.2+).
+# Users always get both TCP Reality (primary) and XHTTP (stealth) connection links.
+# Disable with: -e xhttp_enabled=false
+xhttp_enabled: true
 
 # -----------------------------------------------------------------------------
 # Chain Mode (set automatically by playbook-chain.yml)
