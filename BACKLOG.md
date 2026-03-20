@@ -34,8 +34,8 @@
 - [ ] Pin ansible-lint via `gh_action_ref: "v25.5.0"` — `@main` is upstream-recommended but a breaking change could randomly fail CI
 - [ ] Add `ansible.cfg` validation to CI — verify `jinja2_native = True` exists (critical for `body_format: json` integer typing)
 - [ ] Add Docker integration test for 3x-ui API — spin up 3x-ui in CI, run login/create-inbound/list/verify JSON round-trip
-- [ ] Configure PyPI trusted publisher — required for automated PyPI publishing from GitHub Actions
-- [ ] Register `meridian-vpn` on PyPI — publish initial package to reserve name
+- [x] Configure PyPI trusted publisher — required for automated PyPI publishing from GitHub Actions
+- [x] Register `meridian-vpn` on PyPI — publish initial package to reserve name
 
 ## P2 — Medium (open)
 
@@ -43,7 +43,7 @@
 - [ ] Consolidate 3 connection-info HTML templates into one — biggest drift risk; use `{% if domain_mode %}` / `{% if relay_mode %}` conditionals instead of 3 copies
 - [ ] Add "broke after update" issue template — capture old version, new version, timing, auto-update vs manual
 - [ ] Improve dry-run CI job — remove `|| echo` suppression, use `--tags` for local-compatible tasks, add domain mode and chain mode dry-runs
-- [ ] Add playbook sync automation — script or Makefile to copy root playbooks into `src/meridian/playbooks/` and verify in CI
+- [x] ~~Add playbook sync automation~~ — eliminated by single-copy architecture (playbooks only in `src/meridian/playbooks/`)
 - [ ] Add mypy type checking to CI — strict mode on `src/meridian/`
 
 ## P3 — Low (open)

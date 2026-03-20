@@ -61,9 +61,10 @@ User → Relay:443 (VLESS+TCP, plain) → Exit:443 (VLESS+Reality+XHTTP) → Int
 ```
 meridian setup [IP] [flags]     Deploy proxy server
   --domain DOMAIN               Enable domain mode with CDN fallback
+  --email EMAIL                 Email for TLS certificates (optional)
   --sni HOST                    Reality SNI target (default: www.microsoft.com)
   --xhttp                       Add XHTTP transport (enhanced behavioral stealth)
-  --name NAME                   Server display name
+  --name NAME                   Name for the first client
   --user USER                   SSH user (default: root)
   --yes                         Skip confirmation prompts
 
@@ -76,7 +77,6 @@ meridian diagnostics [IP] [--ai]        Collect system info for debugging
 meridian uninstall [IP]                 Remove proxy from server
 meridian self-update                    Update CLI to latest version
 meridian version                        Show version
-meridian help                           Show help
 ```
 
 Global flag: `--server NAME` targets a specific named server.
@@ -87,7 +87,6 @@ Global flag: `--server NAME` targets a specific named server.
 - **Local cache**: `~/.meridian/credentials/<IP>/proxy.yml` per server
 - Credentials include: panel login, Reality keys (public/private), client UUIDs, domain, SNI
 - **Server registry**: `~/.meridian/servers` tracks known servers (line format: `host user name`)
-- **Playbook cache**: `~/.meridian/playbooks/` with `.version` marker, re-downloaded on CLI update
 - On re-runs, saved credentials are loaded (not regenerated) for idempotency
 
 ## Key Config Files on Server

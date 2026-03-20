@@ -93,8 +93,8 @@ class ServerConnection:
                 err_console.print(
                     "\n  [warn]![/warn] Running on the server as non-root. Meridian needs root to access credentials."
                 )
-                err_console.print(f"  [dim]Run with sudo:  sudo -E {self_bin} setup {self.ip}[/dim]")
-                err_console.print(f"  [dim]Or from laptop:  meridian setup {self.ip} --user {self.user}[/dim]\n")
+                err_console.print(f"  [dim]Run: sudo {self_bin} setup {self.ip}[/dim]")
+                err_console.print(f"  [dim]Or from laptop: meridian setup {self.ip} --user {self.user}[/dim]\n")
                 fail("Root access required on the server itself")
             return False
 

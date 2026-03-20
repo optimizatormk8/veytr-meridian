@@ -14,26 +14,22 @@ Thanks for your interest! Here's how to help.
 ```bash
 git clone https://github.com/uburuntu/meridian.git && cd meridian
 
-# Install the CLI in editable mode with dev dependencies
-pip install -e ".[dev]"
+# Install the CLI in editable mode with all dev dependencies (uses uv sync --extra dev)
+make install
 
-# Install Ansible (for playbook validation)
+# Run full CI locally (lint + format + test + ansible-lint + syntax-check + templates)
+make ci
+
+# Or run individual checks:
+make test              # Run Python tests (pytest)
+make lint              # Run ruff linter
+make format-check      # Check formatting
+make ansible-lint      # Run ansible-lint on playbooks
+make templates         # Validate Jinja2 template rendering
+
+# Install Ansible collections (if needed for manual playbook runs)
 pip install ansible
-ansible-galaxy collection install -r requirements.yml
-
-# Run tests
-pytest tests/ -v
-
-# Run linter
-ruff check src/ tests/
-ruff format --check src/ tests/
-
-# Run Ansible lint
-pip install ansible-lint
-ansible-lint
-
-# Run template rendering test
-python3 tests/render_templates.py
+ansible-galaxy collection install -r src/meridian/playbooks/requirements.yml
 ```
 
 ## Project Structure
@@ -51,7 +47,7 @@ Key modules:
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes — keep them focused and minimal
-3. Ensure CI passes: `pytest`, `ruff check`, `ruff format --check`, `ansible-lint`
+3. Ensure CI passes: `make ci` (runs all checks locally)
 4. Test on a real server if possible — CI can't catch deployment issues
 5. Open a PR with a clear description of what and why
 
@@ -63,7 +59,7 @@ See [CLAUDE.md](CLAUDE.md) for detailed architecture, implicit dependencies, and
 - **Secrets use `no_log: true`** — never expose credentials in output
 - **Three connection-info templates must stay in sync** (output/caddy/output_relay)
 - **Caddy config** goes in `/etc/caddy/conf.d/meridian.caddy`, not the main Caddyfile
-- **Playbook sync** — when editing playbooks at repo root, copy changes to `src/meridian/playbooks/`
+
 
 ## Testing
 

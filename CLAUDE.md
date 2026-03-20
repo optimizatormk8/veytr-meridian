@@ -58,12 +58,8 @@ src/meridian/              Python CLI package
     requirements.yml       Galaxy collections
     group_vars/            Shared defaults
     roles/                 All Ansible roles
-playbook.yml               Standalone mode (repo root copy, used by CI)
-playbook-chain.yml         Chain mode
-playbook-client.yml        Client management
-playbook-uninstall.yml     Clean removal
-group_vars/                Shared defaults (repo root copy)
-roles/                     All Ansible roles (repo root copy)
+Makefile                  Dev workflow: install, test, lint, ci, build, publish
+uv.lock                   Locked dependencies (committed)
 install.sh                 CLI installer (bootstraps uv, installs from PyPI, migrates old bash CLI)
 setup.sh                   Compat shim → installs CLI + forwards args
 tests/
@@ -83,7 +79,7 @@ docs/CNAME                 Custom domain for GitHub Pages
 .github/workflows/ci.yml   CI: ansible-lint, pytest, ruff, shellcheck, dry-run
 .github/workflows/cd.yml   CD: sync install.sh/setup.sh/version → docs/
 .github/workflows/release.yml  Release: git tag + GitHub Release + PyPI publish
-.ansible-lint              Ansible lint configuration
+inventory.yml.example      Standalone inventory template (orphaned — CI uses src/meridian/playbooks/)
 SECURITY.md                Vulnerability reporting policy
 CONTRIBUTING.md            Development setup and PR guidelines
 ```
@@ -113,19 +109,20 @@ These are easy to break by editing one file without updating the others:
 - CLI adds `ansible_connection: local` when running on the target server itself
 - CLI adds `ansible_become: true` for non-root users
 - Playbook post_tasks sync `credentials_dir` to `/etc/meridian/` on the server (unless already local)
-- Playbooks exist in two places: repo root (for CI/development) and `src/meridian/playbooks/` (bundled in package)
+- Playbooks exist only in `src/meridian/playbooks/` (single copy, bundled in package)
 
 ### meridian subcommands
-- `meridian setup [IP] [--domain --sni --xhttp --name --user --yes]` — deploy server
-- `meridian client add|list|remove NAME` — manage clients via `playbook-client.yml`
+- `meridian setup [IP] [--domain --email --sni --xhttp --name --user --yes]` — deploy server
+- `meridian client add|list|remove NAME [--server]` — manage clients via `playbook-client.yml`
 - `meridian server add|list|remove` — manage known servers
-- `meridian check [IP] [--ai]` — pre-flight validation (SNI, ports, DNS, OS, disk, ASN)
-- `meridian scan [IP]` — find optimal SNI targets via RealiTLScanner on server
-- `meridian ping [IP]` — test proxy reachability from client device (no SSH needed)
-- `meridian diagnostics [IP] [--ai]` — collect system info for bug reports
-- `meridian uninstall [IP]` — remove proxy via `playbook-uninstall.yml`
+- `meridian check [IP] [--ai --server]` — pre-flight validation (SNI, ports, DNS, OS, disk, ASN)
+- `meridian scan [IP] [--server]` — find optimal SNI targets via RealiTLScanner on server
+- `meridian ping [IP] [--server]` — test proxy reachability from client device (no SSH needed)
+- `meridian diagnostics [IP] [--ai --server]` — collect system info for bug reports
+- `meridian uninstall [IP] [--server --yes]` — remove proxy via `playbook-uninstall.yml`
 - `meridian self-update` — update CLI via `uv tool upgrade` / `pipx upgrade`
 - `meridian version` — show version
+- Most commands accept `--server NAME` to target a specific named server from the registry.
 
 ### docs/index.html ↔ meridian CLI
 - Website command builder has tabbed interface generating `meridian` subcommands
@@ -160,7 +157,7 @@ These are easy to break by editing one file without updating the others:
 - Clients are tracked in `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with UUIDs and timestamps
 - `roles/output/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
 - 3x-ui API: `addClient` adds to existing inbound (id in form body), `delClient/{uuid}` removes by client UUID (NOT email — email silently succeeds but doesn't delete)
-- `--add-client`/`--remove-client` resolve server IP from saved credentials (same as `--uninstall`)
+- `meridian client add`/`meridian client remove` resolve server IP from saved credentials or `--server` flag
 
 ### Caddy config pattern
 - Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (not the main Caddyfile)
@@ -214,29 +211,26 @@ These are easy to break by editing one file without updating the others:
 ## Build and test
 
 ```bash
-# Install CLI in editable mode with dev dependencies
-pip install -e ".[dev]"
+# Install CLI in editable mode with dev dependencies (uses uv sync --extra dev)
+make install
 
-# Run Python tests
-pytest tests/ -v
+# Run full CI locally (lint + format + test + ansible-lint + syntax-check + templates)
+make ci
 
-# Run linter
-ruff check src/ tests/
-ruff format --check src/ tests/
+# Individual targets:
+make test              # pytest
+make lint              # ruff check
+make format-check      # ruff format --check
+make ansible-lint      # ansible-lint (runs inside src/meridian/playbooks/)
+make ansible-check     # syntax-check all playbooks
+make templates         # Jinja2 template rendering test
 
-# Run template rendering test
-python3 tests/render_templates.py
-
-# Install Ansible for playbook validation
+# Install Ansible collections (for playbook validation)
 pip install ansible
-ansible-galaxy collection install -r requirements.yml
+ansible-galaxy collection install -r src/meridian/playbooks/requirements.yml
 
-# Run standalone
-ansible-playbook playbook.yml
-
-# Run chain mode
-cp inventory-chain.yml.example inventory-chain.yml
-ansible-playbook -i inventory-chain.yml playbook-chain.yml
+# Run standalone playbook directly (from playbooks dir)
+cd src/meridian/playbooks && ansible-playbook playbook.yml
 
 # The playbook verifies ports are listening at the end.
 # To fully test, import the VLESS URL into v2rayNG and check connectivity.
@@ -286,7 +280,7 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
 - **Auto-update direction**: only updates when remote version is strictly newer (`packaging.version.Version` comparison). Running a local dev build with a higher version will NOT trigger a downgrade.
 - **`jinja2_native = True` in ansible.cfg**: required for `body_format: json` to send native integer types (e.g., `port`). Safe with mixed text+expression templates (`settings: >-` blocks) because Jinja2 NativeEnvironment only returns native types for single-expression templates. Do NOT remove without an alternative solution for integer typing.
 - **`client list` bypasses Ansible**: uses direct curl + native Python JSON parsing for instant results instead of running a full playbook. `client add` and `client remove` still use Ansible playbooks because they modify state and benefit from idempotency.
-- **Playbook bundling**: playbooks exist in two places — repo root (for CI/dev) and `src/meridian/playbooks/` (bundled in package). When editing playbooks, update both copies. A sync script or CI check should enforce this.
+- **Playbook bundling**: playbooks exist only in `src/meridian/playbooks/` (bundled in package via `package_data`). No root-level copies — CI and `make` targets run from the `src/meridian/playbooks/` directory.
 - **Credential management**: `ServerCredentials` dataclass in `credentials.py` replaces all `grep|awk|tr` YAML parsing. Handles special characters, preserves unknown fields, type-safe access.
 - **When the user says "remember"**: save the instruction to this CLAUDE.md file so it persists across sessions. Don't use auto-memory — CLAUDE.md is the canonical place for project conventions.
 
@@ -304,7 +298,7 @@ When adding or changing a feature, update ALL relevant surfaces. The source of t
 | **Troubleshooting guidance** | ★ `docs/ai/troubleshooting.md` | docs/index.html troubleshooting section, connection_issue.yml template |
 | **App download links** | ★ `docs/index.html` apps section | 3x connection-info.html.j2 templates, README.md client apps table |
 | **Version** | ★ `VERSION` file | `importlib.metadata` at runtime (hatchling reads VERSION at build), docs/version (CD sync) |
-| **Error/failure guidance** | ★ `meridian` script `fail()` function | docs/ai/troubleshooting.md decision tree |
+| **Error/failure guidance** | ★ `src/meridian/console.py` `fail()` function | docs/ai/troubleshooting.md decision tree |
 
 ### Surface update checklist
 
@@ -327,7 +321,7 @@ When adding a **new flag to setup**:
 - [ ] `group_vars/all.yml` — add default variable with comment
 - [ ] Regenerate `docs/ai/reference.md`
 
-When adding a **new inbound/transport type**:
+When adding a **new inbound/transport type** (all `roles/` paths are relative to `src/meridian/playbooks/`):
 - [ ] `roles/xray/tasks/` — create/update inbound task
 - [ ] `roles/xray/tasks/main.yml` — add include gate
 - [ ] `roles/shared/tasks/generate_client_output.yml` — VLESS URL + QR codes
@@ -346,7 +340,7 @@ When adding a **new inbound/transport type**:
 - [ ] `docs/ai/architecture.md` — update topology diagrams
 - [ ] Regenerate `docs/ai/reference.md`
 
-When changing **SNI recommendations**:
+When changing **SNI recommendations** (all paths relative to `src/meridian/playbooks/`):
 - [ ] `group_vars/all.yml` — update "Good choices" / "Avoid" comments
 - [ ] `roles/output/templates/connection-summary.txt.j2` — update alternatives line
 - [ ] `docs/ai/troubleshooting.md` — update SNI Target Selection section

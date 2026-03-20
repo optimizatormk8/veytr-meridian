@@ -140,7 +140,6 @@ Caddy handles:
 
 ### On the local machine
 - `~/.meridian/credentials/<IP>/` — cached credentials per server
-- `~/.meridian/playbooks/` — Ansible playbooks cache
 - `~/.meridian/servers` — server registry
 - `~/.meridian/cache/` — update check, AI docs cache
-- `~/.local/bin/meridian` — CLI binary
+- `~/.local/bin/meridian` — CLI entry point (installed via uv/pipx)
