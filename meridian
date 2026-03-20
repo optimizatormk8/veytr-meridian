@@ -414,9 +414,18 @@ ensure_playbooks() {
   ok "Playbooks ready"
 
   info "Installing Ansible collections..."
-  if ! ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" --quiet 2>/dev/null; then
-    ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" || fail "Failed to install Ansible collections"
-  fi
+  local attempt
+  for attempt in 1 2 3; do
+    if ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" --quiet 2>/dev/null; then
+      break
+    fi
+    if [[ "$attempt" -lt 3 ]]; then
+      warn "Collection install attempt $attempt failed, retrying..."
+      sleep 3
+    else
+      ansible-galaxy collection install -r "$PLAYBOOKS_DIR/requirements.yml" || fail "Failed to install Ansible collections after 3 attempts"
+    fi
+  done
   ok "Collections ready"
 }
 
