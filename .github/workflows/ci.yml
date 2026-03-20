@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PLAYBOOKS_DIR: src/meridian/playbooks
 
 jobs:
   lint:
@@ -17,6 +18,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ansible/ansible-lint@main
         with:
+          working_directory: src/meridian/playbooks
           requirements_file: requirements.yml
 
   python-test:
@@ -71,10 +73,11 @@ jobs:
         run: pip install ansible
 
       - name: Install collections
-        run: ansible-galaxy collection install -r requirements.yml
+        run: ansible-galaxy collection install -r $PLAYBOOKS_DIR/requirements.yml
 
       - name: Syntax check — all playbooks
         run: |
+          cd $PLAYBOOKS_DIR
           ansible-playbook playbook.yml --syntax-check
           ansible-playbook playbook-client.yml --syntax-check
           ansible-playbook -i inventory-chain.yml.example playbook-chain.yml --syntax-check
@@ -103,16 +106,12 @@ jobs:
 
       - name: Verify no form-urlencoded on inbound/client APIs
         run: |
-          # body_format: form-urlencoded silently corrupts inline JSON in 3x-ui API calls.
-          # Only /login should use form-urlencoded; all inbound/client ops must use json.
           python3 -c "
           import re, sys, glob
           errors = []
-          for f in glob.glob('roles/*/tasks/*.yml'):
+          for f in glob.glob('${{ env.PLAYBOOKS_DIR }}/roles/*/tasks/*.yml'):
               content = open(f).read()
-              # Find all uri tasks with form-urlencoded
               if 'form-urlencoded' in content and ('inbound' in content.lower() or 'client' in content.lower()):
-                  # Check if it's used with inbound/client endpoints (not /login)
                   blocks = content.split('ansible.builtin.uri')
                   for block in blocks[1:]:
                       chunk = block[:500]
@@ -129,9 +128,10 @@ jobs:
         run: |
           python3 -c "
           import re, sys
+          base = '${{ env.PLAYBOOKS_DIR }}/roles'
           files = [
-              'roles/caddy/templates/connection-info.html.j2',
-              'roles/output/templates/connection-info.html.j2',
+              f'{base}/caddy/templates/connection-info.html.j2',
+              f'{base}/output/templates/connection-info.html.j2',
           ]
           def extract_links(path):
               content = open(path).read()
@@ -174,10 +174,11 @@ jobs:
       - name: Install Ansible and collections
         run: |
           pip install ansible
-          ansible-galaxy collection install -r requirements.yml
+          ansible-galaxy collection install -r $PLAYBOOKS_DIR/requirements.yml
 
       - name: Ansible dry-run (standalone, no-domain)
         run: |
+          cd $PLAYBOOKS_DIR
           ansible-playbook playbook.yml --check --diff \
             -e server_public_ip=127.0.0.1 \
             -e credentials_dir=/tmp/meridian \
@@ -187,6 +188,7 @@ jobs:
 
       - name: Ansible dry-run (uninstall)
         run: |
+          cd $PLAYBOOKS_DIR
           ansible-playbook playbook-uninstall.yml --check --diff \
             -c local \
             2>&1 || echo "Dry run completed (failures expected in local mode)"

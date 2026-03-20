@@ -126,9 +126,12 @@ MOCK_VARS = {
 }
 
 # Auto-discover all Jinja2 templates in roles/
-TEMPLATES = [(os.path.dirname(f), os.path.basename(f)) for f in sorted(glob.glob("roles/*/templates/*.j2"))]
+# Check both locations: src/meridian/playbooks/roles/ (primary) and roles/ (legacy)
+PLAYBOOKS_DIR = os.path.join(os.path.dirname(__file__), "..", "src", "meridian", "playbooks")
+roles_pattern = os.path.join(PLAYBOOKS_DIR, "roles", "*", "templates", "*.j2")
+TEMPLATES = [(os.path.dirname(f), os.path.basename(f)) for f in sorted(glob.glob(roles_pattern))]
 if not TEMPLATES:
-    print("FAIL: No templates found — run from repo root")
+    print(f"FAIL: No templates found at {roles_pattern}")
     sys.exit(1)
 
 failed = False
