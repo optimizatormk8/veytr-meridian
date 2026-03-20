@@ -62,11 +62,13 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 | Command | Description |
 |---------|-------------|
 | `meridian setup [IP]` | Deploy proxy server (interactive wizard if no IP) |
+| `meridian setup IP --xhttp` | Deploy with XHTTP transport (enhanced stealth) |
 | `meridian client add NAME` | Add a named client key |
 | `meridian client list` | List all clients |
 | `meridian client remove NAME` | Remove a client key |
 | `meridian server list` | List managed servers |
-| `meridian check [IP]` | Pre-flight validation |
+| `meridian check [IP]` | Pre-flight validation (ports, SNI, ASN, DNS) |
+| `meridian scan [IP]` | Find optimal SNI targets on server's network |
 | `meridian ping [IP]` | Test proxy reachability from this device |
 | `meridian diagnostics [IP]` | Collect info for bug reports |
 | `meridian uninstall [IP]` | Remove proxy from server |

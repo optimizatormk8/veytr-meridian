@@ -46,8 +46,8 @@ body:
 
   - type: textarea
     attributes:
-      label: Diagnostics (--rage output)
-      description: Paste the output from `meridian diagnostics` here. Review it first — secrets are auto-redacted but double-check.
+      label: Diagnostics output
+      description: Paste the output from `meridian diagnostics` here. Review it first — secrets are auto-redacted but double-check. Or run `meridian diagnostics --ai` for AI-assisted help.
       render: text
     validations:
       required: false

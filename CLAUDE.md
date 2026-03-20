@@ -90,12 +90,13 @@ These are easy to break by editing one file without updating the others:
 - Playbook post_tasks sync `credentials_dir` to `/etc/meridian/` on the server (unless already local)
 
 ### meridian subcommands
-- `meridian setup [IP] [--domain --sni --name --user --yes]` — deploy server
+- `meridian setup [IP] [--domain --sni --xhttp --name --user --yes]` — deploy server
 - `meridian client add|list|remove NAME` — manage clients via `playbook-client.yml`
 - `meridian server add|list|remove` — manage known servers
-- `meridian check [IP]` — pre-flight validation (SNI, ports, DNS, OS, disk)
+- `meridian check [IP] [--ai]` — pre-flight validation (SNI, ports, DNS, OS, disk, ASN)
+- `meridian scan [IP]` — find optimal SNI targets via RealiTLScanner on server
 - `meridian ping [IP]` — test proxy reachability from client device (no SSH needed)
-- `meridian diagnostics [IP]` — collect system info for bug reports
+- `meridian diagnostics [IP] [--ai]` — collect system info for bug reports
 - `meridian uninstall [IP]` — remove proxy via `playbook-uninstall.yml`
 - `meridian self-update` — update CLI + clear playbook cache
 - `meridian version` — show version
@@ -246,6 +247,79 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
   - **Pre-fill URLs with known data**: when server IP and domain are available in context (templates, CLI output), always generate pre-filled `meridian.msu.rocks/ping?ip=...&domain=...` URLs so users land on a ready-to-run test.
 - **When the user says "remember"**: save the instruction to this CLAUDE.md file so it persists across sessions. Don't use auto-memory — CLAUDE.md is the canonical place for project conventions.
 
+## Documentation surfaces & update checklist
+
+When adding or changing a feature, update ALL relevant surfaces. The source of truth for each type of information is marked with ★.
+
+### Sources of truth
+
+| Information | Source of Truth | Propagated To |
+|---|---|---|
+| **CLI commands & flags** | ★ `meridian` script (`cmd_help()`, flag parsing) | README.md commands table, docs/index.html builder, docs/ai/context.md CLI section, CLAUDE.md subcommands |
+| **Architecture & modes** | ★ `CLAUDE.md` architecture section | docs/ai/architecture.md, docs/ai/context.md, README.md "How it works" |
+| **SNI recommendations** | ★ `group_vars/all.yml` comments | docs/ai/troubleshooting.md SNI section, roles/output/templates/connection-summary.txt.j2 |
+| **Troubleshooting guidance** | ★ `docs/ai/troubleshooting.md` | docs/index.html troubleshooting section, connection_issue.yml template |
+| **App download links** | ★ `docs/index.html` apps section | 3x connection-info.html.j2 templates, README.md client apps table |
+| **Version** | ★ `VERSION` file | `meridian` script MERIDIAN_VERSION (must match), docs/version (CD sync) |
+| **Error/failure guidance** | ★ `meridian` script `fail()` function | docs/ai/troubleshooting.md decision tree |
+
+### Surface update checklist
+
+When adding a **new subcommand**:
+- [ ] `meridian` — implement cmd_X(), add to dispatch table, add to cmd_help()
+- [ ] `README.md` — add to commands table
+- [ ] `docs/index.html` — add tab to command builder (if user-facing)
+- [ ] `docs/ai/context.md` — add to CLI Commands section
+- [ ] `CLAUDE.md` — add to meridian subcommands list
+- [ ] Regenerate `docs/ai/reference.md` (cat context + architecture + troubleshooting)
+
+When adding a **new flag to setup**:
+- [ ] `meridian` — add to cmd_setup() flag parsing + --help text
+- [ ] `docs/index.html` — add checkbox/input to setup command builder
+- [ ] `docs/ai/context.md` — add to setup flags list
+- [ ] `CLAUDE.md` — update subcommands line
+- [ ] `group_vars/all.yml` — add default variable with comment
+- [ ] Regenerate `docs/ai/reference.md`
+
+When adding a **new inbound/transport type**:
+- [ ] `roles/xray/tasks/` — create/update inbound task
+- [ ] `roles/xray/tasks/main.yml` — add include gate
+- [ ] `roles/shared/tasks/generate_client_output.yml` — VLESS URL + QR codes
+- [ ] `roles/output/tasks/main.yml` — terminal output (QR + URL display)
+- [ ] `roles/output/templates/connection-summary.txt.j2` — admin summary
+- [ ] `roles/output/templates/connection-summary-client.txt.j2` — client summary
+- [ ] `roles/output/templates/connection-info.html.j2` — local HTML page
+- [ ] `roles/caddy/templates/connection-info.html.j2` — server HTML page (+ QR gen in caddy/tasks/main.yml)
+- [ ] `roles/caddy/tasks/main.yml` — build URL + generate QR on server
+- [ ] `roles/client_management/tasks/main.yml` — discover inbound
+- [ ] `roles/client_management/tasks/add_client.yml` — add client to inbound + terminal output
+- [ ] `roles/client_management/tasks/remove_client.yml` — remove client from inbound
+- [ ] `roles/xray/tasks/configure_panel.yml` — save setting to credentials
+- [ ] `tests/render_templates.py` — add mock variables
+- [ ] `docs/ai/context.md` — update port table and architecture
+- [ ] `docs/ai/architecture.md` — update topology diagrams
+- [ ] Regenerate `docs/ai/reference.md`
+
+When changing **SNI recommendations**:
+- [ ] `group_vars/all.yml` — update "Good choices" / "Avoid" comments
+- [ ] `roles/output/templates/connection-summary.txt.j2` — update alternatives line
+- [ ] `docs/ai/troubleshooting.md` — update SNI Target Selection section
+- [ ] Regenerate `docs/ai/reference.md`
+
+When changing **troubleshooting/error guidance**:
+- [ ] `docs/ai/troubleshooting.md` — update symptom/fix sections
+- [ ] `docs/index.html` — update troubleshooting details section
+- [ ] `.github/ISSUE_TEMPLATE/connection_issue.yml` — update pre-report checklist
+- [ ] Regenerate `docs/ai/reference.md`
+
+### Current inconsistencies to fix (tracked)
+
+- `docs/index.html` command builder missing: `scan`, `ping` tabs, `--xhttp` checkbox, `--ai` flag
+- `.github/ISSUE_TEMPLATE/bug_report.yml:49` — label says "(--rage output)" but flag doesn't exist; should say "(diagnostics output)"
+- `CONTRIBUTING.md:7` — references `--rage` flag; should say `meridian diagnostics`
+- `SECURITY.md:15` — references `--rage` diagnostics; should say `meridian diagnostics`
+- `README.md` — missing `meridian scan` and `--xhttp` flag
+
 ## CI/CD pipelines
 
 ### CI (`.github/workflows/ci.yml`) — runs on push and PR
@@ -286,7 +360,7 @@ CI validates that `VERSION` and `MERIDIAN_VERSION` match on every push.
 
 ## GitHub community files
 
-- `.github/ISSUE_TEMPLATE/bug_report.yml` — structured bug report with --rage prompt
+- `.github/ISSUE_TEMPLATE/bug_report.yml` — structured bug report with diagnostics prompt
 - `.github/ISSUE_TEMPLATE/connection_issue.yml` — connection troubleshooting with --check prompt
 - `.github/ISSUE_TEMPLATE/feature_request.yml` — feature requests by area
 - `.github/ISSUE_TEMPLATE/config.yml` — disables blank issues, links to docs
