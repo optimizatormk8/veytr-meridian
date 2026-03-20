@@ -128,7 +128,7 @@ These are easy to break by editing one file without updating the others:
 
 ### Client management flow
 - `playbook-client.yml` loads credentials from `proxy.yml`, reads `domain` field to detect domain mode
-- Client names map to 3x-ui `email` fields: `reality-{name}`, `wss-{name}` (e.g., `reality-alice`, `wss-alice`)
+- Client names map to 3x-ui `email` fields: `reality-{name}`, `wss-{name}`, `xhttp-{name}` (e.g., `reality-alice`, `wss-alice`, `xhttp-alice`)
 - The first client created during install uses `reality-{{ first_client_name | default('default') }}` — same naming convention
 - Clients are tracked in `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with UUIDs and timestamps
 - `roles/output/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
@@ -173,9 +173,11 @@ These are easy to break by editing one file without updating the others:
 
 ## Key API patterns
 
-- 3x-ui login: `POST /login` (form-urlencoded) returns session cookie
-- Add inbound: `POST /panel/api/inbounds/add` (form-urlencoded with JSON in `settings`, `streamSettings`, `sniffing` fields)
+- 3x-ui login: `POST /login` (form-urlencoded) returns session cookie. Login MUST use form-urlencoded (not JSON).
+- Add inbound: `POST /panel/api/inbounds/add` (JSON body with `body_format: json`). The `settings`, `streamSettings`, `sniffing` fields must be JSON **strings** (not nested objects). The Go struct uses `string` type for these fields. With `body_format: json` + `jinja2_native = True`, the `>-` YAML blocks containing mixed text+Jinja2 expressions remain strings (Jinja2 NativeEnvironment only returns native types for single-expression templates like `{{ x }}`, not mixed content).
 - List inbounds: `GET /panel/api/inbounds/list` (check by remark before creating)
+- **CRITICAL: Do NOT use `body_format: form-urlencoded` for inbound/client API calls.** Ansible's uri module silently corrupts inline JSON values in form-urlencoded bodies — the API returns `success: true` but stores only the first key name instead of the full JSON object. This was a production bug. Always use `body_format: json` for inbound operations.
+- 3x-ui rejects duplicate ports — two inbounds cannot share the same port. XHTTP needs its own dedicated port separate from Reality TCP.
 - Update settings: `POST /panel/setting/update` (JSON body)
 - Update credentials: `POST /panel/setting/updateUser` (JSON body)
 - Read settings: `POST /panel/setting/all`
@@ -245,6 +247,10 @@ ansible-playbook -i inventory-chain.yml playbook-chain.yml
   - The pattern: error/failure messages → suggest ping first (network issue?), then diagnostics (server issue?), then GitHub issues (bug?)
   - **Context-sensitive upsells**: don't blindly suggest every tool — only suggest the tool that helps for the specific failure mode. Example: if ping shows port 443 is blocked, suggesting `meridian diagnostics` doesn't help (it's a firewall issue). But if ping passes and VPN still fails, diagnostics is the right next step.
   - **Pre-fill URLs with known data**: when server IP and domain are available in context (templates, CLI output), always generate pre-filled `meridian.msu.rocks/ping?ip=...&domain=...` URLs so users land on a ready-to-run test.
+- **CLI binary location**: `meridian` can exist in both `/usr/local/bin/` and `~/.local/bin/`. `which meridian` determines which runs. Auto-update writes to `command -v meridian`. When testing locally via `scp`, always check `which meridian` first — updating the wrong file means your changes never execute.
+- **Auto-update re-exec**: after auto-update replaces the CLI on disk, the running process still has the old `MERIDIAN_VERSION` in memory. The CLI must `exec "$0" "$@"` after auto-update so the new version's `MERIDIAN_VERSION` is used for playbook downloads. Without this, playbooks for the OLD version are downloaded.
+- **`jinja2_native = True` in ansible.cfg**: required for `body_format: json` to send native integer types (e.g., `port`). Safe with mixed text+expression templates (`settings: >-` blocks) because Jinja2 NativeEnvironment only returns native types for single-expression templates. Do NOT remove without an alternative solution for integer typing.
+- **`client list` bypasses Ansible**: uses direct curl + python3 for instant results instead of running a full playbook. `client add` and `client remove` still use Ansible playbooks because they modify state and benefit from idempotency.
 - **When the user says "remember"**: save the instruction to this CLAUDE.md file so it persists across sessions. Don't use auto-memory — CLAUDE.md is the canonical place for project conventions.
 
 ## Documentation surfaces & update checklist

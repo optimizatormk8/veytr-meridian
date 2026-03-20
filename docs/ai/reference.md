@@ -132,20 +132,27 @@ Users connect with these apps after scanning the QR code or importing the VLESS 
 Internet
   │
   ▼
-┌─────────────────────────┐
-│ Server                  │
-│                         │
-│  Port 443               │
-│  ┌───────────────────┐  │
-│  │ Docker: 3x-ui     │  │
-│  │  └─ Xray (Reality)│  │
-│  └───────────────────┘  │
-│                         │
-│  Port 2053 (localhost)  │
-│  └─ 3x-ui Web Panel    │
-│    (SSH tunnel only)    │
-└─────────────────────────┘
+┌──────────────────────────────┐
+│ Server                       │
+│                              │
+│  Port 443                    │
+│  ┌────────────────────────┐  │
+│  │ Docker: 3x-ui          │  │
+│  │  └─ Xray (Reality TCP) │  │
+│  └────────────────────────┘  │
+│                              │
+│  Port XHTTP (random)        │
+│  ┌────────────────────────┐  │
+│  │  └─ Xray (Reality XHTTP)│ │
+│  └────────────────────────┘  │
+│                              │
+│  Port 2053 (localhost)       │
+│  └─ 3x-ui Web Panel         │
+│    (SSH tunnel only)         │
+└──────────────────────────────┘
 ```
+
+Note: XHTTP uses a separate random port because 3x-ui rejects duplicate ports — two inbounds cannot share port 443. The XHTTP port is deterministic (seeded by hostname) so re-runs produce the same value.
 
 ### Domain Mode
 
@@ -170,6 +177,7 @@ Internet
 │                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
+│  ├─ XHTTP inbound (random port)     │
 │  └─ WSS inbound (random port, local) │
 │                                      │
 │  Caddy (systemd)                     │
@@ -340,6 +348,18 @@ Add --ai to check or diagnostics for an AI-ready prompt.
 **Cause:** Another service (Apache, Nginx, etc.) is using port 443.
 
 **Fix:** Stop the conflicting service or run Meridian on a clean server. `meridian check IP` will tell you what's using the port.
+
+### Xray fails to start (invalid JSON / MarshalJSON error)
+
+**Cause:** The 3x-ui inbound `settings` or `streamSettings` fields contain corrupted JSON. This happens when Ansible's `body_format: form-urlencoded` silently corrupts inline JSON values — the API returns `success: true` but stores only the first key name (e.g., `"clients"`) instead of the full JSON object.
+
+**Fix:** This was fixed in v1.2.1 by switching to `body_format: json`. If you hit this on an older version, uninstall and reinstall: `meridian uninstall IP && meridian setup IP`. To verify the database is clean: `sqlite3 /opt/3x-ui/db/x-ui.db "SELECT settings FROM inbounds;"` — each field should be valid JSON, not a single word.
+
+### XHTTP inbound creation fails (port already exists)
+
+**Cause:** In standalone mode, both Reality TCP and XHTTP tried to bind port 443. 3x-ui rejects duplicate ports.
+
+**Fix:** Fixed in v1.2.1. XHTTP now uses a separate dedicated port (`xhttp_port` variable). The port is deterministic (seeded by hostname) and automatically opened in UFW.
 
 ### Docker installation fails
 

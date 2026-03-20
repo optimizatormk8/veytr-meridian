@@ -8,20 +8,27 @@
 Internet
   │
   ▼
-┌─────────────────────────┐
-│ Server                  │
-│                         │
-│  Port 443               │
-│  ┌───────────────────┐  │
-│  │ Docker: 3x-ui     │  │
-│  │  └─ Xray (Reality)│  │
-│  └───────────────────┘  │
-│                         │
-│  Port 2053 (localhost)  │
-│  └─ 3x-ui Web Panel    │
-│    (SSH tunnel only)    │
-└─────────────────────────┘
+┌──────────────────────────────┐
+│ Server                       │
+│                              │
+│  Port 443                    │
+│  ┌────────────────────────┐  │
+│  │ Docker: 3x-ui          │  │
+│  │  └─ Xray (Reality TCP) │  │
+│  └────────────────────────┘  │
+│                              │
+│  Port XHTTP (random)        │
+│  ┌────────────────────────┐  │
+│  │  └─ Xray (Reality XHTTP)│ │
+│  └────────────────────────┘  │
+│                              │
+│  Port 2053 (localhost)       │
+│  └─ 3x-ui Web Panel         │
+│    (SSH tunnel only)         │
+└──────────────────────────────┘
 ```
+
+Note: XHTTP uses a separate random port because 3x-ui rejects duplicate ports — two inbounds cannot share port 443. The XHTTP port is deterministic (seeded by hostname) so re-runs produce the same value.
 
 ### Domain Mode
 
@@ -46,6 +53,7 @@ Internet
 │                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
+│  ├─ XHTTP inbound (random port)     │
 │  └─ WSS inbound (random port, local) │
 │                                      │
 │  Caddy (systemd)                     │
