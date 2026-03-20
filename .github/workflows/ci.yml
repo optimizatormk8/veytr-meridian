@@ -61,14 +61,38 @@ jobs:
 
       - name: Shellcheck
         run: |
-          shellcheck -e SC2086,SC2029,SC2087 meridian || true
-          shellcheck -e SC2086,SC2029,SC2087 install.sh || true
-          shellcheck -e SC2086,SC2029,SC2087 setup.sh || true
+          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning meridian
+          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning install.sh
+          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning setup.sh
 
       - name: Verify --help and version
         run: |
           bash meridian help
           bash meridian version
+
+      - name: Verify no form-urlencoded on inbound/client APIs
+        run: |
+          # body_format: form-urlencoded silently corrupts inline JSON in 3x-ui API calls.
+          # Only /login should use form-urlencoded; all inbound/client ops must use json.
+          python3 -c "
+          import re, sys, glob
+          errors = []
+          for f in glob.glob('roles/*/tasks/*.yml'):
+              content = open(f).read()
+              # Find all uri tasks with form-urlencoded
+              if 'form-urlencoded' in content and ('inbound' in content.lower() or 'client' in content.lower()):
+                  # Check if it's used with inbound/client endpoints (not /login)
+                  blocks = content.split('ansible.builtin.uri')
+                  for block in blocks[1:]:
+                      chunk = block[:500]
+                      if 'form-urlencoded' in chunk and ('/inbound' in chunk or '/addClient' in chunk or '/delClient' in chunk):
+                          errors.append(f'{f}: body_format: form-urlencoded used with inbound/client API')
+          if errors:
+              for e in errors:
+                  print(f'ERROR: {e}')
+              sys.exit(1)
+          print('OK: No form-urlencoded on inbound/client API calls')
+          "
 
       - name: Verify VERSION file matches script
         run: |
