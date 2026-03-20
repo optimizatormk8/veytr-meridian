@@ -48,25 +48,33 @@ def resolve_server(
     registry: ServerRegistry,
     requested_server: str = "",
     explicit_ip: str = "",
-    user: str = "root",
+    user: str = "",
 ) -> ResolvedServer:
     """Resolve which server to target.
 
     Priority: explicit IP > --server flag > local mode (root) > single registered > fail.
+
+    If user is empty, it's auto-resolved from the server registry.
+    If user is explicitly set, it overrides the registry value.
     """
     ip = ""
+    registry_user = ""
     local_mode = False
 
     # 1. Explicit IP argument takes highest priority
     if explicit_ip:
         ip = explicit_ip
+        # Check registry for saved user
+        entry = registry.find(explicit_ip)
+        if entry:
+            registry_user = entry.user
 
     # 2. --server flag (resolve via registry)
     elif requested_server:
         entry = registry.find(requested_server)
         if entry:
             ip = entry.host
-            user = entry.user
+            registry_user = entry.user
         elif is_ipv4(requested_server):
             ip = requested_server
         else:
@@ -84,7 +92,7 @@ def resolve_server(
             entries = registry.list()
             entry = entries[0]
             ip = entry.host
-            user = entry.user
+            registry_user = entry.user
             label = f"{entry.name} ({ip})" if entry.name else ip
             info(f"Using server: {label}")
 
@@ -99,17 +107,20 @@ def resolve_server(
         else:
             fail("No servers configured. Run: meridian setup")
 
+    # Resolve user: explicit flag > registry > default root
+    resolved_user = user or registry_user or "root"
+
     # Determine creds_dir
     if local_mode:
         creds_dir = SERVER_CREDS_DIR
     else:
         creds_dir = CREDS_BASE / ip
 
-    conn = ServerConnection(ip=ip, user=user, local_mode=local_mode)
+    conn = ServerConnection(ip=ip, user=resolved_user, local_mode=local_mode)
 
     return ResolvedServer(
         ip=ip,
-        user=user,
+        user=resolved_user,
         local_mode=local_mode,
         creds_dir=creds_dir,
         conn=conn,

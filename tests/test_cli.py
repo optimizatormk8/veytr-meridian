@@ -13,7 +13,7 @@ class TestCLIBasics:
     def test_version_flag(self) -> None:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "Meridian" in result.output
+        assert "meridian" in result.output
 
     def test_version_command(self) -> None:
         result = runner.invoke(app, ["version"])

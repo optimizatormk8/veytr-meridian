@@ -25,7 +25,6 @@ def run(
     name: str = "",
     user: str = "root",
     yes: bool = False,
-    requested_server: str = "",
 ) -> None:
     """Deploy a VLESS+Reality proxy server."""
     registry = ServerRegistry(SERVERS_FILE)
@@ -98,7 +97,6 @@ def run(
     # Resolve and prepare
     resolved = resolve_server(
         registry,
-        requested_server=requested_server,
         explicit_ip=server_ip,
         user=ansible_user,
     )
