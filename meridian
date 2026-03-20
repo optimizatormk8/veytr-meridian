@@ -303,7 +303,7 @@ check_for_update() {
       local now age
       now=$(date +%s)
       age=$(( now - last_check ))
-      [[ $age -lt 60 ]] && return 0
+      [[ $age -lt 86400 ]] && return 0
     fi
   fi
 
@@ -729,6 +729,67 @@ cmd_setup() {
   printf "\n  ${D}Feedback & issues: https://github.com/uburuntu/meridian/issues${R}\n\n"
 }
 
+# Display client list from panel API JSON response.
+# Uses python3 for JSON parsing (available on all supported systems).
+client_list_display() {
+  local json="$1" domain="${2:-}"
+  local success
+  success=$(printf '%s' "$json" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('success',''))" 2>/dev/null)
+  [[ "$success" == "True" ]] || fail "Panel API error"
+
+  python3 -c "
+import sys, json
+
+data = json.loads(sys.argv[1])
+inbounds = data.get('obj', [])
+
+# Build lookup: inbound remark -> set of client emails
+clients_by_inbound = {}
+for ib in inbounds:
+    remark = ib.get('remark', '')
+    settings = json.loads(ib.get('settings', '{}'))
+    emails = {c.get('email', '') for c in settings.get('clients', [])}
+    clients_by_inbound[remark] = emails
+
+# Reality clients are the canonical list
+reality_clients = []
+for ib in inbounds:
+    if ib.get('remark') == 'VLESS-Reality':
+        settings = json.loads(ib.get('settings', '{}'))
+        reality_clients = settings.get('clients', [])
+        break
+
+wss_emails = clients_by_inbound.get('VLESS-WSS', set())
+xhttp_emails = clients_by_inbound.get('VLESS-Reality-XHTTP', set())
+
+print()
+print('  ======================================================================')
+print('                        PROXY CLIENTS')
+print('  ======================================================================')
+print()
+print('    Name              Status     Protocols')
+print('    ' + '─' * 49)
+
+for c in reality_clients:
+    email = c.get('email', '')
+    name = email.replace('reality-', '', 1) if email.startswith('reality-') else email
+    status = 'active' if c.get('enable', True) else 'disabled'
+    protos = ['Reality']
+    if f'xhttp-{name}' in xhttp_emails:
+        protos.append('XHTTP')
+    if f'wss-{name}' in wss_emails:
+        protos.append('WSS')
+    print(f'    {name:<17s} {status:<10s} {\" + \".join(protos)}')
+
+print()
+print('    ' + '─' * 49)
+print(f'    Total: {len(reality_clients)} client{\"s\" if len(reality_clients) != 1 else \"\"}')
+print()
+print('  ======================================================================')
+print()
+" "$json"
+}
+
 cmd_client() {
   local action="${1:-}"
   shift || true
@@ -771,9 +832,41 @@ cmd_client() {
         esac
       done
       resolve_server || fail "No servers configured. Run: meridian setup"
-      prepare_server false
 
-      run_playbook playbook-client.yml -e "client_action=list"
+      local creds_dir
+      creds_dir=$(server_creds)
+      [[ -f "$creds_dir/proxy.yml" ]] || fail "No credentials found. Run: meridian setup"
+
+      # Read credentials from proxy.yml
+      local panel_user panel_pass panel_path panel_port
+      panel_user=$(grep '^panel_username:' "$creds_dir/proxy.yml" | awk '{print $2}' | tr -d '"')
+      panel_pass=$(grep '^panel_password:' "$creds_dir/proxy.yml" | awk '{print $2}' | tr -d '"')
+      panel_path=$(grep '^panel_web_base_path:' "$creds_dir/proxy.yml" | awk '{print $2}' | tr -d '"')
+      panel_port=2053
+      local domain
+      domain=$(grep '^domain:' "$creds_dir/proxy.yml" | awk '{print $2}' | tr -d '"')
+
+      # Query panel API — write a script to the server to avoid credential
+      # quoting issues in SSH command interpolation
+      local json
+      if [[ "$LOCAL_MODE" == true ]]; then
+        json=$(curl -s -c /tmp/.mc -d "username=${panel_user}&password=${panel_pass}" \
+          "http://127.0.0.1:${panel_port}/${panel_path}/login" > /dev/null && \
+          curl -s -b /tmp/.mc "http://127.0.0.1:${panel_port}/${panel_path}/panel/api/inbounds/list" ; \
+          rm -f /tmp/.mc) || fail "Failed to connect to panel API"
+      else
+        json=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+          "${ANSIBLE_USER:-root}@${SERVER_IP}" \
+          "bash -s" </dev/null 2>/dev/null <<REMOTESCRIPT
+curl -s -c /tmp/.mc -d "username=${panel_user}&password=${panel_pass}" \
+  "http://127.0.0.1:${panel_port}/${panel_path}/login" > /dev/null && \
+curl -s -b /tmp/.mc "http://127.0.0.1:${panel_port}/${panel_path}/panel/api/inbounds/list"
+rm -f /tmp/.mc
+REMOTESCRIPT
+        ) || fail "Failed to connect to panel API"
+      fi
+
+      client_list_display "$json" "$domain"
       ;;
 
     remove)
