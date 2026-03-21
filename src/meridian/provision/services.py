@@ -9,6 +9,7 @@ from __future__ import annotations
 import shlex
 import textwrap
 
+from meridian.config import DEFAULT_FINGERPRINT, DEFAULT_PANEL_PORT
 from meridian.provision.steps import ProvisionContext, StepResult, timed
 from meridian.ssh import ServerConnection
 
@@ -416,7 +417,7 @@ class InstallCaddy:
         ws_path: str = "",
         wss_internal_port: int = 0,
         panel_web_base_path: str = "",
-        panel_internal_port: int = 2053,
+        panel_internal_port: int = DEFAULT_PANEL_PORT,
         info_page_path: str = "",
         email: str = "",
         server_ip: str = "",
@@ -580,8 +581,8 @@ class DeployConnectionPage:
         wss_uuid: str,
         ws_path: str,
         info_page_path: str,
-        panel_internal_port: int = 2053,
-        fingerprint: str = "chrome",
+        panel_internal_port: int = DEFAULT_PANEL_PORT,
+        fingerprint: str = DEFAULT_FINGERPRINT,
         xhttp_enabled: bool = True,
         xhttp_port: int = 0,
     ) -> None:

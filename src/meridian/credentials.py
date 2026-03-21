@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from meridian.config import DEFAULT_PANEL_PORT
+
 
 @dataclass
 class PanelConfig:
@@ -21,7 +23,7 @@ class PanelConfig:
     password: str | None = None
     web_base_path: str | None = None
     info_page_path: str | None = None
-    port: int = 2053
+    port: int = DEFAULT_PANEL_PORT
 
 
 @dataclass
@@ -281,7 +283,7 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
         password=panel_data.get("password"),
         web_base_path=panel_data.get("web_base_path"),
         info_page_path=panel_data.get("info_page_path"),
-        port=panel_data.get("port", 2053),
+        port=panel_data.get("port", DEFAULT_PANEL_PORT),
     )
 
     # Server

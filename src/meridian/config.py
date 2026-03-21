@@ -12,6 +12,10 @@ CACHE_DIR = MERIDIAN_HOME / "cache"
 SERVERS_FILE = MERIDIAN_HOME / "servers"
 SERVER_CREDS_DIR = Path("/etc/meridian")
 
+DEFAULT_SNI = "www.microsoft.com"
+DEFAULT_FINGERPRINT = "chrome"
+DEFAULT_PANEL_PORT = 2053
+
 PYPI_PACKAGE = "meridian-vpn"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
 GITHUB_REPO = "https://github.com/uburuntu/meridian"

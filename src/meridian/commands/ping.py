@@ -7,7 +7,7 @@ import subprocess
 import time
 
 from meridian.commands.resolve import resolve_server
-from meridian.config import SERVERS_FILE
+from meridian.config import DEFAULT_SNI, SERVERS_FILE
 from meridian.console import err_console, info, ok, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
@@ -33,7 +33,7 @@ def run(
         if not sni:
             sni = creds.server.sni or ""
 
-    sni_host = sni or "www.microsoft.com"
+    sni_host = sni or DEFAULT_SNI
     issues = 0
     checks = 0
 

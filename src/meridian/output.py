@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from meridian.config import DEFAULT_SNI
 from meridian.credentials import ServerCredentials
 from meridian.display import print_terminal_output as _display_print  # noqa: F401
 from meridian.protocols import get_protocol
@@ -67,7 +68,7 @@ def build_vless_urls(
         instead. This function will be removed in a future major version.
     """
     ip = creds.server.ip or ""
-    sni = creds.server.sni or "www.microsoft.com"
+    sni = creds.server.sni or DEFAULT_SNI
     public_key = creds.reality.public_key or ""
     short_id = creds.reality.short_id or ""
     domain = creds.server.domain or ""

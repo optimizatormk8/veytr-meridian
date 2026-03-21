@@ -15,6 +15,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from meridian.config import DEFAULT_FINGERPRINT, DEFAULT_SNI
 from meridian.models import Inbound
 
 
@@ -171,10 +172,10 @@ class RealityProtocol(Protocol):
 
     def build_url(self, uuid: str, name: str, **kwargs: Any) -> str:
         ip = kwargs["ip"]
-        sni = kwargs.get("sni", "www.microsoft.com")
+        sni = kwargs.get("sni", DEFAULT_SNI)
         public_key = kwargs.get("public_key", "")
         short_id = kwargs.get("short_id", "")
-        fingerprint = kwargs.get("fingerprint", "chrome")
+        fingerprint = kwargs.get("fingerprint", DEFAULT_FINGERPRINT)
         return (
             f"vless://{uuid}@{ip}:443"
             f"?encryption=none&flow=xtls-rprx-vision"
@@ -211,10 +212,10 @@ class XHTTPProtocol(Protocol):
     def build_url(self, uuid: str, name: str, **kwargs: Any) -> str:
         ip = kwargs["ip"]
         port = kwargs["port"]
-        sni = kwargs.get("sni", "www.microsoft.com")
+        sni = kwargs.get("sni", DEFAULT_SNI)
         public_key = kwargs.get("public_key", "")
         short_id = kwargs.get("short_id", "")
-        fingerprint = kwargs.get("fingerprint", "chrome")
+        fingerprint = kwargs.get("fingerprint", DEFAULT_FINGERPRINT)
         return (
             f"vless://{uuid}@{ip}:{port}"
             f"?encryption=none"

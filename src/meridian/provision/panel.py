@@ -14,6 +14,7 @@ import string
 import time
 from pathlib import Path
 
+from meridian.config import DEFAULT_PANEL_PORT, DEFAULT_SNI
 from meridian.credentials import ServerCredentials
 from meridian.panel import PanelClient, PanelError
 from meridian.provision.steps import ProvisionContext, StepResult, timed
@@ -66,10 +67,10 @@ class ConfigurePanel:
         creds_path: Path,
         server_ip: str,
         domain: str = "",
-        sni: str = "www.microsoft.com",
+        sni: str = DEFAULT_SNI,
         email: str = "",
         first_client_name: str = "default",
-        panel_port: int = 2053,
+        panel_port: int = DEFAULT_PANEL_PORT,
         xhttp_enabled: bool = True,
     ) -> None:
         self.creds_path = creds_path

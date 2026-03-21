@@ -10,7 +10,7 @@ from meridian.commands.resolve import (
     fetch_credentials,
     resolve_server,
 )
-from meridian.config import SERVERS_FILE
+from meridian.config import DEFAULT_SNI, SERVERS_FILE
 from meridian.console import err_console, info, line, ok, warn
 from meridian.servers import ServerRegistry
 from meridian.ssh import tcp_connect
@@ -37,7 +37,7 @@ def run(
     err_console.print()
 
     issues = 0
-    sni_host = sni or "www.microsoft.com"
+    sni_host = sni or DEFAULT_SNI
     q_sni = shlex.quote(sni_host)
     results: dict[str, str] = {}
 

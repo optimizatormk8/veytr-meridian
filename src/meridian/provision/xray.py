@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from meridian.config import DEFAULT_FINGERPRINT
 from meridian.panel import PanelClient, PanelError
 from meridian.protocols import INBOUND_TYPES
 from meridian.provision.steps import ProvisionContext, StepResult, timed
@@ -76,7 +77,7 @@ def _reality_stream_settings(
     private_key: str,
     public_key: str,
     short_id: str,
-    fingerprint: str = "chrome",
+    fingerprint: str = DEFAULT_FINGERPRINT,
 ) -> str:
     """Build the streamSettings JSON string for Reality+TCP."""
     dest = f"{sni}:443"
@@ -115,7 +116,7 @@ def _xhttp_stream_settings(
     private_key: str,
     public_key: str,
     short_id: str,
-    fingerprint: str = "chrome",
+    fingerprint: str = DEFAULT_FINGERPRINT,
     xhttp_mode: str = "packet-up",
     xhttp_path: str = "/",
 ) -> str:
@@ -190,7 +191,7 @@ class CreateRealityInbound:
         first_client_name: str = "default",
         client_limit_ip: int = 2,
         client_total_gb: int = 0,
-        fingerprint: str = "chrome",
+        fingerprint: str = DEFAULT_FINGERPRINT,
     ) -> None:
         self.port = port
         self.first_client_name = first_client_name
@@ -284,7 +285,7 @@ class CreateXHTTPInbound:
         first_client_name: str = "default",
         client_limit_ip: int = 2,
         client_total_gb: int = 0,
-        fingerprint: str = "chrome",
+        fingerprint: str = DEFAULT_FINGERPRINT,
         xhttp_mode: str = "packet-up",
         xhttp_path: str = "/",
     ) -> None:

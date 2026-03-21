@@ -10,6 +10,7 @@ from typing import Protocol as TypingProtocol
 from rich.console import Console
 from rich.status import Status
 
+from meridian.config import DEFAULT_PANEL_PORT, DEFAULT_SNI
 from meridian.ssh import ServerConnection
 
 
@@ -47,14 +48,14 @@ class ProvisionContext:
     ip: str
     user: str = "root"
     domain: str = ""
-    sni: str = "www.microsoft.com"
+    sni: str = DEFAULT_SNI
     xhttp_enabled: bool = True
     creds_dir: str = ""  # local credentials directory path
 
     results: list[StepResult] = field(default_factory=list)
 
     # Mutable state populated by steps:
-    panel_port: int = 2053  # internal panel port
+    panel_port: int = DEFAULT_PANEL_PORT  # internal panel port
     xhttp_port: int = 0  # computed from seed
     reality_port: int = 443  # 443 standalone, ~10443 domain mode
 

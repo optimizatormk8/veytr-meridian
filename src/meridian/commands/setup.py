@@ -11,7 +11,7 @@ from meridian.commands.resolve import (
     fetch_credentials,
     resolve_server,
 )
-from meridian.config import CREDS_BASE, SERVERS_FILE, is_ipv4
+from meridian.config import CREDS_BASE, DEFAULT_PANEL_PORT, DEFAULT_SNI, SERVERS_FILE, is_ipv4
 from meridian.console import confirm, err_console, fail, info, line, ok, prompt
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
@@ -58,7 +58,7 @@ def run(
 
     # Interactive wizard if no IP given
     if not server_ip:
-        sni_display = sni or "www.microsoft.com"
+        sni_display = sni or DEFAULT_SNI
         err_console.print("  Deploy a private internet connection that censors can't detect.")
         err_console.print(f"  Your server will impersonate [dim]{sni_display}[/dim] — probes")
         err_console.print("  get a real TLS certificate back. Takes ~2 minutes. Safe to re-run.")
@@ -177,13 +177,13 @@ def _run_provisioner(
         ip=resolved.ip,
         user=resolved.user,
         domain=domain,
-        sni=sni or "www.microsoft.com",
+        sni=sni or DEFAULT_SNI,
         xhttp_enabled=xhttp,
         creds_dir=str(resolved.creds_dir),
     )
 
     # Default panel port — 3x-ui starts on 2053. ConfigurePanel may change it later.
-    ctx.panel_port = 2053
+    ctx.panel_port = DEFAULT_PANEL_PORT
     ctx.xhttp_port = 30000 + (hash(ctx.ip) % 10000)
     ctx.reality_port = 443 if not ctx.domain_mode else (10000 + hash(ctx.ip) % 1000)
 

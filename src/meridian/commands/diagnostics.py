@@ -11,7 +11,7 @@ from meridian.commands.resolve import (
     fetch_credentials,
     resolve_server,
 )
-from meridian.config import SERVERS_FILE
+from meridian.config import DEFAULT_SNI, SERVERS_FILE
 from meridian.console import err_console, line
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
@@ -108,7 +108,7 @@ def run(
     sections.append(("Firewall (UFW)", ufw))
 
     # --- SNI Target ---
-    sni_host = sni or "www.microsoft.com"
+    sni_host = sni or DEFAULT_SNI
     q_sni = shlex.quote(sni_host)
     sni_check = (
         resolved.conn.run(
