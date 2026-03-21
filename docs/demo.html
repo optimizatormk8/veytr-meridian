@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Connection Setup — Demo</title>
 <style>
+/* CSS matches the unified connection-info.html.j2 template exactly */
 :root {
   --bg: #0c0e14; --bg2: #12151e; --sf: #181c28; --sf2: #1e2333;
   --br: #282d3e; --br2: #353b52;
@@ -40,7 +41,9 @@ body{
   border-radius:var(--r2);padding:20px;margin-bottom:14px;
   position:relative;overflow:hidden;
 }
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
 .card-blue::before{background:var(--blue)}
 .card-amber::before{background:var(--amber)}
 .card-label{
@@ -72,6 +75,7 @@ body{
   font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
   font-size:.65rem;word-break:break-all;color:var(--tx3);
   cursor:pointer;transition:border-color .06s;line-height:1.5;
+  position:relative;
 }
 .url:hover{border-color:var(--tx2)}
 .url-hint{
@@ -141,42 +145,42 @@ body{
 
 <div class="hdr">
   <div class="demo-badge">Demo Preview</div>
-  <h1>Connection Setup</h1>
+  <h1 data-t="title">Connection Setup</h1>
   <p>This is what Meridian generates for your friends. Real pages have working QR codes and deep links.</p>
 </div>
 
 <!-- Usage stats (demo) -->
 <div class="stats" id="stats" style="display:block">
-  <div class="stats-title">Usage</div>
+  <div class="stats-title" data-t="stats">Usage</div>
   <div class="stats-grid">
-    <div class="stats-item"><div class="stats-val">0.4 GB</div><div class="stats-label">Upload</div></div>
-    <div class="stats-item"><div class="stats-val">9.5 GB</div><div class="stats-label">Download</div></div>
+    <div class="stats-item"><div class="stats-val">0.4 GB</div><div class="stats-label" data-t="stats.upload">Upload</div></div>
+    <div class="stats-item"><div class="stats-val">9.5 GB</div><div class="stats-label" data-t="stats.download">Download</div></div>
   </div>
   <div class="stats-active">Active 2m ago</div>
 </div>
 
 <!-- Primary -->
 <div class="card card-blue">
-  <div class="card-label"><i></i> Primary</div>
-  <p class="card-desc">Fastest route. Use this as your default connection.</p>
-  <a href="#" class="open-btn" onclick="return false">Open in App</a>
+  <div class="card-label"><i></i> <span data-t="primary">Primary</span></div>
+  <p class="card-desc" data-t="primary.desc">Fastest route. Use this as your default connection.</p>
+  <a href="#" class="open-btn" onclick="return false" data-t="open">Open in App</a>
   <div class="qr" id="qr-primary"></div>
-  <div class="url" onclick="cp(this)" data-url="vless://e2ca86b7-ef76-407c-b17a-86e21d5d2eb0@185.93.xx.xx:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=Q3oUYJDH...&sid=ad1fecff&type=tcp#VLESS-Reality">vless://e2ca86b7-ef76-407c-b17a-86e21d5d2eb0@185.93.xx.xx:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=Q3oUYJDH...&sid=ad1fecff&type=tcp#VLESS-Reality<span class="url-hint">tap to copy</span></div>
+  <div class="url" onclick="cp(this)" data-url="vless://e2ca86b7-ef76-407c-b17a-86e21d5d2eb0@185.93.xx.xx:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=Q3oUYJDH...&sid=ad1fecff&type=tcp#VLESS-Reality">vless://e2ca86b7-ef76-407c-b17a-86e21d5d2eb0@185.93.xx.xx:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome&pbk=Q3oUYJDH...&sid=ad1fecff&type=tcp#VLESS-Reality<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
 
 <!-- Backup -->
 <div class="card card-amber">
-  <div class="card-label"><i></i> Backup</div>
-  <p class="card-desc">CDN fallback. Use if the primary connection is blocked.</p>
-  <a href="#" class="open-btn" onclick="return false">Open in App</a>
+  <div class="card-label"><i></i> <span data-t="backup">Backup</span></div>
+  <p class="card-desc" data-t="backup.desc">CDN fallback. Use if the primary connection is blocked.</p>
+  <a href="#" class="open-btn" onclick="return false" data-t="open">Open in App</a>
   <div class="qr" id="qr-backup"></div>
-  <div class="url" onclick="cp(this)" data-url="vless://000f3cd9-d72c-4ebb-aa33-b9847ed8bd57@proxy.example.com:443?encryption=none&security=tls&sni=proxy.example.com&type=ws&host=proxy.example.com&path=/r293xv8mvaog#VLESS-WSS-CDN">vless://000f3cd9-d72c-4ebb-aa33-b9847ed8bd57@proxy.example.com:443?encryption=none&security=tls&sni=proxy.example.com&type=ws&path=/r293xv...#VLESS-WSS-CDN<span class="url-hint">tap to copy</span></div>
+  <div class="url" onclick="cp(this)" data-url="vless://000f3cd9-d72c-4ebb-aa33-b9847ed8bd57@proxy.example.com:443?encryption=none&security=tls&sni=proxy.example.com&type=ws&host=proxy.example.com&path=/r293xv8mvaog#VLESS-WSS-CDN">vless://000f3cd9-d72c-4ebb-aa33-b9847ed8bd57@proxy.example.com:443?encryption=none&security=tls&sni=proxy.example.com&type=ws&path=/r293xv...#VLESS-WSS-CDN<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
 
 <!-- Apps -->
 <div class="card">
-  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Client Apps</div>
-  <p class="card-desc">Install one, then tap "Open in App" or scan the QR code.</p>
+  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px" data-t="apps">Client Apps</div>
+  <p class="card-desc" data-t="apps.desc">Install one, then tap "Open in App" or scan the QR code.</p>
   <div class="apps" id="apps">
     <a class="app" href="https://apps.apple.com/app/v2raytun/id6476628951" target="_blank" data-os="iOS">v2RayTun<span>iOS</span></a>
     <a class="app" href="https://github.com/2dust/v2rayNG/releases/latest" target="_blank" data-os="Android">v2rayNG<span>Android</span></a>
@@ -187,19 +191,24 @@ body{
 
 <!-- Steps -->
 <div class="card">
-  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px">Quick Setup</div>
+  <div style="font-size:.82rem;font-weight:600;margin-bottom:4px" data-t="setup">Quick Setup</div>
   <div class="steps">
-    <div class="step">Install a client app from the list above</div>
-    <div class="step">Tap "Open in App" — the connection imports automatically</div>
-    <div class="step">Or scan the QR code from another device</div>
-    <div class="step">Activate the connection in the app</div>
+    <div class="step" data-t="step1">Install a client app from the list above</div>
+    <div class="step" data-t="step2">Tap "Open in App" — the connection imports automatically</div>
+    <div class="step" data-t="step3">Or scan the QR code from another device</div>
+    <div class="step" data-t="step4">Activate the connection in the app</div>
   </div>
 </div>
 
 <!-- Warning -->
 <div class="warn">
-  <h3>Clock Sync Required</h3>
-  <p>Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
+  <h3 data-t="clock">Clock Sync Required</h3>
+  <p data-t="clock.desc">Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>
+</div>
+
+<div class="warn" style="border-color:#d4a24e33;background:#d4a24e08">
+  <h3 data-t="ping">Not connecting?</h3>
+  <p data-t="ping.desc">Test if the server is reachable from your device: <a href="https://meridian.msu.rocks/ping?ip=185.93.xx.xx&domain=proxy.example.com" target="_blank" style="color:#d4a24e">Run ping test</a></p>
 </div>
 
 <!-- Footer -->
@@ -223,6 +232,21 @@ function cp(el){
   else{var t=document.createElement('textarea');t.value=u;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);flash()}
 }
 function flash(){var t=document.getElementById('toast');t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1200)}
+/* i18n — auto-detect browser language */
+!function(){
+  var T={
+    ru:{title:'Настройка подключения',subtitle:'Отсканируйте QR-код или нажмите, чтобы открыть в приложении',primary:'Основной',backup:'Резервный','primary.desc':'Самый быстрый маршрут. Используйте как основное подключение.','backup.desc':'CDN-фолбэк. Используйте, если основное подключение заблокировано.','xhttp.desc':'Повышенная скрытность через XHTTP-транспорт. Труднее обнаружить при анализе трафика.',open:'Открыть в приложении','copy.hint':'нажмите для копирования',apps:'Приложения','apps.desc':'Установите одно из них, затем нажмите «Открыть в приложении» или отсканируйте QR-код.',setup:'Быстрая настройка',step1:'Установите клиентское приложение из списка выше',step2:'Нажмите «Открыть в приложении» — подключение импортируется автоматически',step3:'Или отсканируйте QR-код с другого устройства',step4:'Активируйте подключение в приложении',clock:'Синхронизация часов','clock.desc':'Часы устройства должны быть точными с отклонением не более 30 секунд. Откройте Настройки > Дата и время > включите «Автоматически».',ping:'Не подключается?','ping.desc':'Проверьте, доступен ли сервер с вашего устройства:',stats:'Использование','stats.upload':'Загрузка','stats.download':'Скачивание'},
+    fa:{title:'تنظیم اتصال',subtitle:'کد QR را اسکن کنید یا برای باز کردن در برنامه ضربه بزنید',primary:'اصلی',backup:'پشتیبان','primary.desc':'سریع‌ترین مسیر. به عنوان اتصال پیش‌فرض استفاده کنید.','backup.desc':'فال‌بک CDN. اگر اتصال اصلی مسدود شد استفاده کنید.','xhttp.desc':'مخفی‌سازی پیشرفته از طریق انتقال XHTTP. شناسایی آن در تحلیل ترافیک دشوارتر است.',open:'باز کردن در برنامه','copy.hint':'برای کپی ضربه بزنید',apps:'برنامه‌ها','apps.desc':'یکی را نصب کنید، سپس «باز کردن در برنامه» را بزنید یا کد QR را اسکن کنید.',setup:'راه‌اندازی سریع',step1:'یک برنامه کلاینت از لیست بالا نصب کنید',step2:'«باز کردن در برنامه» را بزنید — اتصال به‌طور خودکار وارد می‌شود',step3:'یا کد QR را از دستگاه دیگری اسکن کنید',step4:'اتصال را در برنامه فعال کنید',clock:'همگام‌سازی ساعت','clock.desc':'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > «تنظیم خودکار» بروید.',ping:'متصل نمی‌شوید؟','ping.desc':'بررسی کنید آیا سرور از دستگاه شما قابل دسترسی است:',stats:'مصرف','stats.upload':'آپلود','stats.download':'دانلود'},
+    zh:{title:'连接设置',subtitle:'扫描二维码或点击在应用中打开',primary:'主要',backup:'备用','primary.desc':'最快路线。作为默认连接使用。','backup.desc':'CDN 备用通道。主连接被封锁时使用。','xhttp.desc':'通过 XHTTP 传输增强隐蔽性。在流量分析中更难被检测。',open:'在应用中打开','copy.hint':'点击复制',apps:'客户端应用','apps.desc':'安装一个应用，然后点击"在应用中打开"或扫描二维码。',setup:'快速设置',step1:'从上方列表安装一个客户端应用',step2:'点击"在应用中打开"——连接自动导入',step3:'或从另一台设备扫描二维码',step4:'在应用中激活连接',clock:'时钟同步','clock.desc':'设备时钟必须精确到 30 秒以内。前往设置 > 日期与时间 > 启用"自动设置"。',ping:'无法连接？','ping.desc':'测试服务器是否可从您的设备访问：',stats:'用量','stats.upload':'上传','stats.download':'下载'}
+  };
+  var bl=(navigator.language||'').slice(0,2),lang=T[bl]?bl:null;
+  if(lang){
+    document.querySelectorAll('[data-t]').forEach(function(el){
+      var k=el.dataset.t,v=T[lang][k];if(v)el.textContent=v;
+    });
+    if(lang==='fa')document.documentElement.dir='rtl';
+  }
+}();
 !function(){
   var ua=navigator.userAgent,os=null;
   if(/iPhone|iPad|iPod/i.test(ua))os='iOS';
