@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from meridian.commands.resolve import (
+    ResolvedServer,
     ensure_server_connection,
     fetch_credentials,
     resolve_server,
@@ -163,7 +164,7 @@ def run(
 
 
 def _run_provisioner(
-    resolved: object,  # ResolvedServer
+    resolved: ResolvedServer,
     domain: str,
     sni: str,
     name: str,
@@ -173,12 +174,12 @@ def _run_provisioner(
     from meridian.provision import ProvisionContext, Provisioner, build_setup_steps
 
     ctx = ProvisionContext(
-        ip=resolved.ip,  # type: ignore[attr-defined]
-        user=resolved.user,  # type: ignore[attr-defined]
+        ip=resolved.ip,
+        user=resolved.user,
         domain=domain,
         sni=sni or "www.microsoft.com",
         xhttp_enabled=xhttp,
-        creds_dir=str(resolved.creds_dir),  # type: ignore[attr-defined]
+        creds_dir=str(resolved.creds_dir),
     )
 
     # Default panel port — 3x-ui starts on 2053. ConfigurePanel may change it later.
@@ -219,7 +220,7 @@ def _run_provisioner(
 
     from meridian.ssh import ServerConnection
 
-    conn = resolved.conn  # type: ignore[attr-defined]
+    conn = resolved.conn
     if not isinstance(conn, ServerConnection):
         fail("No SSH connection available", hint_type="bug")
 
@@ -238,10 +239,10 @@ def _run_provisioner(
     ok("All steps completed successfully")
 
 
-def _print_success(resolved: object, name: str, domain: str) -> None:
+def _print_success(resolved: ResolvedServer, name: str, domain: str) -> None:
     """Print success output after deployment."""
     client_label = name or "default"
-    creds_dir = resolved.creds_dir  # type: ignore[attr-defined]
+    creds_dir = resolved.creds_dir
     html_files = list(creds_dir.glob(f"*-{client_label}-connection-info.html"))
     txt_files = list(creds_dir.glob("*-connection-info.txt"))
 
@@ -260,7 +261,7 @@ def _print_success(resolved: object, name: str, domain: str) -> None:
         err_console.print(f"     [info]cat {txt_files[0]}[/info]\n")
 
     err_console.print("  [ok]3.[/ok] Test that the proxy works:")
-    server_ip = resolved.ip  # type: ignore[attr-defined]
+    server_ip = resolved.ip
     err_console.print(f"     [info]meridian ping {server_ip}[/info]")
     ping_url = f"https://meridian.msu.rocks/ping?ip={server_ip}"
     if domain:
