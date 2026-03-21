@@ -35,7 +35,7 @@ src/meridian/              Python CLI package
   console.py               Rich terminal output: info/ok/warn/fail/prompt/confirm
   credentials.py           ServerCredentials dataclass, YAML load/save
   servers.py               ServerRegistry: list/find/add/remove
-  ssh.py                   ServerConnection: run, check_ssh, detect_local_mode
+  ssh.py                   ServerConnection: run, check_ssh, detect_local_mode, tcp_connect
   ansible.py               Playbook execution, Ansible bootstrap, inventory generation
   update.py                Auto-update via PyPI (semver: auto-patch, prompt minor/major)
   ai.py                    AI prompt building, clipboard, doc fetching
@@ -59,6 +59,7 @@ src/meridian/              Python CLI package
     group_vars/            Shared defaults
     roles/                 All Ansible roles
 Makefile                  Dev workflow: install, test, lint, ci, build, publish
+docker-compose.test.yml   3x-ui container for integration tests
 uv.lock                   Locked dependencies (committed)
 install.sh                 CLI installer (bootstraps uv, installs from PyPI, migrates old bash CLI)
 setup.sh                   Compat shim → installs CLI + forwards args
@@ -68,8 +69,10 @@ tests/
   test_servers.py          Server registry tests
   test_ansible.py          Inventory generation + playbook bundling tests
   test_update.py           Version comparison + update throttle tests
+  test_integration_3xui.py 3x-ui Docker API round-trip (requires container)
   render_templates.py      Jinja2 template rendering test (with Ansible filter mocks)
   conftest.py              Shared fixtures
+docs/architecture.md       Mermaid architecture diagrams (CLI flow, modes, credentials, CI/CD)
 docs/index.html            Website hosted on meridian.msu.rocks (GitHub Pages)
 docs/install.sh            Installer served from website (CD sync)
 docs/setup.sh              Compat shim served from website (CD sync)
@@ -283,6 +286,16 @@ cd src/meridian/playbooks && ansible-playbook playbook.yml
 - **Playbook bundling**: playbooks exist only in `src/meridian/playbooks/` (bundled in package via `package_data`). No root-level copies — CI and `make` targets run from the `src/meridian/playbooks/` directory.
 - **Credential management**: `ServerCredentials` dataclass in `credentials.py` replaces all `grep|awk|tr` YAML parsing. Handles special characters, preserves unknown fields, type-safe access.
 - **When the user says "remember"**: save the instruction to this CLAUDE.md file so it persists across sessions. Don't use auto-memory — CLAUDE.md is the canonical place for project conventions.
+- **Non-root on-server execution**: When a non-root user runs meridian on the server itself, `detect_local_mode()` sets `local_mode=True` + `needs_sudo=True`. Commands run via `sudo -n bash -c '...'`, credentials are copied via `sudo -n cat`. The `ResolvedServer.creds_dir` stays in `~/.meridian/credentials/<IP>/` (not `/etc/meridian/` which is root-only). This avoids the old hard-fail that forced users to type `sudo meridian` for every command.
+- **`sudo meridian` on servers**: `install.sh` creates a symlink `/usr/local/bin/meridian → ~/.local/bin/meridian` via `sudo -n` (non-interactive, no password prompt). `self-update` in `update.py` refreshes the symlink if it already exists. This ensures `sudo meridian` works without `secure_path` issues.
+- **`.bashrc` interactivity guard**: On Debian/Ubuntu, `.bashrc` has `case $- in *i*) ;; *) return;; esac` near the top. Anything appended AFTER this guard is unreachable for non-interactive shells (`ssh host 'cmd'`). `install.sh` PREPENDS the PATH export before the guard using `mktemp` + `cat` + `mv`. Idempotency uses a `# Meridian CLI` marker (not dir string match, which false-positives on uv's env line).
+- **Shell injection in `conn.run()`**: ALL values interpolated into shell command strings passed to `conn.run()` MUST use `shlex.quote()`. This is critical because `needs_sudo` escalates commands to root via `sudo -n bash -c`. Affected files: `client.py` (credentials), `check.py` (SNI/domain), `diagnostics.py` (domain), `scan.py` (URL/CIDR), `ping.py` (SNI/IP). The shared `ssh.tcp_connect()` has quoting built in.
+- **Shared utilities in `ssh.py`**: `tcp_connect(host, port, timeout)` is the single source of truth for TCP connectivity tests (with `shlex.quote` built in). Used by both `check.py` and `ping.py`. Don't create local `_tcp_connect` copies.
+- **Cookie file for `client list`**: The curl cookie jar for 3x-ui API auth lives at `$HOME/.meridian/.cookie` (not `/tmp/.mc`). The old `/tmp` location was world-readable — race condition on multi-user servers.
+- **`_is_on_server()` caveats**: Uses `curl ifconfig.me` which can false-positive behind NAT (laptop and server share public IP) or if ifconfig.me is spoofed. When this triggers `needs_sudo`, commands run as root on the local machine. A local interface check would be more robust but isn't implemented yet.
+- **Integration tests**: `tests/test_integration_3xui.py` requires a running 3x-ui Docker container (`docker-compose.test.yml`). Auto-skipped when container isn't running. CI has a separate `integration` job. The `python-test` job explicitly `--ignore`s this file.
+- **Mermaid architecture diagrams**: `docs/architecture.md` has Mermaid diagrams for CLI flow, privilege escalation, all deployment modes, credential lifecycle, client management, install/PATH, and CI/CD. Update when architecture changes.
+- **ty (Astral type checker)**: Evaluated but not adopted — pre-1.0, has false positives on method name shadowing (`ServerRegistry.list` shadows builtin `list`). The codebase is already fully typed. Revisit when ty reaches 1.0. mypy is the current choice for type checking (backlog P2).
 
 ## Documentation surfaces & update checklist
 
