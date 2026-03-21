@@ -1,6 +1,6 @@
 # Meridian — AI Context
 
-Meridian is an open-source CLI tool that deploys censorship-resistant VLESS+Reality proxy servers on any VPS. It uses Ansible under the hood but exposes a simple `meridian` command. Users typically run it from their laptop to configure a remote server.
+Meridian is an open-source CLI tool that deploys censorship-resistant VLESS+Reality proxy servers on any VPS. It uses a pure-Python provisioner that connects via SSH but exposes a simple `meridian` command. Users typically run it from their laptop to configure a remote server.
 
 GitHub: https://github.com/uburuntu/meridian
 Website: https://meridian.msu.rocks
@@ -12,7 +12,7 @@ Website: https://meridian.msu.rocks
 - **HAProxy** — TCP-level SNI router (domain mode only). Routes traffic on port 443 by SNI hostname without terminating TLS.
 - **Caddy** — reverse proxy with automatic Let's Encrypt TLS (domain mode only). Serves the connection info page and proxies WSS traffic.
 - **Docker** — runs 3x-ui (which contains Xray). All proxy traffic flows through the Docker container.
-- **Ansible** — automation engine. Meridian bundles playbooks inside the Python package and runs them locally against the target server via SSH.
+- **Pure-Python provisioner** — `src/meridian/provision/` executes deployment steps via SSH. Each step gets `(conn: ServerConnection, ctx: ProvisionContext)` and returns a `StepResult`.
 - **uTLS** — impersonates Chrome's TLS Client Hello fingerprint, making connections indistinguishable from real browser traffic.
 
 ## Deployment Modes
@@ -314,9 +314,9 @@ Add --ai to check or diagnostics for an AI-ready prompt.
 
 ### Xray fails to start (invalid JSON / MarshalJSON error)
 
-**Cause:** The 3x-ui inbound `settings` or `streamSettings` fields contain corrupted JSON. This happens when Ansible's `body_format: form-urlencoded` silently corrupts inline JSON values — the API returns `success: true` but stores only the first key name (e.g., `"clients"`) instead of the full JSON object.
+**Cause:** The 3x-ui inbound `settings` or `streamSettings` fields contain corrupted JSON. This happens when the `settings` field is sent as a nested object instead of a JSON string — the 3x-ui Go struct expects a `string` type for these fields. The API returns `success: true` but stores only the first key name (e.g., `"clients"`) instead of the full JSON object.
 
-**Fix:** This was fixed in v1.2.1 by switching to `body_format: json`. If you hit this on an older version, uninstall and reinstall: `meridian uninstall IP && meridian setup IP`. To verify the database is clean: `sqlite3 /opt/3x-ui/db/x-ui.db "SELECT settings FROM inbounds;"` — each field should be valid JSON, not a single word.
+**Fix:** `PanelClient` always sends `settings` as a JSON string inside the JSON body (double-serialized). If you hit this on an older version, uninstall and reinstall: `meridian uninstall IP && meridian setup IP`. To verify the database is clean: `sqlite3 /opt/3x-ui/db/x-ui.db "SELECT settings FROM inbounds;"` — each field should be valid JSON, not a single word.
 
 ### XHTTP inbound creation fails (port already exists)
 
@@ -340,9 +340,9 @@ Add --ai to check or diagnostics for an AI-ready prompt.
 
 **Cause:** Domain doesn't resolve to server IP yet.
 
-**Fix:** Update DNS A record to point to server IP. DNS propagation can take up to 48 hours but usually 5-15 minutes. Override with `-e skip_dns_check=true` if you're sure it will propagate.
+**Fix:** Update DNS A record to point to server IP. DNS propagation can take up to 48 hours but usually 5-15 minutes. Meridian will warn you if DNS doesn't resolve but lets you proceed.
 
-### Ansible connection errors
+### SSH connection errors
 
 **Cause:** SSH key not accepted, server unreachable, or wrong user.
 
@@ -413,7 +413,7 @@ The SNI target is the domain that Reality impersonates. Choosing the wrong one c
 
 | Section | What to Look For |
 |---------|-----------------|
-| Local Machine | Ansible version (needs 2.12+), OS compatibility |
+| Local Machine | OS compatibility |
 | Server | OS version, uptime (recent reboot?), disk/memory usage |
 | Docker | Is 3x-ui container running? Status should be "Up" |
 | 3x-ui Logs | Error messages, "failed to start" entries, certificate issues |

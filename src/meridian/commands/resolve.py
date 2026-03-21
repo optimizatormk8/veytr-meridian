@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, SERVERS_FILE, is_ipv4
+from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ipv4
 from meridian.console import err_console, fail, info
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
