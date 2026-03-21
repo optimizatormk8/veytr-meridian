@@ -117,7 +117,7 @@ class Provisioner:
                 console.print(f"  [dim]\u2013 {result.name}{detail}[/dim]")
             else:
                 # ok or changed
-                marker = "\u2713" if result.status == "ok" else "\u2713"
+                marker = "\u2713"
                 detail = f" [dim]({result.detail})[/dim]" if result.detail else ""
                 console.print(f"  [green]{marker}[/green] {result.name}{detail}")
 

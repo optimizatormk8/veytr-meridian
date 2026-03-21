@@ -59,7 +59,7 @@ class ConfigurePanel:
     new credentials saved locally.
     """
 
-    name = "configure_panel"
+    name = "Configure panel"
 
     def __init__(
         self,
@@ -195,7 +195,7 @@ class LoginToPanel:
     Returns a PanelClient in ctx["panel"] for subsequent steps.
     """
 
-    name = "login_to_panel"
+    name = "Log in to panel"
 
     @timed
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:

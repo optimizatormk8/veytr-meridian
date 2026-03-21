@@ -182,7 +182,7 @@ class CreateRealityInbound:
     switching from no-domain to domain mode), it is deleted and recreated.
     """
 
-    name = "create_reality_inbound"
+    name = "Create Reality inbound"
 
     def __init__(
         self,
@@ -276,7 +276,7 @@ class CreateXHTTPInbound:
     XHTTP needs its own dedicated port separate from Reality TCP.
     """
 
-    name = "create_xhttp_inbound"
+    name = "Create XHTTP inbound"
 
     def __init__(
         self,
@@ -374,7 +374,7 @@ class CreateWSSInbound:
     (traffic arrives via Caddy reverse proxy).
     """
 
-    name = "create_wss_inbound"
+    name = "Create WSS inbound"
 
     def __init__(
         self,
@@ -455,7 +455,7 @@ class VerifyXray:
     stays up but no traffic flows. This catches the failure early.
     """
 
-    name = "verify_xray"
+    name = "Verify Xray configuration"
 
     @timed
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:

@@ -35,7 +35,7 @@ class Uninstall:
             "rm -f /etc/caddy/conf.d/meridian.caddy",
             "rm -rf /var/www/private",
             # Cron jobs
-            "crontab -l 2>/dev/null | grep -v 'meridian-' | crontab - 2>/dev/null; true",
+            "crontab -l 2>/dev/null | grep -v 'update-stats.py' | crontab - 2>/dev/null; true",
             # Server credentials
             "rm -rf /etc/meridian /root/meridian",
             # CLI symlink

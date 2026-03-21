@@ -315,7 +315,7 @@ class InstallHAProxy:
     everything else to Caddy.
     """
 
-    name = "install_haproxy"
+    name = "Install HAProxy"
 
     def __init__(
         self,
@@ -407,7 +407,7 @@ class InstallCaddy:
     own Caddyfile is never overwritten.
     """
 
-    name = "install_caddy"
+    name = "Install Caddy"
 
     def __init__(
         self,
@@ -567,7 +567,7 @@ class DeployConnectionPage:
     script with a cron job, and writes the connection-info HTML page.
     """
 
-    name = "deploy_connection_page"
+    name = "Deploy connection page"
 
     def __init__(
         self,
