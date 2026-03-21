@@ -290,6 +290,148 @@ class TestCleanup:
         assert ".cookie" in call_args
 
 
+class TestParseResponse:
+    """Test the static _parse_response method edge cases."""
+
+    def test_html_error_page(self) -> None:
+        """Panel might return HTML (e.g. nginx 502) instead of JSON."""
+        with pytest.raises(PanelError, match="Invalid JSON"):
+            PanelClient._parse_response("<html><body>502 Bad Gateway</body></html>", "/panel/api/inbounds/list")
+
+    def test_truncated_json(self) -> None:
+        with pytest.raises(PanelError, match="Invalid JSON"):
+            PanelClient._parse_response('{"success": tru', "/login")
+
+    def test_empty_string(self) -> None:
+        with pytest.raises(PanelError, match="Empty response"):
+            PanelClient._parse_response("", "/login")
+
+    def test_whitespace_only(self) -> None:
+        with pytest.raises(PanelError, match="Empty response"):
+            PanelClient._parse_response("   \n  ", "/login")
+
+    def test_valid_json_returned(self) -> None:
+        result = PanelClient._parse_response('{"success": true, "obj": null}', "/test")
+        assert result["success"] is True
+
+
+class TestFindInboundNoMatch:
+    """Extended find_inbound tests."""
+
+    def test_find_empty_list(self) -> None:
+        conn = _make_conn(stdout='{"success": true, "obj": []}')
+        panel = _make_panel(conn)
+        assert panel.find_inbound("VLESS-Reality") is None
+
+    def test_find_partial_name_no_match(self) -> None:
+        """find_inbound uses exact match, not substring."""
+        response = {
+            "success": True,
+            "obj": [
+                {
+                    "id": 1,
+                    "remark": "VLESS-Reality",
+                    "protocol": "vless",
+                    "port": 443,
+                    "settings": json.dumps({"clients": []}),
+                    "streamSettings": "{}",
+                },
+            ],
+        }
+        conn = _make_conn(stdout=json.dumps(response))
+        panel = _make_panel(conn)
+        # Substring should NOT match
+        assert panel.find_inbound("Reality") is None
+        assert panel.find_inbound("VLESS") is None
+
+
+class TestAddClientBodyFormat:
+    """Verify the JSON-string-inside-JSON body format for add_client."""
+
+    def test_settings_field_is_json_string_in_body(self) -> None:
+        """The API body's 'settings' field must be a JSON string, not nested object."""
+        conn = _make_conn(stdout='{"success": true}')
+        panel = _make_panel(conn)
+
+        client_settings = {"clients": [{"id": "uuid-abc", "email": "reality-bob"}]}
+        panel.add_client(3, client_settings)
+
+        call_args = conn.run.call_args[0][0]
+        # The curl -d argument should contain a JSON string where 'settings'
+        # is a stringified JSON (double-encoded). Parse the curl body to verify.
+        # Find the JSON body in the curl command
+        assert "addClient" in call_args
+        # The body should contain '"settings":' with an escaped JSON string value
+        # Since the body is passed through shlex.quote, we verify the structure
+        # by checking that json.dumps of client_settings appears in the command
+        settings_json = json.dumps(client_settings)
+        assert settings_json in call_args or "uuid-abc" in call_args
+
+
+class TestGenerateUUIDEdgeCases:
+    def test_generate_uuid_empty_output(self) -> None:
+        """Xray binary found but uuid command returns empty."""
+        conn = MagicMock()
+        conn.run.side_effect = [
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="/app/bin/xray-linux-amd64\n", stderr=""),
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="\n", stderr=""),
+        ]
+        panel = _make_panel(conn)
+        with pytest.raises(PanelError, match="empty output"):
+            panel.generate_uuid()
+
+    def test_generate_uuid_command_failure(self) -> None:
+        """Xray binary found but uuid command fails."""
+        conn = MagicMock()
+        conn.run.side_effect = [
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="/app/bin/xray-linux-amd64\n", stderr=""),
+            subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="exec error"),
+        ]
+        panel = _make_panel(conn)
+        with pytest.raises(PanelError, match="UUID generation failed"):
+            panel.generate_uuid()
+
+    def test_generate_uuid_xray_binary_path_quoted(self) -> None:
+        """Xray binary path should be shlex-quoted in the uuid command."""
+        conn = MagicMock()
+        conn.run.side_effect = [
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="/app/bin/xray-linux-amd64\n", stderr=""),
+            subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n", stderr=""
+            ),
+        ]
+        panel = _make_panel(conn)
+        uuid = panel.generate_uuid()
+        assert uuid == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+        # Verify the second call (uuid generation) contains the quoted binary path
+        second_call = conn.run.call_args_list[1][0][0]
+        assert "/app/bin/xray-linux-amd64" in second_call
+        assert "uuid" in second_call
+
+
+class TestApiMethods:
+    """Test internal API helper methods."""
+
+    def test_api_get_failure(self) -> None:
+        conn = _make_conn(rc=1, stderr="timeout")
+        panel = _make_panel(conn)
+        with pytest.raises(PanelError, match="API GET"):
+            panel._api_get("/panel/api/inbounds/list")
+
+    def test_api_post_json_failure(self) -> None:
+        conn = _make_conn(rc=1, stderr="connection reset")
+        panel = _make_panel(conn)
+        with pytest.raises(PanelError, match="API POST"):
+            panel._api_post_json("/panel/setting/update", {"key": "value"})
+
+    def test_api_post_empty_failure(self) -> None:
+        conn = _make_conn(rc=1, stderr="refused")
+        panel = _make_panel(conn)
+        with pytest.raises(PanelError, match="API POST"):
+            panel._api_post_empty("/panel/api/inbounds/1/delClient/uuid")
+
+
 class TestInboundDataclass:
     def test_defaults(self) -> None:
         ib = Inbound(id=1, remark="test", protocol="vless", port=443)

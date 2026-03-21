@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 from meridian.credentials import (
     PanelConfig,
@@ -11,7 +12,14 @@ from meridian.credentials import (
     ServerCredentials,
     WSSProtocol,
 )
-from meridian.output import ClientURLs, build_vless_urls, save_connection_text
+from meridian.output import (
+    ClientURLs,
+    build_vless_urls,
+    generate_qr_base64,
+    generate_qr_terminal,
+    save_connection_html,
+    save_connection_text,
+)
 
 
 def _make_creds(
@@ -171,3 +179,238 @@ class TestSaveConnectionText:
         dest = tmp_path / "out.txt"
         save_connection_text(urls, dest, "1.2.3.4")
         assert oct(dest.stat().st_mode)[-3:] == "600"
+
+
+class TestBuildVlessURLsEdgeCases:
+    """Additional URL building edge case tests."""
+
+    def test_sni_with_subdomain(self) -> None:
+        creds = _make_creds(sni="sub.domain.example.com")
+        urls = build_vless_urls("test", "uuid-1", "", creds)
+        assert "sni=sub.domain.example.com" in urls.reality
+
+    def test_all_protocols_together(self) -> None:
+        """Test building URLs with all three protocols enabled."""
+        creds = _make_creds(domain="example.com", ws_path="myws")
+        urls = build_vless_urls("alice", "r-uuid", "w-uuid", creds, xhttp_port=8443)
+        assert urls.reality.startswith("vless://r-uuid@1.2.3.4:443")
+        assert urls.xhttp.startswith("vless://r-uuid@1.2.3.4:8443")
+        assert urls.wss.startswith("vless://w-uuid@example.com:443")
+        assert "#alice" in urls.reality
+        assert "#alice-XHTTP" in urls.xhttp
+        assert "#alice-WSS" in urls.wss
+
+    def test_empty_sni_defaults(self) -> None:
+        """When SNI is None, should default to www.microsoft.com."""
+        creds = ServerCredentials(
+            panel=PanelConfig(username="admin", password="pass", port=2053),
+            server=ServerConfig(ip="1.2.3.4", sni=None),
+            protocols={
+                "reality": RealityProtocol(
+                    uuid="base-uuid",
+                    public_key="pk",
+                    short_id="sid",
+                    private_key="priv",
+                ),
+            },
+        )
+        urls = build_vless_urls("test", "uuid-1", "", creds)
+        assert "sni=www.microsoft.com" in urls.reality
+
+    def test_url_contains_encryption_none(self) -> None:
+        creds = _make_creds()
+        urls = build_vless_urls("test", "uuid-1", "", creds)
+        assert "encryption=none" in urls.reality
+
+    def test_xhttp_no_flow_parameter(self) -> None:
+        """XHTTP must NOT include flow parameter (xtls-rprx-vision is incompatible)."""
+        creds = _make_creds()
+        urls = build_vless_urls("test", "uuid-1", "", creds, xhttp_port=9000)
+        # XHTTP URL should not have flow= at all
+        assert "flow=" not in urls.xhttp
+        # But reality URL should have it
+        assert "flow=xtls-rprx-vision" in urls.reality
+
+    def test_wss_url_has_host_header(self) -> None:
+        """WSS URL should include host= parameter matching domain."""
+        creds = _make_creds(domain="cdn.example.com", ws_path="ws")
+        urls = build_vless_urls("test", "r-uuid", "w-uuid", creds)
+        assert "host=cdn.example.com" in urls.wss
+
+    def test_xhttp_path_is_slash(self) -> None:
+        """XHTTP path should be URL-encoded /."""
+        creds = _make_creds()
+        urls = build_vless_urls("test", "uuid", "", creds, xhttp_port=5000)
+        assert "path=%2F" in urls.xhttp
+
+    def test_client_name_with_numbers(self) -> None:
+        creds = _make_creds()
+        urls = build_vless_urls("user123", "uuid-1", "", creds)
+        assert "#user123" in urls.reality
+
+
+class TestQRCodeGeneration:
+    """Test QR code generation with mocked subprocess."""
+
+    def test_generate_qr_terminal_success(self) -> None:
+        mock_result = type("Result", (), {"returncode": 0, "stdout": "QR_OUTPUT"})()
+        with patch("meridian.output.subprocess.run", return_value=mock_result):
+            result = generate_qr_terminal("vless://test")
+        assert result == "QR_OUTPUT"
+
+    def test_generate_qr_terminal_failure(self) -> None:
+        mock_result = type("Result", (), {"returncode": 1, "stdout": ""})()
+        with patch("meridian.output.subprocess.run", return_value=mock_result):
+            result = generate_qr_terminal("vless://test")
+        assert result == ""
+
+    def test_generate_qr_terminal_not_installed(self) -> None:
+        with patch("meridian.output.subprocess.run", side_effect=FileNotFoundError):
+            result = generate_qr_terminal("vless://test")
+        assert result == ""
+
+    def test_generate_qr_terminal_timeout(self) -> None:
+        import subprocess
+
+        with patch("meridian.output.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="qrencode", timeout=5)):
+            result = generate_qr_terminal("vless://test")
+        assert result == ""
+
+    def test_generate_qr_base64_success(self) -> None:
+        mock_result = type("Result", (), {"returncode": 0, "stdout": "iVBORw0KGgo="})()
+        with patch("meridian.output.subprocess.run", return_value=mock_result):
+            result = generate_qr_base64("vless://test")
+        assert result == "iVBORw0KGgo="
+
+    def test_generate_qr_base64_failure(self) -> None:
+        mock_result = type("Result", (), {"returncode": 1, "stdout": ""})()
+        with patch("meridian.output.subprocess.run", return_value=mock_result):
+            result = generate_qr_base64("vless://test")
+        assert result == ""
+
+    def test_generate_qr_base64_not_installed(self) -> None:
+        with patch("meridian.output.subprocess.run", side_effect=FileNotFoundError):
+            result = generate_qr_base64("vless://test")
+        assert result == ""
+
+
+class TestSaveConnectionHtml:
+    """Test HTML connection page generation."""
+
+    def test_creates_file(self, tmp_path: Path) -> None:
+        urls = ClientURLs(
+            name="alice",
+            reality="vless://uuid@1.2.3.4:443?test",
+            xhttp="",
+            wss="",
+        )
+        dest = tmp_path / "alice.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        assert dest.exists()
+
+    def test_html_contains_client_name_in_url(self, tmp_path: Path) -> None:
+        """Client name appears in the VLESS URL fragment within the HTML."""
+        urls = ClientURLs(
+            name="bob",
+            reality="vless://uuid@1.2.3.4:443?test#bob",
+            xhttp="",
+            wss="",
+        )
+        dest = tmp_path / "bob.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        # The client name appears in the VLESS URL embedded in the HTML
+        assert "vless://uuid@1.2.3.4:443?test#bob" in content
+
+    def test_html_contains_reality_url(self, tmp_path: Path) -> None:
+        urls = ClientURLs(
+            name="test",
+            reality="vless://unique-reality-url@1.2.3.4:443",
+            xhttp="",
+            wss="",
+        )
+        dest = tmp_path / "test.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "unique-reality-url" in content
+
+    def test_html_file_permissions(self, tmp_path: Path) -> None:
+        urls = ClientURLs(name="test", reality="vless://x", xhttp="", wss="")
+        dest = tmp_path / "test.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        assert oct(dest.stat().st_mode)[-3:] == "600"
+
+    def test_html_is_valid_structure(self, tmp_path: Path) -> None:
+        """Generated HTML should have basic structure."""
+        urls = ClientURLs(
+            name="alice",
+            reality="vless://uuid@1.2.3.4:443",
+            xhttp="",
+            wss="",
+        )
+        dest = tmp_path / "alice.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "<!DOCTYPE html>" in content or "<html" in content
+        assert "</html>" in content
+
+    def test_html_includes_ping_url(self, tmp_path: Path) -> None:
+        """Generated HTML should include a ping URL for troubleshooting."""
+        urls = ClientURLs(
+            name="alice",
+            reality="vless://uuid@1.2.3.4:443",
+            xhttp="",
+            wss="",
+        )
+        dest = tmp_path / "alice.html"
+        with patch("meridian.output.generate_qr_base64", return_value=""):
+            save_connection_html(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "meridian.msu.rocks/ping" in content
+
+
+class TestSaveConnectionTextAllProtocols:
+    """Test text output with all combinations of protocols."""
+
+    def test_all_protocols(self, tmp_path: Path) -> None:
+        urls = ClientURLs(
+            name="alice",
+            reality="vless://reality-url",
+            xhttp="vless://xhttp-url",
+            wss="vless://wss-url",
+        )
+        dest = tmp_path / "out.txt"
+        save_connection_text(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "vless://reality-url" in content
+        assert "vless://xhttp-url" in content
+        assert "vless://wss-url" in content
+        assert "XHTTP" in content
+        assert "WSS" in content
+        assert "Reality" in content
+
+    def test_text_includes_client_apps(self, tmp_path: Path) -> None:
+        urls = ClientURLs(name="test", reality="vless://x", xhttp="", wss="")
+        dest = tmp_path / "out.txt"
+        save_connection_text(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "v2rayNG" in content
+        assert "v2RayTun" in content or "Hiddify" in content
+
+    def test_text_includes_time_sync_warning(self, tmp_path: Path) -> None:
+        urls = ClientURLs(name="test", reality="vless://x", xhttp="", wss="")
+        dest = tmp_path / "out.txt"
+        save_connection_text(urls, dest, "1.2.3.4")
+        content = dest.read_text()
+        assert "TIME SYNC" in content or "time" in content.lower()
+
+    def test_creates_parent_directories(self, tmp_path: Path) -> None:
+        urls = ClientURLs(name="test", reality="vless://x", xhttp="", wss="")
+        dest = tmp_path / "deep" / "nested" / "dir" / "out.txt"
+        save_connection_text(urls, dest, "1.2.3.4")
+        assert dest.exists()
