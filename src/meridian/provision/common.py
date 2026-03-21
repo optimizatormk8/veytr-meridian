@@ -247,6 +247,10 @@ class ConfigureFirewall:
 
         changed = False
 
+        # Check if ufw is already active
+        ufw_status = conn.run("ufw status", timeout=10)
+        ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
+
         # Allow SSH (port 22)
         result = conn.run("ufw allow 22/tcp", timeout=10)
         if result.returncode != 0:
@@ -255,6 +259,8 @@ class ConfigureFirewall:
                 status="failed",
                 detail=f"failed to allow SSH: {result.stderr.strip()[:200]}",
             )
+        if "Skipping" not in result.stdout:
+            changed = True
 
         # Allow HTTPS (port 443)
         result = conn.run("ufw allow 443/tcp", timeout=10)
@@ -264,6 +270,8 @@ class ConfigureFirewall:
                 status="failed",
                 detail=f"failed to allow HTTPS: {result.stderr.strip()[:200]}",
             )
+        if "Skipping" not in result.stdout:
+            changed = True
 
         # Domain mode: allow port 80 for ACME challenges
         if ctx.domain_mode:
@@ -274,9 +282,13 @@ class ConfigureFirewall:
                     status="failed",
                     detail=f"failed to allow HTTP: {result.stderr.strip()[:200]}",
                 )
+            if "Skipping" not in result.stdout:
+                changed = True
         else:
             # Cleanup stale port 80 rule if switching from domain mode
-            conn.run("ufw delete allow 80/tcp 2>/dev/null", timeout=10)
+            result = conn.run("ufw delete allow 80/tcp 2>/dev/null", timeout=10)
+            if result.returncode == 0 and "Skipping" not in result.stdout and "Could not" not in result.stdout:
+                changed = True
 
         # XHTTP: allow dedicated port
         if ctx.xhttp_enabled and ctx.xhttp_port > 0:
@@ -287,20 +299,26 @@ class ConfigureFirewall:
                     status="failed",
                     detail=f"failed to allow XHTTP port: {result.stderr.strip()[:200]}",
                 )
+            if "Skipping" not in result.stdout:
+                changed = True
 
         # Set default policies and enable
         conn.run("ufw default deny incoming", timeout=10)
         conn.run("ufw default allow outgoing", timeout=10)
 
-        # Enable ufw (non-interactive)
-        result = conn.run("echo y | ufw enable", timeout=15)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"ufw enable failed: {result.stderr.strip()[:200]}",
-            )
-        changed = True
+        # Enable ufw (non-interactive) -- only counts as changed if it wasn't active
+        if not ufw_active:
+            result = conn.run("echo y | ufw enable", timeout=15)
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"ufw enable failed: {result.stderr.strip()[:200]}",
+                )
+            changed = True
+        else:
+            # Reload to apply any rule changes
+            conn.run("ufw reload", timeout=15)
 
         return StepResult(
             name=self.name,

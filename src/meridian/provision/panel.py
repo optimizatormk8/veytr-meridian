@@ -13,11 +13,10 @@ import shlex
 import string
 import time
 from pathlib import Path
-from typing import Any
 
 from meridian.credentials import ServerCredentials
 from meridian.panel import PanelClient, PanelError
-from meridian.provision.steps import StepResult
+from meridian.provision.steps import ProvisionContext, StepResult, timed
 from meridian.ssh import ServerConnection
 
 # ---------------------------------------------------------------------------
@@ -40,18 +39,6 @@ def _random_alnum(length: int) -> str:
 
 def _random_hex(length: int) -> str:
     return secrets.token_hex(length // 2)
-
-
-def _timed(fn):  # noqa: ANN001, ANN202
-    """Decorator that adds duration_ms to the returned StepResult."""
-
-    def wrapper(*args: Any, **kwargs: Any) -> StepResult:
-        t0 = time.monotonic()
-        result = fn(*args, **kwargs)
-        result.duration_ms = int((time.monotonic() - t0) * 1000)
-        return result
-
-    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -94,8 +81,8 @@ class ConfigurePanel:
         self.panel_port = panel_port
         self.xhttp_enabled = xhttp_enabled
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if already configured
         creds = ctx.get("credentials")
         if creds is not None and ctx.get("panel_configured"):
@@ -210,8 +197,8 @@ class LoginToPanel:
 
     name = "login_to_panel"
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         creds: ServerCredentials | None = ctx.get("credentials")
         if creds is None or not creds.has_credentials:
             return StepResult(
@@ -367,7 +354,7 @@ def _apply_panel_settings(
         "pageSize": 50,
         "loginSecurity": True,
     }
-    data = panel._api_post_json("/panel/setting/update", settings_body)
+    data = panel.api_post_json("/panel/setting/update", settings_body)
     if not data.get("success"):
         raise PanelError(f"Failed to update panel settings: {data.get('msg', 'unknown')}")
 
@@ -378,7 +365,7 @@ def _apply_panel_settings(
         "newUsername": new_username,
         "newPassword": new_password,
     }
-    data = panel._api_post_json("/panel/setting/updateUser", user_body)
+    data = panel.api_post_json("/panel/setting/updateUser", user_body)
     if not data.get("success"):
         raise PanelError(f"Failed to update panel credentials: {data.get('msg', 'unknown')}")
 

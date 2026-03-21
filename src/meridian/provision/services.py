@@ -8,24 +8,9 @@ from __future__ import annotations
 
 import shlex
 import textwrap
-import time
-from typing import Any
 
-from meridian.provision.steps import StepResult
+from meridian.provision.steps import ProvisionContext, StepResult, timed
 from meridian.ssh import ServerConnection
-
-
-def _timed(fn):  # noqa: ANN001, ANN202
-    """Decorator that adds duration_ms to the returned StepResult."""
-
-    def wrapper(*args: Any, **kwargs: Any) -> StepResult:
-        t0 = time.monotonic()
-        result = fn(*args, **kwargs)
-        result.duration_ms = int((time.monotonic() - t0) * 1000)
-        return result
-
-    return wrapper
-
 
 # ---------------------------------------------------------------------------
 # HAProxy configuration template
@@ -342,8 +327,8 @@ class InstallHAProxy:
         self.haproxy_reality_backend_port = haproxy_reality_backend_port
         self.caddy_internal_port = caddy_internal_port
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if already installed and configured
         check = conn.run("dpkg -l haproxy 2>/dev/null | grep -q '^ii'", timeout=10)
         already_installed = check.returncode == 0
@@ -395,7 +380,7 @@ class InstallHAProxy:
                 detail=f"Failed to start HAProxy: {result.stderr.strip()}",
             )
 
-        status = "changed" if not already_installed else "changed"
+        status = "changed" if not already_installed else "ok"
         return StepResult(
             name=self.name,
             status=status,
@@ -448,8 +433,8 @@ class InstallCaddy:
         self.server_ip = server_ip
         self.skip_dns_check = skip_dns_check
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # -- DNS pre-check --
         if not self.skip_dns_check:
             dns_result = _check_domain_dns(conn, self.domain, self.server_ip)
@@ -614,8 +599,8 @@ class DeployConnectionPage:
         self.xhttp_enabled = xhttp_enabled
         self.xhttp_port = xhttp_port
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Install qrencode
         result = conn.run(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y qrencode",
