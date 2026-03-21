@@ -1,46 +1,37 @@
 # Backlog
 
 **Last updated:** 2026-03-21
-**Version:** 3.1.0
+**Version:** 3.2.0
 
 ---
 
 ## Strategic direction
 
-**Ansible migration is underway.** The Python provisioner (`src/meridian/provision/`) is built, wired into `setup.py`, and E2E tested against a real server. Ansible playbooks are kept as `--legacy` fallback. Next step: delete `ansible.py` after one release cycle of production use.
+**Ansible is deleted.** The Python provisioner is the only deployment engine. E2E tested: fresh setup, idempotent re-runs, client management, uninstall — all verified across 2 full cycles on a real Ubuntu 24.04 server with non-root sudo user.
 
-**We are keeping 3x-ui.** It's powerful, actively maintained, and the web UI keeps power users on Meridian. The coupling is contained in `PanelClient`.
+**We are keeping 3x-ui.** Coupling is contained in `PanelClient`.
 
 ---
 
-## What shipped in v3.1.0
+## What shipped in v3.1.0–3.2.0
 
-- Python provisioner engine (15 idempotent steps replacing all 7 Ansible roles)
-- Protocol foundation (`ProtocolURL`, dict registry, DRY base class)
-- Output restructured into `urls.py` / `render.py` / `display.py`
-- Error taxonomy (`fail(hint_type="user|system|bug")`)
-- `conn.run(sudo=...)` for non-root SSH users
-- 31 new tests (284 total), E2E tested on real server
-- README emotional hook, common scenarios, AI docs drift fixes
-- 4 Ansible bug fixes (XHTTP bytes, login validation, QR injection, DNS pre-flight)
+- Python provisioner engine (15 steps replacing all Ansible roles)
+- Ansible fully deleted (-2,825 lines): playbooks, roles, ansible.py, CI jobs
+- Uninstall provisioner (replaces playbook-uninstall.yml)
+- Protocol foundation (ProtocolURL, dict registry, DRY base class)
+- Output split into urls.py / render.py / display.py
+- Error taxonomy, sudo escalation, PanelClient context manager
+- E2E tested: 2 full setup→client→uninstall→setup cycles on real server
+- README emotional hook, common scenarios, AI docs fixes
 
 ---
 
 ## Next up
 
-### Ansible cleanup (post v3.1.0 stabilization)
-
-- [ ] Delete `ansible.py`, remove `--legacy` flag
-- [ ] Move or delete playbooks
-- [ ] Update CI — remove ansible-lint, ansible-check, dry-run jobs
-- [ ] Drop Ansible from install.sh
-
 ### Provisioner hardening
 
-- [ ] Uninstall provisioner (replaces `playbook-uninstall.yml`)
-- [ ] Domain mode E2E test (HAProxy + Caddy + WSS)
-- [ ] Fresh server E2E test (no existing Docker/panel)
-- [ ] Provisioner unit tests (mock `conn.run()`, test idempotency)
+- [ ] Domain mode E2E test (HAProxy + Caddy + WSS on a server with domain)
+- [ ] Provisioner unit tests (mock `conn.run()`, test idempotency checks)
 - [ ] Domain prompt yes/no gate (replace `Domain [skip]:`)
 
 ### Scale features
