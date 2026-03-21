@@ -14,6 +14,7 @@ from meridian.commands.resolve import (
 from meridian.config import SERVERS_FILE
 from meridian.console import err_console, fail, info
 from meridian.credentials import ServerCredentials
+from meridian.protocols import INBOUND_TYPES
 from meridian.servers import ServerRegistry
 
 
@@ -80,10 +81,10 @@ def run_list(
     if not creds.has_credentials:
         fail("No panel credentials found", hint="Deploy the server first: meridian setup")
 
-    panel_port = 2053
-    panel_user = creds.panel_username
-    panel_pass = creds.panel_password
-    panel_path = creds.panel_web_base_path
+    panel_port = creds.panel.port
+    panel_user = creds.panel.username or ""
+    panel_pass = creds.panel.password or ""
+    panel_path = creds.panel.web_base_path or ""
 
     # Build the curl commands for login + list
     q_user = shlex.quote(panel_user)
@@ -161,23 +162,28 @@ def _display_client_list(raw_json: str) -> None:
     inbounds = data.get("obj", [])
 
     # Build lookup: inbound remark -> set of client emails
-    clients_by_inbound: dict[str, set[str]] = {}
+    clients_by_remark: dict[str, set[str]] = {}
     for ib in inbounds:
         remark = ib.get("remark", "")
         settings = json.loads(ib.get("settings", "{}"))
         emails = {c.get("email", "") for c in settings.get("clients", [])}
-        clients_by_inbound[remark] = emails
+        clients_by_remark[remark] = emails
 
-    # Reality clients are the canonical list
+    # Reality is the canonical inbound — all clients have a Reality entry
+    reality_type = INBOUND_TYPES["reality"]
     reality_clients: list[dict] = []
     for ib in inbounds:
-        if ib.get("remark") == "VLESS-Reality":
+        if ib.get("remark") == reality_type.remark:
             settings = json.loads(ib.get("settings", "{}"))
             reality_clients = settings.get("clients", [])
             break
 
-    wss_emails = clients_by_inbound.get("VLESS-WSS", set())
-    xhttp_emails = clients_by_inbound.get("VLESS-Reality-XHTTP", set())
+    # Build email sets for non-canonical inbound types
+    other_types = {
+        key: clients_by_remark.get(itype.remark, set())
+        for key, itype in INBOUND_TYPES.items()
+        if key != "reality"
+    }
 
     table = Table(title="Proxy Clients", show_lines=False, pad_edge=False, box=None, padding=(0, 2))
     table.add_column("Name", style="bold")
@@ -186,13 +192,14 @@ def _display_client_list(raw_json: str) -> None:
 
     for c in reality_clients:
         email = c.get("email", "")
-        name = email.removeprefix("reality-") if email.startswith("reality-") else email
+        name = email.removeprefix(reality_type.email_prefix) if email.startswith(reality_type.email_prefix) else email
         status = "[green]active[/green]" if c.get("enable", True) else "[dim]disabled[/dim]"
         protos = ["Reality"]
-        if f"xhttp-{name}" in xhttp_emails:
-            protos.append("XHTTP")
-        if f"wss-{name}" in wss_emails:
-            protos.append("WSS")
+        for key, itype in INBOUND_TYPES.items():
+            if key == "reality":
+                continue
+            if f"{itype.email_prefix}{name}" in other_types[key]:
+                protos.append(key.upper())
         table.add_row(name, status, " + ".join(protos))
 
     count = len(reality_clients)
