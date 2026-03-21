@@ -130,13 +130,19 @@ def resolve_server(
 def ensure_server_connection(resolved: ResolvedServer) -> None:
     """Detect local mode if not already set, then verify SSH connectivity.
 
-    Local mode only activates for root (who can read /etc/meridian/).
-    Non-root on server gets a helpful error suggesting `sudo meridian`.
+    Local mode activates for root (who can read /etc/meridian/) and for
+    non-root users (who use sudo for commands). Non-root users keep
+    creds_dir in their home directory (sudo copies from /etc/meridian/).
     """
     if not resolved.local_mode:
         if resolved.conn.detect_local_mode():
             resolved.local_mode = True
-            resolved.creds_dir = SERVER_CREDS_DIR
+            if not resolved.conn.needs_sudo:
+                # Root on server — read /etc/meridian/ directly
+                resolved.creds_dir = SERVER_CREDS_DIR
+            else:
+                # Non-root on server — use user-local creds dir
+                resolved.creds_dir = CREDS_BASE / resolved.ip
     resolved.conn.check_ssh()
 
 

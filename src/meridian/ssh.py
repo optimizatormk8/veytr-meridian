@@ -6,14 +6,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from meridian.console import err_console, fail, info, ok
+from meridian.console import err_console, fail, info, ok, warn
 
 
 class ServerConnection:
     """Manage SSH connections to a remote server.
 
     Non-root remote users: Ansible handles privilege escalation via ansible_become.
-    Non-root local users: CLI detects and suggests `sudo meridian`.
+    Non-root local users: Commands run via sudo, Ansible uses local connection + become.
     Passwordless sudo is required (standard on AWS/GCP/Azure/DO).
     """
 
@@ -21,6 +21,7 @@ class ServerConnection:
         self.ip = ip
         self.user = user
         self.local_mode = local_mode
+        self.needs_sudo = False  # on-server non-root — run commands via sudo
 
     @property
     def _ssh_opts(self) -> list[str]:
@@ -36,8 +37,12 @@ class ServerConnection:
     def run(self, command: str, timeout: int = 30, check: bool = False) -> subprocess.CompletedProcess[str]:
         """Run a command on the remote server via SSH."""
         if self.local_mode:
+            if self.needs_sudo:
+                cmd = ["sudo", "bash", "-c", command]
+            else:
+                cmd = ["bash", "-c", command]
             return subprocess.run(
-                ["bash", "-c", command],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -76,7 +81,8 @@ class ServerConnection:
         """Check if we're running on the target server itself.
 
         Local mode requires root access to /etc/meridian/. If we detect we're
-        on the server but not root, we suggest `sudo meridian` instead.
+        on the server but not root, we warn and fall through to SSH mode
+        (connecting to self via SSH with ansible_become for privilege escalation).
         """
         from meridian.config import SERVER_CREDS_DIR
 
@@ -87,14 +93,12 @@ class ServerConnection:
                 self.local_mode = True
                 return True
         except (PermissionError, OSError):
-            # We can see the directory exists but can't read — non-root on server
+            # Non-root on server — use local mode with sudo for commands
             if _is_on_server(self.ip):
-                err_console.print(
-                    "\n  [warn]![/warn] Running on the server as non-root. Meridian needs root to access credentials."
-                )
-                err_console.print(f"  [dim]Run: sudo meridian setup {self.ip}[/dim]")
-                err_console.print(f"  [dim]Or from laptop: meridian setup {self.ip} --user {self.user}[/dim]\n")
-                fail("Root access required on the server itself")
+                warn("Running as non-root on the server. Using sudo for commands.")
+                self.local_mode = True
+                self.needs_sudo = True
+                return True
             return False
 
         # Check if our public IP matches the target (root without prior deploy)
@@ -151,7 +155,10 @@ class ServerConnection:
         return False
 
     def _copy_local_credentials(self, local_creds_dir: Path) -> bool:
-        """Copy credentials from /etc/meridian/ in local mode (root)."""
+        """Copy credentials from /etc/meridian/ in local mode.
+
+        When needs_sudo is set, uses sudo to read root-owned credential files.
+        """
         from meridian.config import SERVER_CREDS_DIR
 
         src = SERVER_CREDS_DIR / "proxy.yml"
@@ -160,9 +167,36 @@ class ServerConnection:
         if dst == src:
             return True
 
+        local_creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+        if self.needs_sudo:
+            # Use sudo to copy root-owned files
+            result = subprocess.run(
+                ["sudo", "-n", "cat", str(src)],
+                capture_output=True,
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+            )
+            if result.returncode != 0:
+                return False
+            dst.write_bytes(result.stdout)
+            dst.chmod(0o600)
+            # Best-effort: copy clients file
+            clients_src = SERVER_CREDS_DIR / "proxy-clients.yml"
+            clients_dst = local_creds_dir / "proxy-clients.yml"
+            cr = subprocess.run(
+                ["sudo", "-n", "cat", str(clients_src)],
+                capture_output=True,
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+            )
+            if cr.returncode == 0:
+                clients_dst.write_bytes(cr.stdout)
+                clients_dst.chmod(0o600)
+            return True
+
         try:
             if src.is_file():
-                local_creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                 shutil.copy2(str(src), str(dst))
                 dst.chmod(0o600)
                 clients_src = SERVER_CREDS_DIR / "proxy-clients.yml"
