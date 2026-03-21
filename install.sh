@@ -67,7 +67,7 @@ INSTALLED=false
 if command -v uv &>/dev/null || install_uv; then
   if command -v uv &>/dev/null; then
     info "Installing meridian via uv..."
-    if uv tool install "$PYPI_PACKAGE" </dev/null 2>&1; then
+    if uv tool install "$PYPI_PACKAGE" --upgrade </dev/null 2>&1; then
       INSTALLED=true
       ok "Installed via uv"
     fi
@@ -77,7 +77,7 @@ fi
 # Strategy 2: pipx (fallback — available via apt/brew on many systems)
 if [[ "$INSTALLED" != true ]] && command -v pipx &>/dev/null; then
   info "Installing meridian via pipx..."
-  if pipx install "$PYPI_PACKAGE" </dev/null 2>&1; then
+  if pipx install "$PYPI_PACKAGE" --force </dev/null 2>&1; then
     INSTALLED=true
     ok "Installed via pipx"
   fi
@@ -86,7 +86,7 @@ fi
 # Strategy 3: pip3 --user (last resort)
 if [[ "$INSTALLED" != true ]] && command -v pip3 &>/dev/null; then
   info "Installing meridian via pip3..."
-  if pip3 install --user "$PYPI_PACKAGE" </dev/null 2>&1; then
+  if pip3 install --user --upgrade "$PYPI_PACKAGE" </dev/null 2>&1; then
     INSTALLED=true
     ok "Installed via pip3"
   elif pip3 install --user --break-system-packages "$PYPI_PACKAGE" </dev/null 2>&1; then
