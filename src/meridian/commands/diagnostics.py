@@ -135,7 +135,7 @@ def run(
         or "unreachable"
     )
 
-    sections.append((f"SNI Target ({sni_host})", sni_check))
+    sections.append((f"Camouflage Target ({sni_host})", sni_check))
 
     # --- Domain DNS ---
     proxy_file = resolved.creds_dir / "proxy.yml"
@@ -162,6 +162,8 @@ def run(
 
         build_ai_prompt("diagnostics", diag_text, __version__)
     else:
+        err_console.print("  [bold]Tip:[/bold] [info]meridian diagnostics --ai[/info] -- paste directly into ChatGPT or Claude for help")
+        err_console.print()
         err_console.print("  1. Review the output below for any private info you want to remove")
         err_console.print("  2. Copy the markdown block into a new issue:")
         err_console.print("     [info]https://github.com/uburuntu/meridian/issues/new[/info]")
@@ -173,7 +175,6 @@ def run(
         line()
         err_console.print()
         err_console.print("  [dim]Secrets (UUIDs, passwords, keys) are auto-redacted.[/dim]\n")
-        err_console.print("  [dim]Or get AI help: meridian diagnostics --ai[/dim]\n")
 
 
 def _redact_secrets(text: str) -> str:

@@ -69,7 +69,7 @@ def _make_panel(creds: ServerCredentials, conn: ServerConnection) -> PanelClient
     try:
         panel.login(creds.panel.username or "", creds.panel.password or "")
     except PanelError as e:
-        fail(f"Panel login failed: {e}", hint="Check credentials or run: meridian setup", hint_type="system")
+        fail(f"Could not connect to server panel: {e}", hint="Check credentials or run: meridian setup", hint_type="system")
     return panel
 
 
@@ -127,7 +127,7 @@ def run_add(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}", hint_type="system")
+            fail(f"Could not retrieve server configuration: {e}", hint_type="system")
 
         # Reality is the canonical protocol -- must exist
         reality_proto = get_protocol("reality")
@@ -137,8 +137,8 @@ def run_add(
 
         if reality_inbound is None:
             fail(
-                "No Reality inbound found on the server",
-                hint="Make sure the server is set up first: meridian setup",
+                "Server is not set up yet",
+                hint="Deploy first: meridian setup",
                 hint_type="system",
             )
 
@@ -268,7 +268,7 @@ def run_list(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}", hint_type="system")
+            fail(f"Could not retrieve server configuration: {e}", hint_type="system")
 
         _display_client_list_from_inbounds(inbounds)
 
@@ -297,7 +297,7 @@ def run_remove(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}", hint_type="system")
+            fail(f"Could not retrieve server configuration: {e}", hint_type="system")
 
         # Verify client exists in Reality inbound (canonical)
         reality_proto = get_protocol("reality")
