@@ -27,19 +27,19 @@ Python CLI for deploying censorship-resistant proxy servers. Currently supports 
 
 ## Architecture
 
-- **Standalone mode**: Single server with VLESS+Reality. Optional domain mode adds HAProxy (SNI routing), Caddy (TLS), and VLESS+WSS (CDN fallback via Cloudflare).
+- **All modes** deploy HAProxy (port 443, SNI routing) + Caddy (port 80/8443, TLS + web serving). In standalone mode (no domain), Caddy requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. In domain mode, Caddy also handles VLESS+WSS (CDN fallback via Cloudflare).
 - Chain/relay mode (two-server relay for IP whitelist bypass) was extracted in v2.1. The protocol abstraction layer is designed to support relay chains when censors introduce whitelists.
 
 ### Key design decisions
 
 - HAProxy on port 443 does TCP-level SNI routing without TLS termination, so both Reality and Caddy can coexist on port 443.
 - 3x-ui panel is managed entirely via its REST API (no manual web UI steps).
-- Caddy handles TLS automatically — email is optional, not required.
+- Caddy handles TLS automatically — email is optional, not required. In standalone mode (IP cert), uses ACME `profile shortlived` for 6-day Let's Encrypt IP certificates.
 - Caddy config uses import pattern: Meridian writes to `/etc/caddy/conf.d/meridian.caddy`, main Caddyfile just has `import /etc/caddy/conf.d/*.caddy`. User's own Caddyfile is never overwritten.
 - Credentials are persisted locally in `~/.meridian/credentials/<IP>/proxy.yml` for idempotent re-runs. Credentials are saved BEFORE changing the panel password to prevent lockout on failure.
 - Uninstall deletes credentials from both server and local machine to prevent stale state on reinstall.
 - Docker installation is skipped if Docker is already running with containers.
-- In no-domain mode, the panel binds to localhost only (SSH tunnel required).
+- Panel is accessible via HTTPS on a secret path (reverse-proxied by Caddy) — no SSH tunnel required.
 - 3x-ui Docker image is pinned to a tested version (`ProvisionContext.threexui_version` in `provision/steps.py`) to prevent API breakage.
 - Secrets are handled via `shlex.quote()` and never logged to terminal.
 

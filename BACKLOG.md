@@ -1,7 +1,7 @@
 # Backlog
 
 **Last updated:** 2026-03-21
-**Version:** 3.3.1
+**Version:** 3.4.0
 
 ---
 
@@ -12,6 +12,15 @@
 **We are keeping 3x-ui.** Coupling is contained in `PanelClient` (API methods now public).
 
 ---
+
+## What shipped in v3.4.0
+
+- **Hosted connection pages:** Standalone mode now deploys HAProxy + Caddy alongside Xray, serving per-client connection pages over HTTPS at `https://<IP>/<path>/<uuid>/`. Caddy requests a Let's Encrypt IP certificate using the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not yet supported by the installed Caddy version.
+- **Architecture change:** All modes now use HAProxy (port 443, SNI routing) + Caddy (port 80 ACME + port 8443 HTTPS). Connection pages, stats, and panel are served via Caddy.
+- **DeployConnectionPage activated:** The provisioner step that was built but never wired in is now live — renders and uploads per-client HTML pages with QR codes during setup.
+- **`client add`/`remove` integration:** Adding a client automatically deploys a server-hosted page; removing deletes it. Terminal output shows the shareable URL.
+- **`render_hosted_html()`:** New function for server-hosted page rendering with `is_server_hosted=True` (live stats support).
+- **Caddy IP config:** New `_render_caddy_ip_config()` for standalone mode with ACME profile shortlived, panel proxy, and per-client page serving.
 
 ## What shipped in v3.3.1
 
@@ -97,11 +106,7 @@
 
 ### UX improvements
 
-- [ ] File delivery gap — standalone mode (no domain) has no hosted connection page, only a local HTML file
-  - **Option A:** `meridian client share NAME` — temporary local HTTP server with QR code to URL
-  - **Option B:** Generate QR PNG image alongside HTML (can be texted as a photo)
-  - **Option C:** Lightweight file-sharing via `transfer.sh` or similar ephemeral service
-  - This is the biggest gap between vision ("grandma scans QR") and reality ("figure out how to deliver an HTML file")
+- [x] ~~File delivery gap~~ — **Resolved in v3.4.0:** Standalone mode now hosts connection pages via Let's Encrypt IP certificates (HAProxy + Caddy)
 - [ ] `meridian client show NAME` — regenerate connection info without destroying and recreating the client
 - [ ] `client list` usage stats — surface last connected time and traffic from 3x-ui API
 - [ ] IPv6 support — currently IPv4-only (`is_ipv4` validation, `curl -4` for IP detection)
