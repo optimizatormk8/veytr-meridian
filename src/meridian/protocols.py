@@ -5,7 +5,7 @@ Keep in sync with inbound_types in group_vars/all.yml.
 Adding a new protocol (e.g., Hysteria2, TUIC) requires:
 1. Add an InboundType entry to INBOUND_TYPES
 2. Create a Protocol subclass below
-3. Append an instance to the PROTOCOLS list
+3. Add an entry to the PROTOCOLS dict (and PROTOCOL_ORDER list)
 
 The rest of the system (client add/remove, output generation) will
 pick up the new protocol automatically via the registry.
@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from meridian.panel import Inbound
+from meridian.models import Inbound
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,6 @@ class InboundType:
     remark: str  # 3x-ui inbound remark (e.g., "VLESS-Reality")
     email_prefix: str  # Client email prefix (e.g., "reality-")
     flow: str  # Xray flow value (e.g., "xtls-rprx-vision")
-    url_scheme: str = "vless"  # URL scheme for connection strings
 
 
 # Single source of truth for all inbound types.
@@ -87,6 +86,11 @@ class Protocol(ABC):
         """Convenience: email prefix for client emails."""
         return self.inbound_type.email_prefix
 
+    @property
+    def display_label(self) -> str:
+        """Human-readable label for output (e.g., 'Primary', 'CDN Backup')."""
+        return self.key.upper()
+
     @abstractmethod
     def build_url(self, uuid: str, name: str, **kwargs: Any) -> str:
         """Build a connection URL for this protocol.
@@ -101,14 +105,30 @@ class Protocol(ABC):
         """
         ...
 
-    @abstractmethod
     def client_settings(self, uuid: str, email: str) -> dict[str, Any]:
         """Build the client settings dict for the 3x-ui addClient API.
 
         Returns a dict with 'clients' key containing a single-element list:
             {"clients": [{"id": uuid, "flow": ..., "email": ..., ...}]}
+
+        Subclasses can override for protocol-specific fields.
         """
-        ...
+        return {
+            "clients": [
+                {
+                    "id": uuid,
+                    "flow": self.inbound_type.flow,
+                    "email": email,
+                    "limitIp": 2,
+                    "totalGB": 0,
+                    "expiryTime": 0,
+                    "enable": True,
+                    "tgId": "",
+                    "subId": "",
+                    "reset": 0,
+                }
+            ]
+        }
 
     def find_inbound(self, inbounds: list[Inbound]) -> Inbound | None:
         """Find this protocol's inbound in a list of panel inbounds."""
@@ -148,6 +168,10 @@ class RealityProtocol(Protocol):
     def inbound_type(self) -> InboundType:
         return INBOUND_TYPES["reality"]
 
+    @property
+    def display_label(self) -> str:
+        return "Primary"
+
     def build_url(self, uuid: str, name: str, **kwargs: Any) -> str:
         ip = kwargs["ip"]
         sni = kwargs.get("sni", "www.microsoft.com")
@@ -163,24 +187,6 @@ class RealityProtocol(Protocol):
             f"#{name}"
         )
 
-    def client_settings(self, uuid: str, email: str) -> dict[str, Any]:
-        return {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": self.inbound_type.flow,
-                    "email": email,
-                    "limitIp": 2,
-                    "totalGB": 0,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ]
-        }
-
 
 class XHTTPProtocol(Protocol):
     """VLESS + Reality + XHTTP — enhanced stealth transport."""
@@ -192,6 +198,10 @@ class XHTTPProtocol(Protocol):
     @property
     def inbound_type(self) -> InboundType:
         return INBOUND_TYPES["xhttp"]
+
+    @property
+    def display_label(self) -> str:
+        return "XHTTP"
 
     @property
     def shares_uuid_with(self) -> str | None:
@@ -217,24 +227,6 @@ class XHTTPProtocol(Protocol):
             f"#{name}-XHTTP"
         )
 
-    def client_settings(self, uuid: str, email: str) -> dict[str, Any]:
-        return {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": self.inbound_type.flow,
-                    "email": email,
-                    "limitIp": 2,
-                    "totalGB": 0,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ]
-        }
-
 
 class WSSProtocol(Protocol):
     """VLESS + WSS — CDN fallback via Caddy/Cloudflare."""
@@ -246,6 +238,10 @@ class WSSProtocol(Protocol):
     @property
     def inbound_type(self) -> InboundType:
         return INBOUND_TYPES["wss"]
+
+    @property
+    def display_label(self) -> str:
+        return "CDN Backup"
 
     @property
     def requires_domain(self) -> bool:
@@ -265,43 +261,26 @@ class WSSProtocol(Protocol):
             f"#{name}-WSS"
         )
 
-    def client_settings(self, uuid: str, email: str) -> dict[str, Any]:
-        return {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": self.inbound_type.flow,
-                    "email": email,
-                    "limitIp": 2,
-                    "totalGB": 0,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ]
-        }
-
 
 # ---------------------------------------------------------------------------
 # Protocol registry
 # ---------------------------------------------------------------------------
 
-# Ordered: Reality first (primary), then XHTTP, then WSS.
-PROTOCOLS: list[Protocol] = [
-    RealityProtocol(),
-    XHTTPProtocol(),
-    WSSProtocol(),
-]
+# Dict for O(1) lookup, ordered: Reality first (primary), then XHTTP, then WSS.
+PROTOCOLS: dict[str, Protocol] = {
+    "reality": RealityProtocol(),
+    "xhttp": XHTTPProtocol(),
+    "wss": WSSProtocol(),
+}
+
+# Explicit ordering for iteration (dict preserves insertion order in Python 3.7+,
+# but this makes the intent explicit and allows reordering without changing keys).
+PROTOCOL_ORDER: list[str] = ["reality", "xhttp", "wss"]
 
 
 def get_protocol(key: str) -> Protocol | None:
     """Find a protocol by key (e.g., 'reality', 'wss', 'xhttp')."""
-    for proto in PROTOCOLS:
-        if proto.key == key:
-            return proto
-    return None
+    return PROTOCOLS.get(key)
 
 
 def available_protocols(
@@ -315,7 +294,8 @@ def available_protocols(
     2. If it requires a domain, a domain is configured
     """
     result: list[Protocol] = []
-    for proto in PROTOCOLS:
+    for key in PROTOCOL_ORDER:
+        proto = PROTOCOLS[key]
         if proto.find_inbound(inbounds) is None:
             continue
         if proto.requires_domain and not domain:

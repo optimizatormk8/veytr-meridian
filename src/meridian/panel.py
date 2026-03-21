@@ -8,25 +8,13 @@ from __future__ import annotations
 
 import json
 import shlex
-from dataclasses import dataclass, field
 
+from meridian.models import Inbound
 from meridian.ssh import ServerConnection
 
 
 class PanelError(Exception):
     """Raised when a panel API call fails."""
-
-
-@dataclass
-class Inbound:
-    """An inbound from the 3x-ui panel."""
-
-    id: int
-    remark: str
-    protocol: str
-    port: int
-    clients: list[dict] = field(default_factory=list)
-    stream_settings: dict = field(default_factory=dict)
 
 
 class PanelClient:

@@ -20,7 +20,8 @@ from meridian.output import (
     save_connection_html,
     save_connection_text,
 )
-from meridian.panel import Inbound, PanelClient, PanelError
+from meridian.models import Inbound
+from meridian.panel import PanelClient, PanelError
 from meridian.protocols import PROTOCOLS, Protocol, get_protocol
 from meridian.servers import ServerRegistry
 
@@ -163,7 +164,7 @@ def run_add(
         active: list[tuple[Protocol, Inbound, str]] = []
         uuids: dict[str, str] = {"reality": reality_uuid}
 
-        for proto in PROTOCOLS:
+        for proto in PROTOCOLS.values():
             ib = proto.find_inbound(inbounds)
             if ib is None:
                 continue
@@ -326,7 +327,7 @@ def run_remove(
             fail(f"Client '{name}' not found", hint="Check client name with: meridian client list")
 
         # Remove from each active protocol's inbound
-        for proto in PROTOCOLS:
+        for proto in PROTOCOLS.values():
             email = f"{proto.email_prefix}{name}"
             ib = proto.find_inbound(inbounds)
             if ib is None:
@@ -386,7 +387,7 @@ def _display_client_list_from_inbounds(inbounds: list[Inbound]) -> None:
         reality_clients = reality_ib.clients
 
     # Build email sets for non-canonical protocols
-    other_protocols = [p for p in PROTOCOLS if p.key != "reality"]
+    other_protocols = [p for p in PROTOCOLS.values() if p.key != "reality"]
     other_emails: dict[str, set[str]] = {p.key: clients_by_remark.get(p.remark, set()) for p in other_protocols}
 
     table = Table(title="Proxy Clients", show_lines=False, pad_edge=False, box=None, padding=(0, 2))

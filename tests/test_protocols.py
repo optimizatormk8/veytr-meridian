@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from meridian.panel import Inbound
+from meridian.models import Inbound
 from meridian.protocols import (
     INBOUND_TYPES,
+    PROTOCOL_ORDER,
     PROTOCOLS,
     InboundType,
     Protocol,
@@ -29,7 +30,6 @@ class TestInboundTypes:
         assert r.remark == "VLESS-Reality"
         assert r.email_prefix == "reality-"
         assert r.flow == "xtls-rprx-vision"
-        assert r.url_scheme == "vless"
 
     def test_wss_values(self) -> None:
         w = INBOUND_TYPES["wss"]
@@ -58,20 +58,23 @@ class TestInboundTypes:
 
 
 class TestProtocolRegistry:
-    """Tests for the PROTOCOLS list and get_protocol() function."""
+    """Tests for the PROTOCOLS dict and get_protocol() function."""
 
     def test_all_protocols_present(self) -> None:
-        keys = [p.key for p in PROTOCOLS]
+        keys = list(PROTOCOLS.keys())
         assert keys == ["reality", "xhttp", "wss"]
 
+    def test_protocol_order(self) -> None:
+        assert PROTOCOL_ORDER == ["reality", "xhttp", "wss"]
+
     def test_protocols_are_protocol_instances(self) -> None:
-        for p in PROTOCOLS:
+        for p in PROTOCOLS.values():
             assert isinstance(p, Protocol)
 
     def test_protocol_types(self) -> None:
-        assert isinstance(PROTOCOLS[0], RealityProtocol)
-        assert isinstance(PROTOCOLS[1], XHTTPProtocol)
-        assert isinstance(PROTOCOLS[2], WSSProtocol)
+        assert isinstance(PROTOCOLS["reality"], RealityProtocol)
+        assert isinstance(PROTOCOLS["xhttp"], XHTTPProtocol)
+        assert isinstance(PROTOCOLS["wss"], WSSProtocol)
 
     def test_get_protocol_found(self) -> None:
         for key in ("reality", "xhttp", "wss"):
@@ -84,19 +87,25 @@ class TestProtocolRegistry:
         assert get_protocol("") is None
 
     def test_protocol_keys_unique(self) -> None:
-        keys = [p.key for p in PROTOCOLS]
+        keys = list(PROTOCOLS.keys())
         assert len(keys) == len(set(keys))
 
     def test_protocol_references_inbound_types(self) -> None:
         """Each protocol's inbound_type must be the same object from INBOUND_TYPES."""
-        for p in PROTOCOLS:
+        for p in PROTOCOLS.values():
             assert p.inbound_type is INBOUND_TYPES[p.key]
 
     def test_remark_and_email_prefix_convenience(self) -> None:
         """Convenience properties must match the inbound_type."""
-        for p in PROTOCOLS:
+        for p in PROTOCOLS.values():
             assert p.remark == p.inbound_type.remark
             assert p.email_prefix == p.inbound_type.email_prefix
+
+    def test_display_labels(self) -> None:
+        """Each protocol should have a human-readable display label."""
+        assert PROTOCOLS["reality"].display_label == "Primary"
+        assert PROTOCOLS["xhttp"].display_label == "XHTTP"
+        assert PROTOCOLS["wss"].display_label == "CDN Backup"
 
 
 # ---------------------------------------------------------------------------
@@ -241,10 +250,16 @@ class TestClientSettings:
     def test_all_settings_have_required_fields(self) -> None:
         """All protocols must produce settings with the required 3x-ui fields."""
         required_keys = {"id", "flow", "email", "limitIp", "totalGB", "expiryTime", "enable"}
-        for proto in PROTOCOLS:
+        for proto in PROTOCOLS.values():
             settings = proto.client_settings("uuid", "email")
             c = settings["clients"][0]
             assert required_keys.issubset(c.keys()), f"{proto.key} missing fields"
+
+    def test_base_class_method_used(self) -> None:
+        """client_settings() is defined on the base Protocol class, not duplicated."""
+        # All three should use the same method object from Protocol
+        for proto in PROTOCOLS.values():
+            assert proto.client_settings.__func__ is Protocol.client_settings  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +288,7 @@ class TestFindInbound:
         assert proto.find_inbound(inbounds) is None
 
     def test_returns_none_for_empty_list(self) -> None:
-        for proto in PROTOCOLS:
+        for proto in PROTOCOLS.values():
             assert proto.find_inbound([]) is None
 
 

@@ -1,13 +1,34 @@
 # CLAUDE.md
 
+## North-star vision
+
+Meridian exists to make censorship-resistant VPN accessible to everyone. The core idea: a semi-technical person (who can rent a VPS and run commands) becomes the "tech friend" who shares secure VPN access with family, older relatives, and less technical people — via share links, QR codes, and guided connection pages.
+
+**Audience (three tiers):**
+1. **Tech friends** — set up a server, share keys with family and friends
+2. **Power users** — need fast VPS rebuilds when IPs get blocked regularly
+3. **Organizations** — NGOs, journalists, activists helping people in censored regions
+
+**Design principles:**
+- **Protocol-agnostic harness** — Meridian doesn't build protocols, it makes the best undetectable ones easy to deploy. Today that's VLESS+Reality; tomorrow it could be something else. The architecture must make swapping painless.
+- **Guided wizard** — interactive setup that explains each choice but has smart defaults. First-time users learn; repeat users skip.
+- **Guided handoff** — Meridian's responsibility ends at the server. Client setup is the user's job, but Meridian makes it effortless: polished connection pages with step-by-step instructions, app download links, QR codes, and shareable URLs.
+- **Rebuild-fast** — IPs get blocked. Spinning up a fresh VPS and running `meridian setup` should get you back online in minutes, not hours.
+
 ## Project overview
 
-Ansible automation for deploying censorship-resistant VLESS+Reality proxy servers. Supports standalone single-server mode with optional domain mode for CDN fallback.
+Python CLI for deploying censorship-resistant proxy servers. Currently supports VLESS+Reality (standalone) with optional domain mode for CDN fallback (VLESS+WSS, VLESS+XHTTP). Server provisioning currently uses Ansible but is being migrated to a pure-Python provisioner (see BACKLOG.md).
+
+## Strategic direction
+
+- **Moving off Ansible.** Client management already bypasses Ansible (pure Python via PanelClient). Deployment is next. The dual-language maintenance tax (every concept in both Python + Ansible YAML) is the #1 drag on velocity. See BACKLOG.md for the phased migration plan.
+- **Keeping 3x-ui.** It's powerful, actively maintained, and the web UI keeps power users on Meridian. The coupling is contained in `PanelClient` — we strengthen that boundary, not replace it.
+- **Foundation first.** Before migrating Ansible roles, we build the provisioning primitives: idempotent steps with structured tracing, actionable error output, and AI-ready diagnostics.
 
 ## Architecture
 
-- **Standalone mode** (`playbook.yml`): Single server with VLESS+Reality. Optional domain mode adds HAProxy (SNI routing), Caddy (TLS), and VLESS+WSS (CDN fallback via Cloudflare).
-- Chain/relay mode (two-server relay for IP whitelist bypass) was extracted in v2.1. The protocol abstraction layer is designed to support relay chains when censors introduce whitelists. See tasks/VISION.md for the future architecture.
+- **Standalone mode**: Single server with VLESS+Reality. Optional domain mode adds HAProxy (SNI routing), Caddy (TLS), and VLESS+WSS (CDN fallback via Cloudflare).
+- Chain/relay mode (two-server relay for IP whitelist bypass) was extracted in v2.1. The protocol abstraction layer is designed to support relay chains when censors introduce whitelists.
 
 ### Key design decisions
 

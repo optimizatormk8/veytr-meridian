@@ -8,7 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from meridian.panel import Inbound, PanelClient, PanelError
+from meridian.models import Inbound
+from meridian.panel import PanelClient, PanelError
 
 
 def _make_conn(stdout: str = "", stderr: str = "", rc: int = 0) -> MagicMock:
