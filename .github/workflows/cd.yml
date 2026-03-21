@@ -1,50 +1,49 @@
 name: CD
 
+# NOTE: GitHub Pages must be configured to deploy from "GitHub Actions" source
+# (Settings → Pages → Source → GitHub Actions)
+
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
 
 jobs:
-  sync-to-pages:
-    name: Sync CLI files to GitHub Pages
+  deploy-pages:
+    name: Deploy GitHub Pages
     runs-on: ubuntu-latest
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     permissions:
-      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Copy files to docs/
+      - name: Build site
         run: |
-          cp install.sh docs/install.sh
-          cp setup.sh docs/setup.sh
-          cp VERSION docs/version
-
-      - name: Generate checksums
-        run: |
-          cd docs
+          mkdir -p _site
+          # Copy docs source files
+          cp -r docs/* _site/
+          # Copy CLI files from root
+          cp install.sh _site/install.sh
+          cp setup.sh _site/setup.sh
+          cp VERSION _site/version
+          # Generate checksums
+          cd _site
           sha256sum install.sh setup.sh > SHA256SUMS
-
-      - name: Bundle AI docs
-        run: |
-          if [ -d docs/ai ]; then
-            cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > docs/ai/reference.md
+          cd ..
+          # Bundle AI docs
+          if [ -d _site/ai ]; then
+            cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > _site/ai/reference.md
           fi
 
-      - name: Check for changes
-        id: diff
-        run: |
-          git diff --quiet docs/ && echo "changed=false" >> "$GITHUB_OUTPUT" || echo "changed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-pages-artifact@v3
 
-      - name: Commit and push
-        if: steps.diff.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/install.sh docs/setup.sh docs/version docs/SHA256SUMS
-          git add -f docs/ai/reference.md 2>/dev/null || true
-          git commit -m "Sync CLI files to GitHub Pages [skip ci]"
-          git push
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
