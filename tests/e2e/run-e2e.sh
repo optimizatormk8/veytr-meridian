@@ -166,10 +166,9 @@ fi
 # Uninstall removes /usr/local/bin/meridian. Reinstall from source.
 # ---------------------------------------------------------------------------
 stage "9. Re-setup after uninstall"
-if ! command -v meridian >/dev/null 2>&1; then
-    pip install --break-system-packages /src >/dev/null 2>&1
-    hash -r  # clear shell's command cache
-fi
+# Uninstall removes /usr/local/bin/meridian. Force-reinstall to recreate it.
+pip install --break-system-packages --no-cache-dir --force-reinstall /src >/dev/null 2>&1
+hash -r
 
 run_capture_ok "meridian setup (after uninstall)" meridian setup "$IP" --user root --yes
 
