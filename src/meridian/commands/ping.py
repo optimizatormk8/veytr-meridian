@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import time
 
@@ -10,6 +11,7 @@ from meridian.config import SERVERS_FILE
 from meridian.console import err_console, info, ok, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
+from meridian.ssh import tcp_connect
 
 
 def run(
@@ -77,7 +79,7 @@ def run(
     # 1. TCP connect to port 443
     info(f"Connecting to {resolved.ip}:443...")
     checks += 1
-    if _tcp_connect(resolved.ip, 443, timeout=5):
+    if tcp_connect(resolved.ip, 443, timeout=5):
         ok("Port 443 is reachable")
     else:
         warn("Port 443 is not reachable")
@@ -90,9 +92,11 @@ def run(
     # 2. TLS handshake -- Reality should present the SNI target's certificate
     info(f"Checking TLS handshake (Reality -> {sni_host})...")
     checks += 1
+    q_sni = shlex.quote(sni_host)
+    q_ip = shlex.quote(resolved.ip)
     try:
         tls_result = subprocess.run(
-            ["bash", "-c", f"echo | openssl s_client -connect {resolved.ip}:443 -servername {sni_host} 2>/dev/null"],
+            ["bash", "-c", f"echo | openssl s_client -connect {q_ip}:443 -servername {q_sni} 2>/dev/null"],
             capture_output=True,
             text=True,
             timeout=8,
@@ -177,21 +181,6 @@ def run(
         err_console.print("  [dim]  - Try from a different network (mobile data, another Wi-Fi)[/dim]")
         err_console.print("  [dim]  - Your ISP may be blocking this server's IP -- try a different server[/dim]")
     err_console.print()
-
-
-def _tcp_connect(host: str, port: int, timeout: int = 5) -> bool:
-    """Test TCP connectivity via bash /dev/tcp."""
-    try:
-        result = subprocess.run(
-            ["bash", "-c", f"echo >/dev/tcp/{host}/{port}"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
 
 
 def _parse_http_date(date_str: str) -> int | None:

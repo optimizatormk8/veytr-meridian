@@ -169,40 +169,34 @@ class ServerConnection:
 
         local_creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
-        if self.needs_sudo:
-            # Use sudo to copy root-owned files
-            result = subprocess.run(
-                ["sudo", "-n", "cat", str(src)],
-                capture_output=True,
-                timeout=5,
-                stdin=subprocess.DEVNULL,
-            )
-            if result.returncode != 0:
-                return False
-            dst.write_bytes(result.stdout)
-            dst.chmod(0o600)
-            # Best-effort: copy clients file
-            clients_src = SERVER_CREDS_DIR / "proxy-clients.yml"
-            clients_dst = local_creds_dir / "proxy-clients.yml"
-            cr = subprocess.run(
-                ["sudo", "-n", "cat", str(clients_src)],
-                capture_output=True,
-                timeout=5,
-                stdin=subprocess.DEVNULL,
-            )
-            if cr.returncode == 0:
-                clients_dst.write_bytes(cr.stdout)
-                clients_dst.chmod(0o600)
-            return True
+        # Copy main credentials (required)
+        if not self._copy_one_file(SERVER_CREDS_DIR / "proxy.yml", local_creds_dir / "proxy.yml"):
+            return False
+        # Copy clients tracking (best-effort)
+        self._copy_one_file(SERVER_CREDS_DIR / "proxy-clients.yml", local_creds_dir / "proxy-clients.yml")
+        return True
 
+    def _copy_one_file(self, src: Path, dst: Path) -> bool:
+        """Copy a single file, using sudo if needed. Returns True on success."""
+        if self.needs_sudo:
+            try:
+                result = subprocess.run(
+                    ["sudo", "-n", "cat", str(src)],
+                    capture_output=True,
+                    timeout=5,
+                    stdin=subprocess.DEVNULL,
+                )
+                if result.returncode != 0:
+                    return False
+                dst.write_bytes(result.stdout)
+                dst.chmod(0o600)
+                return True
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                return False
         try:
             if src.is_file():
                 shutil.copy2(str(src), str(dst))
                 dst.chmod(0o600)
-                clients_src = SERVER_CREDS_DIR / "proxy-clients.yml"
-                if clients_src.is_file():
-                    shutil.copy2(str(clients_src), str(local_creds_dir / "proxy-clients.yml"))
-                    (local_creds_dir / "proxy-clients.yml").chmod(0o600)
                 return True
         except (PermissionError, OSError):
             pass
@@ -220,5 +214,23 @@ def _is_on_server(ip: str) -> bool:
             stdin=subprocess.DEVNULL,
         )
         return result.returncode == 0 and result.stdout.strip() == ip
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
+def tcp_connect(host: str, port: int, timeout: int = 5) -> bool:
+    """Test TCP connectivity to host:port using bash /dev/tcp."""
+    import shlex
+
+    try:
+        q_host = shlex.quote(host)
+        result = subprocess.run(
+            ["bash", "-c", f"echo >/dev/tcp/{q_host}/{port}"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
+        )
+        return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False

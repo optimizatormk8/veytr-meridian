@@ -73,11 +73,12 @@ def run(
         timeout=100,
     )
 
-    # Clean up binary, read CSV
-    resolved.conn.run("rm -f /tmp/realitlscanner", timeout=5)
-    csv_result = resolved.conn.run("cat /tmp/meridian-scan.csv 2>/dev/null", timeout=10)
+    # Clean up binary, read CSV, clean up CSV — all in one SSH call
+    csv_result = resolved.conn.run(
+        "cat /tmp/meridian-scan.csv 2>/dev/null; rm -f /tmp/realitlscanner /tmp/meridian-scan.csv",
+        timeout=10,
+    )
     csv_output = csv_result.stdout.strip()
-    resolved.conn.run("rm -f /tmp/meridian-scan.csv", timeout=5)
 
     if not csv_output or csv_output == "IP,ORIGIN,CERT_DOMAIN,CERT_ISSUER,GEO_CODE":
         warn("Scan produced no results. The server may have limited network visibility.")
