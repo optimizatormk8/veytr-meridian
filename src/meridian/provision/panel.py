@@ -166,7 +166,14 @@ class ConfigurePanel:
         creds.save(self.creds_path)
 
         # -- Apply settings via API --
-        _apply_panel_settings(conn, self.panel_port, web_base_path, panel_username, panel_password)
+        try:
+            _apply_panel_settings(conn, self.panel_port, web_base_path, panel_username, panel_password)
+        except PanelError as e:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail=f"Panel API error: {e}",
+            )
 
         # Update context for subsequent steps
         ctx["credentials"] = creds

@@ -177,13 +177,10 @@ def _run_provisioner(
         creds_dir=str(resolved.creds_dir),  # type: ignore[attr-defined]
     )
 
-    # Compute ports deterministically (matching group_vars/all.yml seed pattern)
-    import hashlib
-
-    seed = int(hashlib.md5(ctx.ip.encode()).hexdigest()[:8], 16)  # noqa: S324
-    ctx.panel_port = 2000 + (seed % 1000)
-    ctx.xhttp_port = 30000 + ((seed + 1) % 10000)
-    ctx.reality_port = (10000 + (seed + 2) % 1000) if ctx.domain_mode else 443
+    # Default panel port — 3x-ui starts on 2053. ConfigurePanel may change it later.
+    ctx.panel_port = 2053
+    ctx.xhttp_port = 30000 + (hash(ctx.ip) % 10000)
+    ctx.reality_port = 443 if not ctx.domain_mode else (10000 + hash(ctx.ip) % 1000)
 
     # Load existing credentials into context if available
     proxy_file = Path(ctx.creds_dir) / "proxy.yml"

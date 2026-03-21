@@ -31,7 +31,8 @@ class PanelClient:
 
     def __init__(self, conn: ServerConnection, panel_port: int, web_base_path: str) -> None:
         self.conn = conn
-        self.base_url = f"http://127.0.0.1:{panel_port}/{web_base_path}"
+        base = f"http://127.0.0.1:{panel_port}"
+        self.base_url = f"{base}/{web_base_path}" if web_base_path else base
         self._cookie_path = "$HOME/.meridian/.cookie"
 
     def login(self, username: str, password: str) -> None:
