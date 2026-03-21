@@ -1,7 +1,13 @@
 """Connection output generation -- VLESS URLs, QR codes, HTML pages.
 
 Builds VLESS connection URLs and generates output files (HTML, text, QR codes)
-for proxy clients. Replaces the Ansible generate_client_output.yml tasks.
+for proxy clients.
+
+This module is kept as the backwards-compatible public API.
+New code should import from the focused sub-modules directly:
+  - ``meridian.urls``    — URL building and QR generation
+  - ``meridian.render``  — HTML/text file output
+  - ``meridian.display`` — terminal output
 """
 
 from __future__ import annotations
@@ -15,10 +21,20 @@ from pathlib import Path
 from meridian.credentials import ServerCredentials
 from meridian.protocols import get_protocol
 
+# Re-export new API so callers can import either from here or the new modules.
+from meridian.urls import build_protocol_urls  # noqa: F401
+from meridian.render import save_connection_html as _render_save_html  # noqa: F401
+from meridian.display import print_terminal_output as _display_print  # noqa: F401
+
 
 @dataclass(frozen=True)
 class ClientURLs:
-    """VLESS connection URLs for a client."""
+    """VLESS connection URLs for a client.
+
+    .. deprecated::
+        Use ``build_protocol_urls()`` and ``list[ProtocolURL]`` instead.
+        This dataclass will be removed in a future major version.
+    """
 
     name: str
     reality: str
@@ -44,6 +60,10 @@ def build_vless_urls(
         wss_uuid: UUID for WSS connection (empty if not domain mode).
         creds: Server credentials with protocol configs.
         xhttp_port: XHTTP inbound port (0 = no XHTTP).
+
+    .. deprecated::
+        Use ``build_protocol_urls()`` which returns ``list[ProtocolURL]``
+        instead. This function will be removed in a future major version.
     """
     ip = creds.server.ip or ""
     sni = creds.server.sni or "www.microsoft.com"
@@ -240,6 +260,8 @@ def _render_html_template(
     Uses a minimal Jinja2 rendering approach with simple string substitution
     to avoid depending on the full Ansible template engine.
     """
+    import types as _types
+
     try:
         from jinja2 import BaseLoader, Environment
 
@@ -265,10 +287,11 @@ def _render_html_template(
             xhttp_enabled=bool(urls.xhttp),
             is_server_hosted=False,
             client_name=urls.name,
-            # QR code variables (local-save variant)
-            reality_qr_b64_local=type("obj", (), {"stdout": reality_qr})(),
-            xhttp_qr_b64_local=type("obj", (), {"stdout": xhttp_qr})(),
-            wss_qr_b64_local=type("obj", (), {"stdout": wss_qr})(),
+            # QR code variables (local-save variant) — SimpleNamespace instead of
+            # the old type("obj", ...) dynamic class.
+            reality_qr_b64_local=_types.SimpleNamespace(stdout=reality_qr),
+            xhttp_qr_b64_local=_types.SimpleNamespace(stdout=xhttp_qr),
+            wss_qr_b64_local=_types.SimpleNamespace(stdout=wss_qr),
             ansible_date_time={"iso8601": now},
         )
     except Exception:
