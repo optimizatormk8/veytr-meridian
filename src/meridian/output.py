@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from meridian.credentials import ServerCredentials
+from meridian.protocols import get_protocol
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,8 @@ def build_vless_urls(
 ) -> ClientURLs:
     """Build VLESS connection URLs for a client.
 
+    Delegates to protocol classes for URL construction.
+
     Args:
         name: Client display name (used in URL fragment).
         reality_uuid: UUID for Reality and XHTTP connections.
@@ -46,38 +49,35 @@ def build_vless_urls(
     sni = creds.server.sni or "www.microsoft.com"
     public_key = creds.reality.public_key or ""
     short_id = creds.reality.short_id or ""
-    fingerprint = "chrome"
-
-    reality_url = (
-        f"vless://{reality_uuid}@{ip}:443"
-        f"?encryption=none&flow=xtls-rprx-vision"
-        f"&security=reality&sni={sni}&fp={fingerprint}"
-        f"&pbk={public_key}&sid={short_id}"
-        f"&type=tcp&headerType=none"
-        f"#{name}"
-    )
-
-    xhttp_url = ""
-    if xhttp_port > 0:
-        xhttp_url = (
-            f"vless://{reality_uuid}@{ip}:{xhttp_port}"
-            f"?encryption=none"
-            f"&security=reality&sni={sni}&fp={fingerprint}"
-            f"&pbk={public_key}&sid={short_id}"
-            f"&type=xhttp&mode=packet-up&path=%2F"
-            f"#{name}-XHTTP"
-        )
-
-    wss_url = ""
     domain = creds.server.domain or ""
     ws_path = creds.wss.ws_path or ""
+
+    # Shared kwargs for Reality-based protocols
+    reality_kwargs = {
+        "ip": ip,
+        "sni": sni,
+        "public_key": public_key,
+        "short_id": short_id,
+    }
+
+    # Reality (always present)
+    reality_proto = get_protocol("reality")
+    assert reality_proto is not None
+    reality_url = reality_proto.build_url(reality_uuid, name, **reality_kwargs)
+
+    # XHTTP (optional, shares Reality UUID)
+    xhttp_url = ""
+    if xhttp_port > 0:
+        xhttp_proto = get_protocol("xhttp")
+        assert xhttp_proto is not None
+        xhttp_url = xhttp_proto.build_url(reality_uuid, name, port=xhttp_port, **reality_kwargs)
+
+    # WSS (optional, requires domain + own UUID)
+    wss_url = ""
     if domain and wss_uuid:
-        wss_url = (
-            f"vless://{wss_uuid}@{domain}:443"
-            f"?encryption=none&security=tls&sni={domain}"
-            f"&type=ws&host={domain}&path=%2F{ws_path}"
-            f"#{name}-WSS"
-        )
+        wss_proto = get_protocol("wss")
+        assert wss_proto is not None
+        wss_url = wss_proto.build_url(wss_uuid, name, domain=domain, ws_path=ws_path)
 
     return ClientURLs(name=name, reality=reality_url, xhttp=xhttp_url, wss=wss_url)
 
