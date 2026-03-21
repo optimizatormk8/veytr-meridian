@@ -6,7 +6,7 @@ import types
 from datetime import datetime, timezone
 from pathlib import Path
 
-from meridian.models import ProtocolURL
+from meridian.models import ProtocolURL, derive_client_name
 from meridian.urls import generate_qr_base64
 
 
@@ -27,12 +27,7 @@ def save_connection_text(
             if omitted).
     """
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Derive client name from first URL if not explicitly provided.
-    name = client_name
-    if not name and protocol_urls:
-        # Best-effort: strip the URL fragment.
-        frag = protocol_urls[0].url.rsplit("#", 1)
-        name = frag[-1] if len(frag) > 1 else "client"
+    name = client_name or derive_client_name(protocol_urls)
 
     lines = [
         "=" * 78,
@@ -128,10 +123,7 @@ def save_connection_html(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # Derive client name.
-    name = client_name
-    if not name and protocol_urls:
-        frag = protocol_urls[0].url.rsplit("#", 1)
-        name = frag[-1] if len(frag) > 1 else "client"
+    name = client_name or derive_client_name(protocol_urls)
 
     # Build per-protocol QR data.
     qr_map: dict[str, str] = {}

@@ -5,16 +5,10 @@ from __future__ import annotations
 import shlex
 import subprocess
 
+from meridian.config import DEFAULT_SNI
 from meridian.credentials import ServerCredentials
 from meridian.models import ProtocolURL
 from meridian.protocols import PROTOCOLS
-
-# Human-readable labels for each protocol key.
-_PROTOCOL_LABELS: dict[str, str] = {
-    "reality": "Primary",
-    "xhttp": "XHTTP",
-    "wss": "CDN Backup",
-}
 
 
 def build_protocol_urls(
@@ -43,7 +37,7 @@ def build_protocol_urls(
         Ordered list of ``ProtocolURL`` objects, one per active protocol.
     """
     ip = creds.server.ip or ""
-    sni = creds.server.sni or "www.microsoft.com"
+    sni = creds.server.sni or DEFAULT_SNI
     public_key = creds.reality.public_key or ""
     short_id = creds.reality.short_id or ""
     domain = creds.server.domain or ""
@@ -61,7 +55,7 @@ def build_protocol_urls(
 
     for proto in PROTOCOLS.values():
         key = proto.key
-        label = _PROTOCOL_LABELS.get(key, key.upper())
+        label = proto.display_label
         url = ""
 
         if key == "reality":
