@@ -151,7 +151,7 @@ def save_connection_html(
     try:
         from importlib.resources import files
 
-        template_path = files("meridian") / "playbooks" / "roles" / "shared" / "templates" / "connection-info.html.j2"
+        template_path = files("meridian") / "templates" / "connection-info.html.j2"
         template_text: str | None = template_path.read_text(encoding="utf-8")
     except Exception:
         template_text = None

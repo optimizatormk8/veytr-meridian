@@ -6,14 +6,13 @@ import shutil
 
 import typer
 
-from meridian.ansible import ensure_ansible, ensure_collections, get_playbooks_dir, run_playbook
 from meridian.commands.resolve import (
     ensure_server_connection,
     fetch_credentials,
     resolve_server,
 )
 from meridian.config import CREDS_BASE, SERVERS_FILE
-from meridian.console import err_console, fail, info, prompt, warn
+from meridian.console import err_console, fail, info, ok, prompt, warn
 from meridian.servers import ServerRegistry
 
 
@@ -51,26 +50,28 @@ def run(
             raise typer.Exit()
     err_console.print()
 
-    # Prepare: ensure ansible, detect local mode, check SSH
-    ensure_ansible()
-    playbooks_dir = get_playbooks_dir()
-    ensure_collections(playbooks_dir)
-
     resolved = ensure_server_connection(resolved)
     fetch_credentials(resolved)
 
     info(f"Removing Meridian from {resolved.ip}...")
     err_console.print()
 
-    rc = run_playbook(
-        "playbook-uninstall.yml",
+    # Run uninstall via provisioner
+    from meridian.provision.steps import ProvisionContext, Provisioner
+    from meridian.provision.uninstall import Uninstall
+
+    ctx = ProvisionContext(
         ip=resolved.ip,
-        creds_dir=resolved.creds_dir,
-        local_mode=resolved.local_mode,
         user=resolved.user,
+        creds_dir=str(resolved.creds_dir),
     )
-    if rc != 0:
-        fail("Uninstall playbook failed", hint_type="system")
+
+    provisioner = Provisioner([Uninstall()])
+    results = provisioner.run(resolved.conn, ctx)
+
+    failed = [r for r in results if r.status == "failed"]
+    if failed:
+        fail("Uninstall failed", hint=failed[0].detail, hint_type="system")
 
     # Remove from server registry
     registry.remove(resolved.ip)
@@ -80,4 +81,6 @@ def run(
     if creds_dir.exists():
         shutil.rmtree(creds_dir)
 
-    err_console.print("\n  [ok][bold]Uninstall complete.[/bold][/ok]\n")
+    err_console.print()
+    ok("Uninstall complete.")
+    err_console.print()

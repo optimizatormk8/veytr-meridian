@@ -26,7 +26,6 @@ def run(
     user: str = "root",
     yes: bool = False,
     requested_server: str = "",
-    legacy: bool = False,
 ) -> None:
     """Deploy a VLESS+Reality proxy server."""
     registry = ServerRegistry(SERVERS_FILE)
@@ -150,10 +149,7 @@ def run(
                         sni = creds.server.scanned_sni
 
     # Route to legacy Ansible or new Python provisioner
-    if legacy:
-        _run_ansible(resolved, domain, email, sni, name, xhttp)
-    else:
-        _run_provisioner(resolved, domain, sni, name, xhttp)
+    _run_provisioner(resolved, domain, sni, name, xhttp)
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
@@ -239,58 +235,6 @@ def _run_provisioner(
 
     err_console.print()
     ok("All steps completed successfully")
-
-
-def _run_ansible(
-    resolved: object,  # ResolvedServer
-    domain: str,
-    email: str,
-    sni: str,
-    name: str,
-    xhttp: bool,
-) -> None:
-    """Legacy: run Ansible playbook."""
-    from meridian.ansible import ensure_ansible, ensure_collections, ensure_qrencode, get_playbooks_dir, run_playbook
-
-    ensure_ansible()
-    ensure_qrencode()
-    playbooks_dir = get_playbooks_dir()
-    ensure_collections(playbooks_dir)
-
-    extra_vars: dict[str, str] = {}
-    if domain:
-        extra_vars["domain"] = domain
-    if email:
-        extra_vars["email"] = email
-    if sni:
-        extra_vars["reality_sni"] = sni
-    if name:
-        extra_vars["first_client_name"] = name
-    if xhttp:
-        extra_vars["xhttp_enabled"] = "true"
-
-    err_console.print()
-    info(f"Configuring server at {resolved.ip}...")  # type: ignore[attr-defined]
-    if domain:
-        info(f"Domain: {domain}")
-    if xhttp:
-        info("XHTTP: enabled (enhanced stealth)")
-    err_console.print()
-
-    rc = run_playbook(
-        "playbook.yml",
-        ip=resolved.ip,  # type: ignore[attr-defined]
-        creds_dir=resolved.creds_dir,  # type: ignore[attr-defined]
-        extra_vars=extra_vars,
-        local_mode=resolved.local_mode,  # type: ignore[attr-defined]
-        user=resolved.user,  # type: ignore[attr-defined]
-    )
-    if rc != 0:
-        fail(
-            "Setup playbook failed",
-            hint="Check server IP and SSH access. Run: meridian check " + resolved.ip,  # type: ignore[attr-defined]
-            hint_type="system",
-        )
 
 
 def _print_success(resolved: object, name: str, domain: str) -> None:

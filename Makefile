@@ -1,9 +1,5 @@
 .PHONY: help install sync test lint format check typecheck ci \
-       ansible-lint ansible-check templates \
-       ai-docs build publish clean \
-       server-test
-
-PLAYBOOKS := src/meridian/playbooks
+       templates ai-docs build publish clean server-test
 
 ## —— Setup ——————————————————————————————————————————————
 
@@ -34,21 +30,12 @@ typecheck: ## Run mypy type checker
 
 check: lint format-check test ## Run all Python checks (lint + format + test)
 
-## —— Ansible ————————————————————————————————————————————
-
-ansible-lint: ## Run ansible-lint on playbooks
-	cd $(PLAYBOOKS) && uv run ansible-lint
-
-ansible-check: ## Syntax check all playbooks
-	cd $(PLAYBOOKS) && uv run ansible-playbook playbook.yml --syntax-check
-	cd $(PLAYBOOKS) && uv run ansible-playbook playbook-uninstall.yml --syntax-check
-
 templates: ## Validate Jinja2 template rendering
 	uv run python tests/render_templates.py
 
 ## —— CI (runs everything) ———————————————————————————————
 
-ci: check ansible-lint ansible-check templates ## Run full CI locally
+ci: check templates ## Run full CI locally
 
 ## —— Build & Publish ————————————————————————————————————
 

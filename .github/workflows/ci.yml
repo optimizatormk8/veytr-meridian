@@ -8,19 +8,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  PLAYBOOKS_DIR: src/meridian/playbooks
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ansible/ansible-lint@main
-        with:
-          working_directory: src/meridian/playbooks
-          requirements_file: requirements.yml
-
   python-test:
     name: Python Tests
     runs-on: ubuntu-latest
@@ -83,64 +72,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install Ansible
-        run: pip install ansible
-
-      - name: Install collections
-        run: ansible-galaxy collection install -r $PLAYBOOKS_DIR/requirements.yml
-
-      - name: Syntax check — all playbooks
-        run: |
-          cd $PLAYBOOKS_DIR
-          ansible-playbook playbook.yml --syntax-check
-          ansible-playbook playbook-uninstall.yml --syntax-check
-
       - name: Validate templates render
         run: |
           pip install jinja2
           python3 tests/render_templates.py
 
-  shellcheck:
-    name: Shell
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Check script syntax
-        run: |
-          bash -n install.sh
-          bash -n setup.sh
-
-      - name: Shellcheck
-        run: |
-          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning install.sh
-          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning setup.sh
-
-      - name: Verify no form-urlencoded on inbound/client APIs
-        run: |
-          python3 -c "
-          import re, sys, glob
-          errors = []
-          for f in glob.glob('${{ env.PLAYBOOKS_DIR }}/roles/*/tasks/*.yml'):
-              content = open(f).read()
-              if 'form-urlencoded' in content and ('inbound' in content.lower() or 'client' in content.lower()):
-                  blocks = content.split('ansible.builtin.uri')
-                  for block in blocks[1:]:
-                      chunk = block[:500]
-                      if 'form-urlencoded' in chunk and ('/inbound' in chunk or '/addClient' in chunk or '/delClient' in chunk):
-                          errors.append(f'{f}: body_format: form-urlencoded used with inbound/client API')
-          if errors:
-              for e in errors:
-                  print(f'ERROR: {e}')
-              sys.exit(1)
-          print('OK: No form-urlencoded on inbound/client API calls')
-          "
-
       - name: Verify connection-info app links match demo.html
         run: |
           python3 -c "
           import re, sys
-          template = 'src/meridian/playbooks/roles/shared/templates/connection-info.html.j2'
+          template = 'src/meridian/templates/connection-info.html.j2'
           demo = 'docs/demo.html'
           def extract_links(path):
               content = open(path).read()
@@ -163,6 +104,22 @@ jobs:
             exit 1
           fi
           echo "OK: VERSION=$VERSION"
+
+  shellcheck:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check script syntax
+        run: |
+          bash -n install.sh
+          bash -n setup.sh
+
+      - name: Shellcheck
+        run: |
+          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning install.sh
+          shellcheck -e SC2086,SC2029,SC2087,SC2155 -S warning setup.sh
 
   integration:
     name: Integration
@@ -202,36 +159,3 @@ jobs:
       - name: Stop container
         if: always()
         run: docker compose -f docker-compose.test.yml down -v
-
-  dry-run:
-    name: Dry Run
-    runs-on: ubuntu-latest
-    needs: [lint, validate]
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Ansible and collections
-        run: |
-          pip install ansible
-          ansible-galaxy collection install -r $PLAYBOOKS_DIR/requirements.yml
-
-      - name: Ansible dry-run (standalone, no-domain)
-        run: |
-          cd $PLAYBOOKS_DIR
-          ansible-playbook playbook.yml --check --diff \
-            -e server_public_ip=127.0.0.1 \
-            -e credentials_dir=/tmp/meridian \
-            -c local \
-            --skip-tags=requires-remote \
-            2>&1 || echo "Dry run completed (failures expected in local mode)"
-
-      - name: Ansible dry-run (uninstall)
-        run: |
-          cd $PLAYBOOKS_DIR
-          ansible-playbook playbook-uninstall.yml --check --diff \
-            -c local \
-            2>&1 || echo "Dry run completed (failures expected in local mode)"

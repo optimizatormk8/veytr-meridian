@@ -162,19 +162,13 @@ def _make_env(template_dir: Path) -> Environment:
 # Template discovery
 # ---------------------------------------------------------------------------
 
-_PLAYBOOKS_DIR = Path(__file__).parent.parent / "src" / "meridian" / "playbooks"
-_ROLES_GLOB = list((_PLAYBOOKS_DIR / "roles").glob("*/templates/*.j2"))
+_TEMPLATES_DIR = Path(__file__).parent.parent / "src" / "meridian" / "templates"
+_TEMPLATES = list(_TEMPLATES_DIR.glob("*.j2"))
 
 
 def _template_id(p: Path) -> str:
-    """Human-readable pytest ID: roles/<role>/templates/<file>.j2"""
-    parts = p.parts
-    # Find "roles" in path and take the relative tail
-    try:
-        roles_idx = next(i for i, part in enumerate(parts) if part == "roles")
-        return "/".join(parts[roles_idx:])
-    except StopIteration:
-        return p.name
+    """Human-readable pytest ID: <filename>.j2"""
+    return p.name
 
 
 # ---------------------------------------------------------------------------
@@ -184,8 +178,8 @@ def _template_id(p: Path) -> str:
 
 @pytest.mark.parametrize(
     "template_path",
-    sorted(_ROLES_GLOB),
-    ids=[_template_id(p) for p in sorted(_ROLES_GLOB)],
+    sorted(_TEMPLATES),
+    ids=[_template_id(p) for p in sorted(_TEMPLATES)],
 )
 def test_template_renders(template_path: Path) -> None:
     """Each .j2 template must render without exceptions using mock variables."""
@@ -198,6 +192,4 @@ def test_template_renders(template_path: Path) -> None:
 
 def test_templates_discovered() -> None:
     """Sanity check that template auto-discovery finds at least a few templates."""
-    assert len(_ROLES_GLOB) >= 3, (
-        f"Expected at least 3 templates under {_PLAYBOOKS_DIR / 'roles'}, found {len(_ROLES_GLOB)}"
-    )
+    assert len(_TEMPLATES) >= 1, f"Expected at least 1 template under {_TEMPLATES_DIR}, found {len(_TEMPLATES)}"
