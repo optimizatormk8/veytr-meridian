@@ -141,13 +141,13 @@ def run(
     proxy_file = resolved.creds_dir / "proxy.yml"
     if proxy_file.exists():
         creds = ServerCredentials.load(proxy_file)
-        if creds.domain:
-            q_domain = shlex.quote(creds.domain)
+        if creds.server.domain:
+            q_domain = shlex.quote(creds.server.domain)
             dns_result = (
                 resolved.conn.run(f"dig +short {q_domain} @8.8.8.8 2>/dev/null", timeout=10).stdout.strip()
                 or "dig not available"
             )
-            sections.append((f"Domain DNS ({creds.domain})", dns_result))
+            sections.append((f"Domain DNS ({creds.server.domain})", dns_result))
 
     # --- Output ---
     err_console.print()

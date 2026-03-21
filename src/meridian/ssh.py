@@ -133,22 +133,6 @@ class ServerConnection:
             )
             if result.returncode == 0:
                 (local_creds_dir / "proxy.yml").chmod(0o600)
-                # Also fetch clients tracking file (best-effort)
-                subprocess.run(
-                    [
-                        "scp",
-                        *self._ssh_opts,
-                        f"{self.user}@{self.ip}:/etc/meridian/proxy-clients.yml",
-                        str(local_creds_dir / "proxy-clients.yml"),
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                    stdin=subprocess.DEVNULL,
-                )
-                clients_file = local_creds_dir / "proxy-clients.yml"
-                if clients_file.exists():
-                    clients_file.chmod(0o600)
                 return True
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
@@ -172,8 +156,6 @@ class ServerConnection:
         # Copy main credentials (required)
         if not self._copy_one_file(SERVER_CREDS_DIR / "proxy.yml", local_creds_dir / "proxy.yml"):
             return False
-        # Copy clients tracking (best-effort)
-        self._copy_one_file(SERVER_CREDS_DIR / "proxy-clients.yml", local_creds_dir / "proxy-clients.yml")
         return True
 
     def _copy_one_file(self, src: Path, dst: Path) -> bool:

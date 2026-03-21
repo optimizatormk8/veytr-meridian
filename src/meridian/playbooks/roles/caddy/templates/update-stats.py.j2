@@ -11,13 +11,29 @@ CREDS = '/etc/meridian/proxy.yml'
 STATS_DIR = '/var/www/private/stats'
 
 def parse_creds():
+    """Parse v2 nested YAML credentials."""
+    import json as _json
     creds = {}
     with open(CREDS) as f:
-        for line in f:
-            line = line.strip()
-            if ':' in line and not line.startswith('#'):
-                key, val = line.split(':', 1)
-                creds[key.strip()] = val.strip().strip('"')
+        content = f.read()
+    # Use a simple approach: parse YAML-like structure for nested keys
+    try:
+        import importlib
+        _yaml = importlib.import_module('yaml')
+        data = _yaml.safe_load(content)
+        if isinstance(data, dict):
+            panel = data.get('panel', {})
+            creds['panel_username'] = panel.get('username', '')
+            creds['panel_password'] = panel.get('password', '')
+            creds['panel_web_base_path'] = panel.get('web_base_path', '')
+    except ImportError:
+        # Fallback: line-by-line parsing for flat fields (v1 compat)
+        with open(CREDS) as f:
+            for line in f:
+                line = line.strip()
+                if ':' in line and not line.startswith('#') and not line.startswith('-'):
+                    key, val = line.split(':', 1)
+                    creds[key.strip()] = val.strip().strip('"')
     return creds
 
 def main():

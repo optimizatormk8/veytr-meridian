@@ -71,27 +71,48 @@
     loop_var: _inbound
   when: _inbound_ids[_inbound.key] | default('') | length > 0
 
-# -- Update local clients tracking file --
-- name: Load existing clients file
+# -- Update clients in main credentials file --
+- name: Load existing credentials file
   ansible.builtin.include_vars:
-    file: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
-    name: clients_data
+    file: "{{ credentials_file }}"
+    name: main_creds
   delegate_to: localhost
   become: false
   failed_when: false
 
 - name: Initialize clients list if not found
   ansible.builtin.set_fact:
-    clients_data:
-      clients: []
-  when: clients_data is not defined or clients_data.clients is not defined or clients_data.clients is none
+    main_creds: "{{ main_creds | default({}) | combine({'clients': []}) }}"
+  when: main_creds is not defined or main_creds.clients is not defined or main_creds.clients is none
 
-- name: Save updated clients file
+- name: Save updated credentials with new client
   ansible.builtin.copy:
     content: |
       ---
+      # Auto-generated credentials — DO NOT share.
+      version: 2
+      panel_configured: true
+      panel:
+        username: "{{ panel_username }}"
+        password: "{{ panel_password }}"
+        web_base_path: "{{ panel_web_base_path }}"
+        info_page_path: "{{ info_page_path | default('') }}"
+        port: {{ panel_internal_port }}
+      server:
+        ip: "{{ server_public_ip }}"
+        domain: "{{ domain | default('') }}"
+        sni: "{{ reality_sni }}"
+      protocols:
+        reality:
+          uuid: "{{ reality_uuid }}"
+          private_key: "{{ reality_private_key }}"
+          public_key: "{{ reality_public_key }}"
+          short_id: "{{ reality_short_id }}"
+        wss:
+          uuid: "{{ wss_uuid | default('') }}"
+          ws_path: "{{ ws_path | default('') }}"
       clients:
-      {% for c in clients_data.clients %}
+      {% for c in main_creds.clients %}
         - name: "{{ c.name }}"
           added: "{{ c.added }}"
           reality_uuid: "{{ c.reality_uuid }}"
@@ -101,7 +122,7 @@
           added: "{{ ansible_date_time.iso8601 }}"
           reality_uuid: "{{ client_reality_uuid }}"
           wss_uuid: "{{ client_wss_uuid }}"
-    dest: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
+    dest: "{{ credentials_file }}"
     mode: "0600"
   delegate_to: localhost
   become: false

@@ -44,16 +44,16 @@
 
     - name: Apply saved credentials as facts
       ansible.builtin.set_fact:
-        panel_username: "{{ saved_creds.panel_username }}"
-        panel_password: "{{ saved_creds.panel_password }}"
-        panel_web_base_path: "{{ saved_creds.panel_web_base_path }}"
-        info_page_path: "{{ saved_creds.info_page_path }}"
-        ws_path: "{{ saved_creds.ws_path }}"
-        reality_uuid: "{{ saved_creds.reality_uuid }}"
-        reality_private_key: "{{ saved_creds.reality_private_key }}"
-        reality_public_key: "{{ saved_creds.reality_public_key }}"
-        reality_short_id: "{{ saved_creds.reality_short_id }}"
-        wss_uuid: "{{ saved_creds.wss_uuid | default('') }}"
+        panel_username: "{{ saved_creds.panel.username }}"
+        panel_password: "{{ saved_creds.panel.password }}"
+        panel_web_base_path: "{{ saved_creds.panel.web_base_path }}"
+        info_page_path: "{{ saved_creds.panel.info_page_path }}"
+        ws_path: "{{ saved_creds.protocols.wss.ws_path | default('') }}"
+        reality_uuid: "{{ saved_creds.protocols.reality.uuid }}"
+        reality_private_key: "{{ saved_creds.protocols.reality.private_key }}"
+        reality_public_key: "{{ saved_creds.protocols.reality.public_key }}"
+        reality_short_id: "{{ saved_creds.protocols.reality.short_id }}"
+        wss_uuid: "{{ saved_creds.protocols.wss.uuid | default('') }}"
         panel_configured: "{{ saved_creds.panel_configured | default(false) }}"
       when: creds_file_stat.stat.exists
 

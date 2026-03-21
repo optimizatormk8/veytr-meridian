@@ -144,25 +144,39 @@ These are easy to break by editing one file without updating the others:
 - CI checks app download links match between the template and `docs/demo.html`
 
 ### Credential flow
+- **V2 format**: nested YAML with `version: 2`, sections: `panel`, `server`, `protocols`, `clients`
+- V1 flat format is auto-migrated on load; next `save()` writes v2
+- `None` means "not set" (distinct from empty string `""`)
 - Server is source of truth: `/etc/meridian/proxy.yml` on the server
 - Local cache: `~/.meridian/credentials/<IP>/proxy.yml` per server
 - `meridian` CLI passes `credentials_dir=$HOME/.meridian/credentials/$SERVER_IP` (remote) or `/etc/meridian` (local mode)
 - `roles/xray/tasks/configure_panel.yml` saves to `{{ credentials_file }}` which is `{{ credentials_dir }}/{{ inventory_hostname }}.yml`
-- `roles/xray/tasks/configure_panel.yml` also creates `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with the first client
+- Clients are tracked inside the main `proxy.yml` under the `clients` list (no separate file)
 - `playbook.yml` and `playbook-client.yml` post_tasks sync `credentials_dir` to `/etc/meridian/` on the server
-- Domain is saved to credentials file for detection on re-runs
-- CLI reads saved credentials to find the server IP (for client/uninstall/diagnostics commands)
+- Domain is saved to credentials file (`server.domain`) for detection on re-runs
+- CLI reads saved credentials to find the server IP (`server.ip`) for client/uninstall/diagnostics commands
 - CLI fetches credentials from `/etc/meridian/` via SSH when not found locally (handles cross-machine runs)
 - `meridian server add IP` fetches credentials from server, caches locally
+- Ansible `include_vars` loads v2 into `saved_creds`, then pre_tasks extract flat vars (`panel_username`, `reality_uuid`, etc.) for task consumption — templates and API calls use flat vars, not nested
+- `ServerCredentials` dataclass provides typed access: `creds.panel.username`, `creds.server.sni`, `creds.reality.uuid`, etc.
+- `xhttp_enabled` is NOT stored in credentials — it's a runtime flag from `group_vars/all.yml` (default `true`); XHTTP presence is detected dynamically from the panel API inbound list
 
 ### Client management flow
-- `playbook-client.yml` loads credentials from `proxy.yml`, reads `domain` field to detect domain mode
+- `playbook-client.yml` loads credentials from `proxy.yml`, reads `server.domain` to detect domain mode
 - Client names map to 3x-ui `email` fields: `reality-{name}`, `wss-{name}`, `xhttp-{name}` (e.g., `reality-alice`, `wss-alice`, `xhttp-alice`)
 - The first client created during install uses `reality-{{ first_client_name | default('default') }}` — same naming convention
-- Clients are tracked in `{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml` with UUIDs and timestamps
-- `roles/output/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
+- Clients are tracked in the main `proxy.yml` under the `clients` list with UUIDs and timestamps
+- `roles/shared/tasks/generate_client_output.yml` is shared between the `output` role and `client_management` role
 - 3x-ui API: `addClient` adds to existing inbound (id in form body), `delClient/{uuid}` removes by client UUID (NOT email — email silently succeeds but doesn't delete)
 - `meridian client add`/`meridian client remove` resolve server IP from saved credentials or `--server` flag
+- Add/remove client tasks use `include_tasks` loops over `inbound_types` (from `group_vars/all.yml`) via parameterized `_add_client_to_inbound.yml` / `_remove_client_from_inbound.yml`
+
+### Protocol/inbound type registry
+- Python: `src/meridian/protocols.py` — `INBOUND_TYPES` dict mapping key to `InboundType(remark, email_prefix, flow)`
+- Ansible: `inbound_types` list in `group_vars/all.yml` — same values, used by `client_management` role loops
+- These MUST stay in sync — same remark strings, email prefixes, and flow values
+- Used by: `client.py` (client list display), `add_client.yml` (loop), `remove_client.yml` (loop)
+- XHTTP reuses the Reality UUID (one identity for both transports) — the `_add_client_to_inbound.yml` handles this via `client_wss_uuid if key == 'wss' else client_reality_uuid`
 
 ### Caddy config pattern
 - Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (not the main Caddyfile)
@@ -286,7 +300,7 @@ cd src/meridian/playbooks && ansible-playbook playbook.yml
 - **`jinja2_native = True` in ansible.cfg**: required for `body_format: json` to send native integer types (e.g., `port`). Safe with mixed text+expression templates (`settings: >-` blocks) because Jinja2 NativeEnvironment only returns native types for single-expression templates. Do NOT remove without an alternative solution for integer typing.
 - **`client list` bypasses Ansible**: uses direct curl + native Python JSON parsing for instant results instead of running a full playbook. `client add` and `client remove` still use Ansible playbooks because they modify state and benefit from idempotency.
 - **Playbook bundling**: playbooks exist only in `src/meridian/playbooks/` (bundled in package via `package_data`). No root-level copies — CI and `make` targets run from the `src/meridian/playbooks/` directory.
-- **Credential management**: `ServerCredentials` dataclass in `credentials.py` replaces all `grep|awk|tr` YAML parsing. Handles special characters, preserves unknown fields, type-safe access.
+- **Credential management**: `ServerCredentials` dataclass in `credentials.py` uses v2 nested format: `panel`, `server`, `protocols` (dict of protocol dataclasses), `clients` (list). V1 flat format is auto-migrated on load. Access via `creds.panel.username`, `creds.server.sni`, `creds.reality.uuid`, etc. `None` = "not set" (distinct from `""`). Handles special characters, preserves unknown fields, type-safe access.
 - **When the user says "remember"**: save the instruction to this CLAUDE.md file so it persists across sessions. Don't use auto-memory — CLAUDE.md is the canonical place for project conventions.
 - **Non-root on-server execution**: When a non-root user runs meridian on the server itself, `detect_local_mode()` sets `local_mode=True` + `needs_sudo=True`. Commands run via `sudo -n bash -c '...'`, credentials are copied via `sudo -n cat`. The `ResolvedServer.creds_dir` stays in `~/.meridian/credentials/<IP>/` (not `/etc/meridian/` which is root-only). This avoids the old hard-fail that forced users to type `sudo meridian` for every command.
 - **`sudo meridian` on servers**: `install.sh` creates a symlink `/usr/local/bin/meridian → ~/.local/bin/meridian` via `sudo -n` (non-interactive, no password prompt). `self-update` in `update.py` refreshes the symlink if it already exists. This ensures `sudo meridian` works without `secure_path` issues.
@@ -337,6 +351,8 @@ When adding a **new flag to setup**:
 - [ ] Regenerate AI docs (`make ai-docs`)
 
 When adding a **new inbound/transport type** (all `roles/` paths are relative to `src/meridian/playbooks/`):
+- [ ] `src/meridian/protocols.py` — add entry to `INBOUND_TYPES`
+- [ ] `group_vars/all.yml` — add entry to `inbound_types` (must match Python)
 - [ ] `roles/xray/tasks/` — create/update inbound task
 - [ ] `roles/xray/tasks/main.yml` — add include gate
 - [ ] `roles/shared/tasks/generate_client_output.yml` — VLESS URL + QR codes
@@ -350,6 +366,7 @@ When adding a **new inbound/transport type** (all `roles/` paths are relative to
 - [ ] `roles/client_management/tasks/remove_client.yml` — remove client from inbound
 - [ ] `roles/xray/tasks/configure_panel.yml` — save setting to credentials
 - [ ] `tests/render_templates.py` — add mock variables (templates are auto-discovered)
+- [ ] `tests/test_protocols.py` — add test for new type
 - [ ] `docs/ai/context.md` — update port table and architecture
 - [ ] `docs/ai/architecture.md` — update topology diagrams
 - [ ] Regenerate AI docs (`make ai-docs`)

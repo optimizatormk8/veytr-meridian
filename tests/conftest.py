@@ -41,7 +41,44 @@ def creds_dir(tmp_home: Path) -> Path:
 
 @pytest.fixture
 def sample_proxy_yml(creds_dir: Path) -> Path:
-    """Write a sample proxy.yml and return its path."""
+    """Write a sample v2 proxy.yml and return its path."""
+    content = """\
+version: 2
+panel_configured: true
+panel:
+  username: admin
+  password: "s3cret!pass"
+  web_base_path: abc123
+  info_page_path: info456
+  port: 2053
+server:
+  ip: 1.2.3.4
+  sni: www.microsoft.com
+  scanned_sni: dl.google.com
+protocols:
+  reality:
+    uuid: 550e8400-e29b-41d4-a716-446655440000
+    private_key: WBNp7SHzGMaqp6ohXMfJHUyBMWHoeHMflVPaaxdtRHo
+    public_key: K6JYbz4MflVPaaxdtRHoWBNp7SHzGMaqp6ohXMfJHUy
+    short_id: abcd1234
+  wss:
+    uuid: 660e8400-e29b-41d4-a716-446655440001
+    ws_path: ws789
+clients:
+  - name: default
+    added: "2026-01-01T00:00:00Z"
+    reality_uuid: 550e8400-e29b-41d4-a716-446655440000
+    wss_uuid: 660e8400-e29b-41d4-a716-446655440001
+"""
+    proxy = creds_dir / "proxy.yml"
+    proxy.write_text(content)
+    proxy.chmod(0o600)
+    return proxy
+
+
+@pytest.fixture
+def sample_v1_proxy_yml(creds_dir: Path) -> Path:
+    """Write a sample v1 (flat) proxy.yml and return its path."""
     content = """\
 panel_username: admin
 panel_password: "s3cret!pass"

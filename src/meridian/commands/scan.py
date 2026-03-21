@@ -133,7 +133,7 @@ def run(
             resolved.creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             proxy_file = resolved.creds_dir / "proxy.yml"
             creds = ServerCredentials.load(proxy_file)
-            creds.scanned_sni = selected
+            creds.server.scanned_sni = selected
             creds.save(proxy_file)
 
             err_console.print()

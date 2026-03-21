@@ -34,24 +34,23 @@
 
     - name: Apply saved credentials as facts
       ansible.builtin.set_fact:
-        panel_username: "{{ saved_creds.panel_username }}"
-        panel_password: "{{ saved_creds.panel_password }}"
-        panel_web_base_path: "{{ saved_creds.panel_web_base_path }}"
-        info_page_path: "{{ saved_creds.info_page_path | default('') }}"
-        ws_path: "{{ saved_creds.ws_path | default('') }}"
-        reality_uuid: "{{ saved_creds.reality_uuid }}"
-        reality_private_key: "{{ saved_creds.reality_private_key }}"
-        reality_public_key: "{{ saved_creds.reality_public_key }}"
-        reality_short_id: "{{ saved_creds.reality_short_id }}"
-        wss_uuid: "{{ saved_creds.wss_uuid | default('') }}"
-        reality_sni: "{{ saved_creds.reality_sni | default('www.microsoft.com') }}"
+        panel_username: "{{ saved_creds.panel.username }}"
+        panel_password: "{{ saved_creds.panel.password }}"
+        panel_web_base_path: "{{ saved_creds.panel.web_base_path }}"
+        info_page_path: "{{ saved_creds.panel.info_page_path | default('') }}"
+        ws_path: "{{ saved_creds.protocols.wss.ws_path | default('') }}"
+        reality_uuid: "{{ saved_creds.protocols.reality.uuid }}"
+        reality_private_key: "{{ saved_creds.protocols.reality.private_key }}"
+        reality_public_key: "{{ saved_creds.protocols.reality.public_key }}"
+        reality_short_id: "{{ saved_creds.protocols.reality.short_id }}"
+        wss_uuid: "{{ saved_creds.protocols.wss.uuid | default('') }}"
+        reality_sni: "{{ saved_creds.server.sni | default('www.microsoft.com') }}"
         panel_configured: "{{ saved_creds.panel_configured | default(false) }}"
 
     - name: Set mode flags
       ansible.builtin.set_fact:
-        domain_mode: "{{ saved_creds.domain | default('') | length > 0 }}"
-        domain: "{{ saved_creds.domain | default('') }}"
-        xhttp_enabled: "{{ saved_creds.xhttp_enabled | default(false) }}"
+        domain_mode: "{{ saved_creds.server.domain | default('') | length > 0 }}"
+        domain: "{{ saved_creds.server.domain | default('') }}"
 
     - name: Check qrencode dependency (for add action)
       ansible.builtin.include_tasks: roles/shared/tasks/check_qrencode.yml

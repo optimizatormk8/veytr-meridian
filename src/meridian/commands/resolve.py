@@ -29,7 +29,7 @@ class ResolvedServer:
 
 
 def _detect_local_mode_from_creds() -> str | None:
-    """Check if /etc/meridian/proxy.yml is readable and extract exit_ip.
+    """Check if /etc/meridian/proxy.yml is readable and extract server IP.
 
     Only succeeds for root. Non-root users can't read /etc/meridian/
     and will use the remote SSH path instead.
@@ -39,7 +39,7 @@ def _detect_local_mode_from_creds() -> str | None:
         if not proxy.is_file():
             return None
         creds = ServerCredentials.load(proxy)
-        return creds.exit_ip or None
+        return creds.server.ip or None
     except (PermissionError, OSError):
         return None
 

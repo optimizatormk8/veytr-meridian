@@ -29,9 +29,9 @@ def run(
     if proxy_file.exists():
         creds = ServerCredentials.load(proxy_file)
         if not domain:
-            domain = creds.domain
+            domain = creds.server.domain or ""
         if not sni:
-            sni = creds.reality_sni
+            sni = creds.server.sni or ""
 
     sni_host = sni or "www.microsoft.com"
     issues = 0

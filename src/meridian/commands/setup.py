@@ -82,7 +82,7 @@ def run(
         creds_dir = CREDS_BASE / server_ip
         if (creds_dir / "proxy.yml").exists():
             saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
-            suggested_domain = saved_creds.domain
+            suggested_domain = saved_creds.server.domain or ""
 
         if suggested_domain:
             err_console.print(f"  [dim]Detected: {suggested_domain}[/dim]")
@@ -133,14 +133,14 @@ def run(
         proxy_file = resolved.creds_dir / "proxy.yml"
         if proxy_file.exists():
             creds = ServerCredentials.load(proxy_file)
-            if creds.scanned_sni:
-                info(f"Detected optimal SNI from scan: {creds.scanned_sni}")
+            if creds.server.scanned_sni:
+                info(f"Detected optimal SNI from scan: {creds.server.scanned_sni}")
                 if yes:
-                    sni = creds.scanned_sni
+                    sni = creds.server.scanned_sni
                 else:
-                    answer = prompt(f"Use {creds.scanned_sni} as SNI target? (Y/n)")
+                    answer = prompt(f"Use {creds.server.scanned_sni} as SNI target? (Y/n)")
                     if answer.lower() != "n":
-                        sni = creds.scanned_sni
+                        sni = creds.server.scanned_sni
 
     # Build extra vars
     extra_vars: dict[str, str] = {}

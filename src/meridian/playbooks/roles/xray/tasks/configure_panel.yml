@@ -89,45 +89,41 @@
 
     # -- SAVE CREDENTIALS FIRST (before changing the panel password) --
     # This prevents lockout if the playbook fails during password change.
-    - name: Save credentials to local file
+    # V2 format: nested structure with panel, server, protocols, clients.
+    - name: Save credentials to local file (v2 format)
       ansible.builtin.copy:
         content: |
           ---
           # Auto-generated credentials for {{ inventory_hostname }}
           # Created: {{ ansible_date_time.iso8601 }}
           # DO NOT share this file. It contains all secrets for your proxy server.
+          version: 2
           panel_configured: true
-          panel_username: "{{ panel_username }}"
-          panel_password: "{{ panel_password }}"
-          panel_web_base_path: "{{ panel_web_base_path }}"
-          info_page_path: "{{ info_page_path }}"
-          ws_path: "{{ ws_path }}"
-          reality_uuid: "{{ reality_uuid }}"
-          reality_private_key: "{{ reality_private_key }}"
-          reality_public_key: "{{ reality_public_key }}"
-          reality_short_id: "{{ reality_short_id }}"
-          reality_sni: "{{ reality_sni }}"
-          wss_uuid: "{{ wss_uuid }}"
-          xhttp_enabled: {{ xhttp_enabled | default(false) | bool | ternary('true', 'false') }}
-          server_ip: "{{ server_public_ip }}"
-          domain: "{{ domain | default('') }}"
-        dest: "{{ credentials_file }}"
-        mode: "0600"
-      delegate_to: localhost
-      become: false
-      no_log: true
-
-    # -- Track the first client alongside all future clients --
-    - name: Save initial client to clients tracking file
-      ansible.builtin.copy:
-        content: |
-          ---
+          panel:
+            username: "{{ panel_username }}"
+            password: "{{ panel_password }}"
+            web_base_path: "{{ panel_web_base_path }}"
+            info_page_path: "{{ info_page_path }}"
+            port: {{ panel_internal_port }}
+          server:
+            ip: "{{ server_public_ip }}"
+            domain: "{{ domain | default('') }}"
+            sni: "{{ reality_sni }}"
+          protocols:
+            reality:
+              uuid: "{{ reality_uuid }}"
+              private_key: "{{ reality_private_key }}"
+              public_key: "{{ reality_public_key }}"
+              short_id: "{{ reality_short_id }}"
+            wss:
+              uuid: "{{ wss_uuid }}"
+              ws_path: "{{ ws_path }}"
           clients:
             - name: "{{ first_client_name | default('default') }}"
               added: "{{ ansible_date_time.iso8601 }}"
               reality_uuid: "{{ reality_uuid }}"
               wss_uuid: "{{ wss_uuid | default('') }}"
-        dest: "{{ credentials_dir }}/{{ inventory_hostname }}-clients.yml"
+        dest: "{{ credentials_file }}"
         mode: "0600"
       delegate_to: localhost
       become: false
