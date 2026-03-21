@@ -295,27 +295,27 @@ class TestCleanup:
 
 
 class TestParseResponse:
-    """Test the static _parse_response method edge cases."""
+    """Test the static parse_response method edge cases."""
 
     def test_html_error_page(self) -> None:
         """Panel might return HTML (e.g. nginx 502) instead of JSON."""
         with pytest.raises(PanelError, match="Invalid JSON"):
-            PanelClient._parse_response("<html><body>502 Bad Gateway</body></html>", "/panel/api/inbounds/list")
+            PanelClient.parse_response("<html><body>502 Bad Gateway</body></html>", "/panel/api/inbounds/list")
 
     def test_truncated_json(self) -> None:
         with pytest.raises(PanelError, match="Invalid JSON"):
-            PanelClient._parse_response('{"success": tru', "/login")
+            PanelClient.parse_response('{"success": tru', "/login")
 
     def test_empty_string(self) -> None:
         with pytest.raises(PanelError, match="Empty response"):
-            PanelClient._parse_response("", "/login")
+            PanelClient.parse_response("", "/login")
 
     def test_whitespace_only(self) -> None:
         with pytest.raises(PanelError, match="Empty response"):
-            PanelClient._parse_response("   \n  ", "/login")
+            PanelClient.parse_response("   \n  ", "/login")
 
     def test_valid_json_returned(self) -> None:
-        result = PanelClient._parse_response('{"success": true, "obj": null}', "/test")
+        result = PanelClient.parse_response('{"success": true, "obj": null}', "/test")
         assert result["success"] is True
 
 
@@ -421,19 +421,19 @@ class TestApiMethods:
         conn = _make_conn(rc=1, stderr="timeout")
         panel = _make_panel(conn)
         with pytest.raises(PanelError, match="API GET"):
-            panel._api_get("/panel/api/inbounds/list")
+            panel.api_get("/panel/api/inbounds/list")
 
     def test_api_post_json_failure(self) -> None:
         conn = _make_conn(rc=1, stderr="connection reset")
         panel = _make_panel(conn)
         with pytest.raises(PanelError, match="API POST"):
-            panel._api_post_json("/panel/setting/update", {"key": "value"})
+            panel.api_post_json("/panel/setting/update", {"key": "value"})
 
     def test_api_post_empty_failure(self) -> None:
         conn = _make_conn(rc=1, stderr="refused")
         panel = _make_panel(conn)
         with pytest.raises(PanelError, match="API POST"):
-            panel._api_post_empty("/panel/api/inbounds/1/delClient/uuid")
+            panel.api_post_empty("/panel/api/inbounds/1/delClient/uuid")
 
 
 class TestInboundDataclass:

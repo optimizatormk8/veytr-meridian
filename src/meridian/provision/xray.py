@@ -11,26 +11,12 @@ the Go types use ``string`` for these fields.
 from __future__ import annotations
 
 import json
-import time
 from typing import Any
 
 from meridian.panel import PanelClient, PanelError
 from meridian.protocols import INBOUND_TYPES
-from meridian.provision.steps import StepResult
+from meridian.provision.steps import ProvisionContext, StepResult, timed
 from meridian.ssh import ServerConnection
-
-
-def _timed(fn):  # noqa: ANN001, ANN202
-    """Decorator that adds duration_ms to the returned StepResult."""
-
-    def wrapper(*args: Any, **kwargs: Any) -> StepResult:
-        t0 = time.monotonic()
-        result = fn(*args, **kwargs)
-        result.duration_ms = int((time.monotonic() - t0) * 1000)
-        return result
-
-    return wrapper
-
 
 # ---------------------------------------------------------------------------
 # Sniffing JSON (shared across all inbound types)
@@ -51,80 +37,24 @@ SNIFFING_JSON = json.dumps(
 # ---------------------------------------------------------------------------
 
 
-def _reality_settings(
+def _client_settings(
     uuid: str,
     client_email: str,
+    flow: str = "",
     client_limit_ip: int = 2,
     client_total_gb: int = 0,
 ) -> str:
-    """Build the settings JSON string for a Reality or XHTTP inbound."""
-    return json.dumps(
-        {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": "xtls-rprx-vision",
-                    "email": client_email,
-                    "limitIp": client_limit_ip,
-                    "totalGB": client_total_gb,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ],
-            "decryption": "none",
-            "fallbacks": [],
-        }
-    )
+    """Build client settings JSON string for 3x-ui API.
 
-
-def _xhttp_settings(
-    uuid: str,
-    client_email: str,
-    client_limit_ip: int = 2,
-    client_total_gb: int = 0,
-) -> str:
-    """Build the settings JSON string for an XHTTP inbound.
-
-    XHTTP does NOT support xtls-rprx-vision flow (must be empty string).
+    For Reality, pass flow="xtls-rprx-vision".
+    For XHTTP and WSS, pass flow="" (or omit -- defaults to "").
     """
     return json.dumps(
         {
             "clients": [
                 {
                     "id": uuid,
-                    "flow": "",
-                    "email": client_email,
-                    "limitIp": client_limit_ip,
-                    "totalGB": client_total_gb,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ],
-            "decryption": "none",
-            "fallbacks": [],
-        }
-    )
-
-
-def _wss_settings(
-    uuid: str,
-    client_email: str,
-    client_limit_ip: int = 2,
-    client_total_gb: int = 0,
-) -> str:
-    """Build the settings JSON string for a WSS inbound."""
-    return json.dumps(
-        {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": "",
+                    "flow": flow,
                     "email": client_email,
                     "limitIp": client_limit_ip,
                     "totalGB": client_total_gb,
@@ -268,8 +198,8 @@ class CreateRealityInbound:
         self.client_total_gb = client_total_gb
         self.fingerprint = fingerprint
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         panel: PanelClient | None = ctx.get("panel")
         if panel is None:
             return StepResult(name=self.name, status="failed", detail="No panel client in context")
@@ -299,9 +229,10 @@ class CreateRealityInbound:
             "protocol": "vless",
             "expiryTime": 0,
             "total": 0,
-            "settings": _reality_settings(
+            "settings": _client_settings(
                 uuid=creds.reality.uuid,
                 client_email=email,
+                flow="xtls-rprx-vision",
                 client_limit_ip=self.client_limit_ip,
                 client_total_gb=self.client_total_gb,
             ),
@@ -315,7 +246,7 @@ class CreateRealityInbound:
             "sniffing": SNIFFING_JSON,
         }
 
-        data = panel._api_post_json("/panel/api/inbounds/add", body)
+        data = panel.api_post_json("/panel/api/inbounds/add", body)
         if not data.get("success"):
             msg = data.get("msg", "unknown error")
             return StepResult(
@@ -365,8 +296,8 @@ class CreateXHTTPInbound:
         self.xhttp_mode = xhttp_mode
         self.xhttp_path = xhttp_path
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         panel: PanelClient | None = ctx.get("panel")
         if panel is None:
             return StepResult(name=self.name, status="failed", detail="No panel client in context")
@@ -392,7 +323,7 @@ class CreateXHTTPInbound:
             "protocol": "vless",
             "expiryTime": 0,
             "total": 0,
-            "settings": _xhttp_settings(
+            "settings": _client_settings(
                 uuid=creds.reality.uuid,
                 client_email=email,
                 client_limit_ip=self.client_limit_ip,
@@ -410,7 +341,7 @@ class CreateXHTTPInbound:
             "sniffing": SNIFFING_JSON,
         }
 
-        data = panel._api_post_json("/panel/api/inbounds/add", body)
+        data = panel.api_post_json("/panel/api/inbounds/add", body)
         if not data.get("success"):
             msg = data.get("msg", "unknown error")
             return StepResult(
@@ -457,8 +388,8 @@ class CreateWSSInbound:
         self.client_limit_ip = client_limit_ip
         self.client_total_gb = client_total_gb
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         panel: PanelClient | None = ctx.get("panel")
         if panel is None:
             return StepResult(name=self.name, status="failed", detail="No panel client in context")
@@ -484,7 +415,7 @@ class CreateWSSInbound:
             "protocol": "vless",
             "expiryTime": 0,
             "total": 0,
-            "settings": _wss_settings(
+            "settings": _client_settings(
                 uuid=creds.wss.uuid,
                 client_email=email,
                 client_limit_ip=self.client_limit_ip,
@@ -496,7 +427,7 @@ class CreateWSSInbound:
             "sniffing": SNIFFING_JSON,
         }
 
-        data = panel._api_post_json("/panel/api/inbounds/add", body)
+        data = panel.api_post_json("/panel/api/inbounds/add", body)
         if not data.get("success"):
             msg = data.get("msg", "unknown error")
             return StepResult(
@@ -526,8 +457,8 @@ class VerifyXray:
 
     name = "verify_xray"
 
-    @_timed
-    def run(self, conn: ServerConnection, ctx: dict[str, Any]) -> StepResult:
+    @timed
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         result = conn.run("docker exec 3x-ui pgrep -f xray", timeout=10)
         if result.returncode == 0:
             return StepResult(
@@ -564,6 +495,6 @@ class VerifyXray:
 
 def _delete_inbound(panel: PanelClient, inbound_id: int, remark: str) -> None:
     """Delete an inbound by ID (used for mode-switch port correction)."""
-    data = panel._api_post_empty(f"/panel/api/inbounds/del/{inbound_id}")
+    data = panel.api_post_empty(f"/panel/api/inbounds/del/{inbound_id}")
     if not data.get("success"):
         raise PanelError(f"Failed to delete old {remark} inbound (id={inbound_id}): {data.get('msg', 'unknown error')}")

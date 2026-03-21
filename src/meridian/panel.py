@@ -70,20 +70,19 @@ class PanelClient:
         if not data.get("success"):
             raise PanelError(f"Login failed: {data.get('msg', 'unknown error')}")
 
-    def _api_get(self, path: str) -> dict:
+    def api_get(self, path: str) -> dict:
         """Make an authenticated GET request."""
         url = shlex.quote(self.base_url + path)
         cmd = f"curl -s -b {self._cookie_path} {url}"
         result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API GET {path} failed: {result.stderr.strip()}")
-        return self._parse_response(result.stdout, path)
+        return self.parse_response(result.stdout, path)
 
-    def _api_post_json(self, path: str, body: dict) -> dict:
+    def api_post_json(self, path: str, body: dict) -> dict:
         """Make an authenticated POST request with JSON body.
 
         IMPORTANT: Inbound/client operations MUST use JSON (not form-urlencoded).
-        Ansible's uri module silently corrupts inline JSON values in form-urlencoded.
         """
         url = shlex.quote(self.base_url + path)
         json_body = shlex.quote(json.dumps(body))
@@ -91,19 +90,19 @@ class PanelClient:
         result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
-        return self._parse_response(result.stdout, path)
+        return self.parse_response(result.stdout, path)
 
-    def _api_post_empty(self, path: str) -> dict:
+    def api_post_empty(self, path: str) -> dict:
         """Make an authenticated POST request with no body."""
         url = shlex.quote(self.base_url + path)
         cmd = f"curl -s -b {self._cookie_path} -X POST {url}"
         result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
-        return self._parse_response(result.stdout, path)
+        return self.parse_response(result.stdout, path)
 
     @staticmethod
-    def _parse_response(raw: str, context: str) -> dict:
+    def parse_response(raw: str, context: str) -> dict:
         """Parse JSON response and verify success."""
         raw = raw.strip()
         if not raw:
@@ -116,7 +115,7 @@ class PanelClient:
 
     def list_inbounds(self) -> list[Inbound]:
         """List all inbounds from the panel API."""
-        data = self._api_get("/panel/api/inbounds/list")
+        data = self.api_get("/panel/api/inbounds/list")
         if not data.get("success"):
             raise PanelError(f"List inbounds failed: {data.get('msg', 'unknown error')}")
 
@@ -156,7 +155,7 @@ class PanelClient:
             "id": inbound_id,
             "settings": json.dumps(client_settings),
         }
-        data = self._api_post_json("/panel/api/inbounds/addClient", body)
+        data = self.api_post_json("/panel/api/inbounds/addClient", body)
         if not data.get("success"):
             raise PanelError(f"Add client failed: {data.get('msg', 'unknown error')}")
 
@@ -168,7 +167,7 @@ class PanelClient:
         """
         q_uuid = shlex.quote(client_uuid)
         path = f"/panel/api/inbounds/{inbound_id}/delClient/{q_uuid}"
-        data = self._api_post_empty(path)
+        data = self.api_post_empty(path)
         if not data.get("success"):
             raise PanelError(f"Remove client failed: {data.get('msg', 'unknown error')}")
 

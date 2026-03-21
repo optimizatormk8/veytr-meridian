@@ -13,6 +13,18 @@ from rich.status import Status
 from meridian.ssh import ServerConnection
 
 
+def timed(fn):  # noqa: ANN001, ANN202
+    """Decorator that adds duration_ms to the returned StepResult."""
+
+    def wrapper(*args: Any, **kwargs: Any) -> StepResult:
+        t0 = time.monotonic()
+        result = fn(*args, **kwargs)
+        result.duration_ms = int((time.monotonic() - t0) * 1000)
+        return result
+
+    return wrapper
+
+
 @dataclass
 class StepResult:
     """Result of a provisioning step."""
