@@ -9,22 +9,10 @@ from __future__ import annotations
 import shlex
 import textwrap
 import time
-from dataclasses import dataclass
 from typing import Any
 
+from meridian.provision.steps import StepResult
 from meridian.ssh import ServerConnection
-
-# ---------------------------------------------------------------------------
-# StepResult — local definition matching the pattern from steps.py
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class StepResult:
-    name: str
-    status: str  # "ok" | "changed" | "skipped" | "failed"
-    detail: str = ""
-    duration_ms: int = 0
 
 
 def _timed(fn):  # noqa: ANN001, ANN202

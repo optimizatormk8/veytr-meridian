@@ -12,26 +12,13 @@ import secrets
 import shlex
 import string
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from meridian.credentials import ServerCredentials
 from meridian.panel import PanelClient, PanelError
+from meridian.provision.steps import StepResult
 from meridian.ssh import ServerConnection
-
-# ---------------------------------------------------------------------------
-# StepResult — local definition matching the pattern from steps.py
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class StepResult:
-    name: str
-    status: str  # "ok" | "changed" | "skipped" | "failed"
-    detail: str = ""
-    duration_ms: int = 0
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -64,11 +64,14 @@ def setup_cmd(
     user: str = typer.Option("root", "--user", "-u", help="SSH user"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip prompts"),
     server: str = typer.Option("", "--server", help="Target server (name or IP) for re-runs"),
+    legacy: bool = typer.Option(
+        False, "--legacy", hidden=True, help="Use Ansible playbook instead of Python provisioner"
+    ),
 ) -> None:
     """Deploy proxy server."""
     from meridian.commands.setup import run
 
-    run(ip, domain, email, sni, xhttp, name, user, yes, server)
+    run(ip, domain, email, sni, xhttp, name, user, yes, server, legacy)
 
 
 # =============================================================================

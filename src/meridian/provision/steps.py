@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import Any
 from typing import Protocol as TypingProtocol
 
 from rich.console import Console
@@ -24,7 +25,12 @@ class StepResult:
 
 @dataclass
 class ProvisionContext:
-    """Carries state through the provisioning pipeline."""
+    """Carries state through the provisioning pipeline.
+
+    Typed fields for well-known configuration. Dynamic dict-like access
+    for inter-step communication (e.g., ctx["panel"] for a logged-in PanelClient,
+    ctx["credentials"] for ServerCredentials populated by ConfigurePanel).
+    """
 
     ip: str
     user: str = "root"
@@ -43,9 +49,24 @@ class ProvisionContext:
     # 3x-ui image version (pinned to tested release)
     threexui_version: str = "2.8.11"
 
+    # Dynamic inter-step state (PanelClient, credentials, UUIDs, etc.)
+    _state: dict[str, Any] = field(default_factory=dict, repr=False)
+
     @property
     def domain_mode(self) -> bool:
         return bool(self.domain)
+
+    def __getitem__(self, key: str) -> Any:
+        return self._state[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._state[key] = value
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._state
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._state.get(key, default)
 
 
 class Step(TypingProtocol):
