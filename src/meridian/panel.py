@@ -51,9 +51,9 @@ class PanelClient:
             f" -d {shlex.quote(form_data)}"
             f" {shlex.quote(self.base_url + '/login')}"
         )
-        result = self.conn.run(cmd, timeout=15)
+        result = self.conn.run(cmd, timeout=15, sudo=False)
         # Secure cookie file permissions (don't leave world-readable)
-        self.conn.run(f"chmod 600 {self._cookie_path} 2>/dev/null", timeout=5)
+        self.conn.run(f"chmod 600 {self._cookie_path} 2>/dev/null", timeout=5, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"Login request failed: {result.stderr.strip()}")
 
@@ -73,7 +73,7 @@ class PanelClient:
         """Make an authenticated GET request."""
         url = shlex.quote(self.base_url + path)
         cmd = f"curl -s -b {self._cookie_path} {url}"
-        result = self.conn.run(cmd, timeout=15)
+        result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API GET {path} failed: {result.stderr.strip()}")
         return self._parse_response(result.stdout, path)
@@ -87,7 +87,7 @@ class PanelClient:
         url = shlex.quote(self.base_url + path)
         json_body = shlex.quote(json.dumps(body))
         cmd = f"curl -s -b {self._cookie_path} -H 'Content-Type: application/json' -d {json_body} {url}"
-        result = self.conn.run(cmd, timeout=15)
+        result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
         return self._parse_response(result.stdout, path)
@@ -96,7 +96,7 @@ class PanelClient:
         """Make an authenticated POST request with no body."""
         url = shlex.quote(self.base_url + path)
         cmd = f"curl -s -b {self._cookie_path} -X POST {url}"
-        result = self.conn.run(cmd, timeout=15)
+        result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
         return self._parse_response(result.stdout, path)
@@ -192,7 +192,7 @@ class PanelClient:
 
     def cleanup(self) -> None:
         """Remove the cookie file."""
-        self.conn.run(f"rm -f {self._cookie_path}", timeout=5)
+        self.conn.run(f"rm -f {self._cookie_path}", timeout=5, sudo=False)
 
     def __enter__(self) -> PanelClient:
         return self

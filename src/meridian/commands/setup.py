@@ -202,6 +202,9 @@ def _run_provisioner(
             ctx["panel_password"] = creds.panel.password
             ctx["web_base_path"] = creds.panel.web_base_path or ""
             ctx["info_page_path"] = creds.panel.info_page_path or ""
+            # Use saved panel port (not computed) for re-runs
+            if creds.panel.port:
+                ctx.panel_port = creds.panel.port
 
     # First client name
     ctx["first_client_name"] = name or "default"

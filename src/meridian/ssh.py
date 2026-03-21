@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
 
 from meridian.console import err_console, fail, info, ok, warn
+
+
+def _shell_quote(s: str) -> str:
+    """Quote a string for safe embedding inside bash -c '...'."""
+    return shlex.quote(s)
+
 
 SSH_OPTS: list[str] = [
     "-o",
@@ -36,10 +43,21 @@ class ServerConnection:
     def _ssh_opts(self) -> list[str]:
         return SSH_OPTS
 
-    def run(self, command: str, timeout: int = 30, check: bool = False) -> subprocess.CompletedProcess[str]:
-        """Run a command on the remote server via SSH."""
+    def run(
+        self, command: str, timeout: int = 30, check: bool = False, *, sudo: bool | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a command on the remote server via SSH.
+
+        Args:
+            command: Shell command to execute.
+            timeout: Timeout in seconds.
+            check: Not used (kept for API compatibility).
+            sudo: Force sudo wrapping. None = auto (sudo when user != root).
+        """
+        use_sudo = sudo if sudo is not None else (self.user != "root")
+
         if self.local_mode:
-            if self.needs_sudo:
+            if self.needs_sudo or use_sudo:
                 cmd = ["sudo", "-n", "bash", "-c", command]
             else:
                 cmd = ["bash", "-c", command]
@@ -50,6 +68,12 @@ class ServerConnection:
                 timeout=timeout,
                 stdin=subprocess.DEVNULL,
             )
+        # Remote SSH
+        if use_sudo and not self.needs_sudo:
+            # Non-root remote user: wrap in sudo via SSH
+            # SSH passes the command string to the remote shell, which handles
+            # the first layer of quoting. sudo -n sh -c adds a second layer.
+            command = f"sudo -n sh -c {_shell_quote(command)}"
         cmd = ["ssh", *self._ssh_opts, f"{self.user}@{self.ip}", command]
         return subprocess.run(
             cmd,
