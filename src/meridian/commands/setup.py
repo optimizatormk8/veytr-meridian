@@ -175,12 +175,17 @@ def run(
         err_console.print("  [ok]2.[/ok] View connection details:")
         err_console.print(f"     [info]cat {txt_files[0]}[/info]\n")
 
-    err_console.print("  [ok]3.[/ok] Share access with friends:")
+    err_console.print("  [ok]3.[/ok] Test that the proxy works:")
+    err_console.print(f"     [info]meridian ping {resolved.ip}[/info]")
+    ping_url = f"https://meridian.msu.rocks/ping?ip={resolved.ip}"
+    if domain:
+        ping_url += f"&domain={domain}"
+    err_console.print(f"     [dim]Or from browser: {ping_url}[/dim]\n")
+
+    err_console.print("  [ok]4.[/ok] Share access with friends:")
     err_console.print("     [info]meridian client add alice[/info]")
     err_console.print("     [info]meridian client list[/info]\n")
 
-    err_console.print("  [ok]4.[/ok] View full credentials:")
-    err_console.print(f"     [info]cat {resolved.creds_dir}/proxy.yml[/info]")
     err_console.print()
     line()
     err_console.print("\n  [dim]Feedback & issues: https://github.com/uburuntu/meridian/issues[/dim]\n")

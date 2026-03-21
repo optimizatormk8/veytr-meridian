@@ -204,12 +204,9 @@ def run(
     line()
     err_console.print()
     if issues == 0:
-        err_console.print("  [ok][bold]All checks passed.[/bold][/ok] Ready to install.\n")
-        err_console.print("  [dim]After setup, test from your phone/laptop: meridian ping[/dim]")
-        ping_url = f"https://meridian.msu.rocks/ping?ip={resolved.ip}"
-        if domain:
-            ping_url += f"&domain={domain}"
-        err_console.print(f"  [dim]Or use: {ping_url}[/dim]\n")
+        err_console.print("  [ok][bold]All checks passed.[/bold][/ok] Server is ready.\n")
+        err_console.print(f"  [dim]Next: meridian setup {resolved.ip}[/dim]")
+        err_console.print(f"  [dim]Best SNI: meridian scan {resolved.ip}[/dim]\n")
     else:
         err_console.print(f"  [warn][bold]{issues} issue(s) found.[/bold][/warn] Review the warnings above.\n")
         if not ai:

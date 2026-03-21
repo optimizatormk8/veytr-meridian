@@ -51,7 +51,10 @@ def run_add(
     if html_files:
         err_console.print("\n  [ok][bold]Done![/bold][/ok]\n")
         err_console.print(f"  Send this file to {name}:")
-        err_console.print(f"     [bold]{html_files[0]}[/bold]\n")
+        err_console.print(f"     [bold]{html_files[0]}[/bold]")
+        err_console.print("     [dim](They open it, scan the QR code, and connect)[/dim]\n")
+        err_console.print(f"  [dim]Test reachability: meridian ping {resolved.ip}[/dim]")
+        err_console.print("  [dim]View all clients:  meridian client list[/dim]\n")
 
 
 def run_list(
@@ -185,4 +188,6 @@ def _display_client_list(raw_json: str) -> None:
     err_console.print(f"    Total: {count} client{suffix}")
     err_console.print()
     err_console.print("  ======================================================================")
+    err_console.print()
+    err_console.print("  [dim]Add: meridian client add NAME  |  Remove: meridian client remove NAME[/dim]")
     err_console.print()
