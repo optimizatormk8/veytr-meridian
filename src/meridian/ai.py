@@ -1,41 +1,21 @@
-"""AI prompt building, clipboard support, and AI docs fetching."""
+"""AI prompt building, clipboard support, and bundled AI docs."""
 
 from __future__ import annotations
 
 import platform
 import shutil
 import subprocess
-import urllib.request
+from importlib.resources import files as pkg_files
 
-from meridian.config import AI_DOCS_URL, CACHE_DIR
-from meridian.console import info, ok, warn
+from meridian.console import info, ok
 
 
-def fetch_ai_docs(version: str) -> str:
-    """Fetch AI reference docs, using cache when available."""
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache_file = CACHE_DIR / "ai-reference.md"
-    version_file = CACHE_DIR / "ai-reference.version"
-
-    # Check cache validity
-    if cache_file.exists() and version_file.exists():
-        cached_version = version_file.read_text().strip()
-        if cached_version == version:
-            return cache_file.read_text()
-
-    # Fetch fresh
+def load_ai_docs() -> str:
+    """Load AI reference docs bundled in the package."""
+    ref = pkg_files("meridian") / "data" / "ai-reference.md"
     try:
-        req = urllib.request.Request(AI_DOCS_URL)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            content = resp.read().decode()
-        cache_file.write_text(content)
-        version_file.write_text(version)
-        return content
-    except Exception:
-        # Fall back to cache even if version doesn't match
-        if cache_file.exists():
-            warn("Could not fetch latest AI docs, using cached version")
-            return cache_file.read_text()
+        return ref.read_text(encoding="utf-8")
+    except (FileNotFoundError, OSError):
         return ""
 
 
@@ -59,7 +39,7 @@ def copy_to_clipboard(text: str) -> bool:
 
 def build_ai_prompt(command_name: str, output: str, version: str) -> None:
     """Build an AI-ready diagnostic prompt and copy to clipboard."""
-    docs = fetch_ai_docs(version)
+    docs = load_ai_docs()
 
     prompt_text = f"""You are a Meridian VPN proxy troubleshooting assistant.
 

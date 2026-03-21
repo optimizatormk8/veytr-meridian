@@ -14,7 +14,6 @@ SERVER_CREDS_DIR = Path("/etc/meridian")
 
 PYPI_PACKAGE = "meridian-vpn"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
-AI_DOCS_URL = "https://meridian.msu.rocks/ai/reference.md"
 GITHUB_REPO = "https://github.com/uburuntu/meridian"
 GITHUB_ISSUES = f"{GITHUB_REPO}/issues"
 

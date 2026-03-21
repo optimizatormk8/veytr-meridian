@@ -1,6 +1,6 @@
 .PHONY: help install sync test lint format check typecheck ci \
        ansible-lint ansible-check templates \
-       build publish clean \
+       ai-docs build publish clean \
        server-test
 
 PLAYBOOKS := src/meridian/playbooks
@@ -53,7 +53,11 @@ ci: check ansible-lint ansible-check templates ## Run full CI locally
 
 ## —— Build & Publish ————————————————————————————————————
 
-build: ## Build wheel and sdist
+ai-docs: ## Concatenate AI docs into package data
+	@mkdir -p src/meridian/data
+	cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > src/meridian/data/ai-reference.md
+
+build: ai-docs ## Build wheel and sdist
 	uv build
 
 publish: build ## Publish to PyPI (requires trusted publisher or token)
