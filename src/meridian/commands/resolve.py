@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ipv4
+from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, SERVERS_FILE, is_ipv4
 from meridian.console import err_console, fail, info
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
@@ -169,3 +169,28 @@ def fetch_credentials(resolved: ResolvedServer) -> bool:
         pass
     resolved.creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return resolved.conn.fetch_credentials(resolved.creds_dir)
+
+
+def resolve_and_connect(
+    ip: str = "",
+    user: str = "root",
+    requested_server: str = "",
+    *,
+    fetch_creds: bool = True,
+    check_ssh: bool = True,
+) -> ResolvedServer:
+    """Resolve server, establish connection, and optionally fetch credentials.
+
+    Convenience wrapper used by most commands to avoid 4-line boilerplate:
+        registry = ServerRegistry(SERVERS_FILE)
+        resolved = resolve_server(registry, ...)
+        resolved = ensure_server_connection(resolved)
+        fetch_credentials(resolved)
+    """
+    registry = ServerRegistry(SERVERS_FILE)
+    resolved = resolve_server(registry, explicit_ip=ip, requested_server=requested_server, user=user)
+    if check_ssh:
+        resolved = ensure_server_connection(resolved)
+    if fetch_creds:
+        fetch_credentials(resolved)
+    return resolved
