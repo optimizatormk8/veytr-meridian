@@ -92,11 +92,7 @@ class PanelClient:
         """
         url = shlex.quote(self.base_url + path)
         json_body = shlex.quote(json.dumps(body))
-        cmd = (
-            f"curl -s -b {self._cookie_path}"
-            f" -H 'Content-Type: application/json'"
-            f" -d {json_body} {url}"
-        )
+        cmd = f"curl -s -b {self._cookie_path} -H 'Content-Type: application/json' -d {json_body} {url}"
         result = self.conn.run(cmd, timeout=15)
         if result.returncode != 0:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
