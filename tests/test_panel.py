@@ -14,9 +14,7 @@ from meridian.panel import Inbound, PanelClient, PanelError
 def _make_conn(stdout: str = "", stderr: str = "", rc: int = 0) -> MagicMock:
     """Create a mock ServerConnection with preset run() output."""
     conn = MagicMock()
-    conn.run.return_value = subprocess.CompletedProcess(
-        args=[], returncode=rc, stdout=stdout, stderr=stderr
-    )
+    conn.run.return_value = subprocess.CompletedProcess(args=[], returncode=rc, stdout=stdout, stderr=stderr)
     return conn
 
 
@@ -98,9 +96,7 @@ class TestListInbounds:
                     "port": 443,
                     "settings": json.dumps(
                         {
-                            "clients": [
-                                {"id": "uuid-1", "email": "reality-default", "flow": "xtls-rprx-vision"}
-                            ],
+                            "clients": [{"id": "uuid-1", "email": "reality-default", "flow": "xtls-rprx-vision"}],
                             "decryption": "none",
                         }
                     ),
@@ -111,13 +107,7 @@ class TestListInbounds:
                     "remark": "VLESS-WSS",
                     "protocol": "vless",
                     "port": 8443,
-                    "settings": json.dumps(
-                        {
-                            "clients": [
-                                {"id": "uuid-2", "email": "wss-default", "flow": ""}
-                            ]
-                        }
-                    ),
+                    "settings": json.dumps({"clients": [{"id": "uuid-2", "email": "wss-default", "flow": ""}]}),
                     "streamSettings": json.dumps({"network": "ws", "security": "tls"}),
                 },
             ],
@@ -274,12 +264,9 @@ class TestGenerateUUID:
         # First call: discover xray binary
         # Second call: generate UUID
         conn.run.side_effect = [
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="/app/bin/xray-linux-amd64\n", stderr=""),
             subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="/app/bin/xray-linux-amd64\n", stderr=""
-            ),
-            subprocess.CompletedProcess(
-                args=[], returncode=0,
-                stdout="550e8400-e29b-41d4-a716-446655440000\n", stderr=""
+                args=[], returncode=0, stdout="550e8400-e29b-41d4-a716-446655440000\n", stderr=""
             ),
         ]
         panel = _make_panel(conn)

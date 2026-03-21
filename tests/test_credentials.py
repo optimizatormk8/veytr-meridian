@@ -47,11 +47,7 @@ class TestServerCredentials:
 
     def test_load_v2_with_domain(self, tmp_path: Path) -> None:
         f = tmp_path / "proxy.yml"
-        f.write_text(
-            "version: 2\n"
-            "panel:\n  username: admin\n  password: pass\n"
-            "server:\n  domain: example.com\n"
-        )
+        f.write_text("version: 2\npanel:\n  username: admin\n  password: pass\nserver:\n  domain: example.com\n")
         creds = ServerCredentials.load(f)
         assert creds.has_domain is True
         assert creds.server.domain == "example.com"
@@ -90,12 +86,7 @@ class TestServerCredentials:
 
     def test_load_ignores_unknown_fields(self, tmp_path: Path) -> None:
         f = tmp_path / "proxy.yml"
-        f.write_text(
-            "version: 2\n"
-            "panel:\n  username: admin\n"
-            "future_field: value\n"
-            "another: 42\n"
-        )
+        f.write_text("version: 2\npanel:\n  username: admin\nfuture_field: value\nanother: 42\n")
         creds = ServerCredentials.load(f)
         assert creds.panel.username == "admin"
         # Unknown fields should be preserved in _extra
@@ -116,11 +107,7 @@ class TestServerCredentials:
 
     def test_save_preserves_unknown_fields(self, tmp_path: Path) -> None:
         path = tmp_path / "proxy.yml"
-        path.write_text(
-            "version: 2\n"
-            "panel:\n  username: old\n"
-            "future_field: keep_me\n"
-        )
+        path.write_text("version: 2\npanel:\n  username: old\nfuture_field: keep_me\n")
         path.chmod(0o600)
 
         creds = ServerCredentials.load(path)
@@ -150,11 +137,7 @@ class TestServerCredentials:
 
     def test_load_handles_none_values(self, tmp_path: Path) -> None:
         f = tmp_path / "proxy.yml"
-        f.write_text(
-            "version: 2\n"
-            "panel:\n  username: admin\n"
-            "server:\n  sni:\n"
-        )
+        f.write_text("version: 2\npanel:\n  username: admin\nserver:\n  sni:\n")
         creds = ServerCredentials.load(f)
         assert creds.panel.username == "admin"
         assert creds.server.sni is None  # YAML null → None
@@ -162,12 +145,7 @@ class TestServerCredentials:
     def test_load_special_chars_in_password(self, tmp_path: Path) -> None:
         """This is the case that broke the bash grep/awk approach."""
         f = tmp_path / "proxy.yml"
-        f.write_text(
-            'version: 2\n'
-            'panel:\n'
-            '  username: admin\n'
-            '  password: "p@ss: with spaces & special!"\n'
-        )
+        f.write_text('version: 2\npanel:\n  username: admin\n  password: "p@ss: with spaces & special!"\n')
         creds = ServerCredentials.load(f)
         assert creds.panel.password == "p@ss: with spaces & special!"
 
@@ -240,11 +218,7 @@ class TestMergeClientsFile:
     def test_merge_deduplicates(self, tmp_path: Path) -> None:
         clients_file = tmp_path / "proxy-clients.yml"
         clients_file.write_text(
-            "---\n"
-            "clients:\n"
-            '  - name: "alice"\n'
-            '    added: "2026-01-01T00:00:00Z"\n'
-            '    reality_uuid: "uuid-1"\n'
+            '---\nclients:\n  - name: "alice"\n    added: "2026-01-01T00:00:00Z"\n    reality_uuid: "uuid-1"\n'
         )
         creds = ServerCredentials()
         creds.clients.append(ClientEntry(name="alice", added="2025-12-01", reality_uuid="old-uuid"))
