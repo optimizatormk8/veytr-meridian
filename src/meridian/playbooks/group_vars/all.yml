@@ -104,6 +104,25 @@ xhttp_enabled: true
 # Uses a deterministic random port so re-runs produce the same value.
 xhttp_port: "{{ range(10000, 60000) | random(seed=inventory_hostname + 'xhttp') }}"
 
+# -----------------------------------------------------------------------------
+# Inbound Type Registry — single source of truth for Ansible
+# -----------------------------------------------------------------------------
+# Keep in sync with src/meridian/protocols.py (Python equivalent).
+# Used by client_management role for looped add/remove/list operations.
+inbound_types:
+  - key: reality
+    remark: "VLESS-Reality"
+    email_prefix: "reality-"
+    flow: "xtls-rprx-vision"
+  - key: wss
+    remark: "VLESS-WSS"
+    email_prefix: "wss-"
+    flow: ""
+  - key: xhttp
+    remark: "VLESS-Reality-XHTTP"
+    email_prefix: "xhttp-"
+    flow: ""
+
 # Public IP of the server (auto-detected if not set).
 # Override with: -e server_public_ip=1.2.3.4
 server_public_ip: ""
