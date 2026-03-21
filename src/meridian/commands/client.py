@@ -142,6 +142,8 @@ def run_remove(
 
 def _display_client_list(raw_json: str) -> None:
     """Parse panel API JSON response and display client list."""
+    from rich.table import Table
+
     try:
         data = json.loads(raw_json)
     except json.JSONDecodeError:
@@ -171,32 +173,29 @@ def _display_client_list(raw_json: str) -> None:
     wss_emails = clients_by_inbound.get("VLESS-WSS", set())
     xhttp_emails = clients_by_inbound.get("VLESS-Reality-XHTTP", set())
 
-    err_console.print()
-    err_console.print("  ======================================================================")
-    err_console.print("                        PROXY CLIENTS")
-    err_console.print("  ======================================================================")
-    err_console.print()
-    err_console.print("    Name              Status     Protocols")
-    err_console.print("    " + "\u2500" * 49)
+    table = Table(title="Proxy Clients", show_lines=False, pad_edge=False, box=None, padding=(0, 2))
+    table.add_column("Name", style="bold")
+    table.add_column("Status")
+    table.add_column("Protocols")
 
     for c in reality_clients:
         email = c.get("email", "")
         name = email.removeprefix("reality-") if email.startswith("reality-") else email
-        status = "active" if c.get("enable", True) else "disabled"
+        status = "[green]active[/green]" if c.get("enable", True) else "[dim]disabled[/dim]"
         protos = ["Reality"]
         if f"xhttp-{name}" in xhttp_emails:
             protos.append("XHTTP")
         if f"wss-{name}" in wss_emails:
             protos.append("WSS")
-        err_console.print(f"    {name:<17s} {status:<10s} {' + '.join(protos)}")
+        table.add_row(name, status, " + ".join(protos))
 
-    err_console.print()
-    err_console.print("    " + "\u2500" * 49)
     count = len(reality_clients)
     suffix = "s" if count != 1 else ""
-    err_console.print(f"    Total: {count} client{suffix}")
+
     err_console.print()
-    err_console.print("  ======================================================================")
+    err_console.print(table)
+    err_console.print()
+    err_console.print(f"  [dim]Total: {count} client{suffix}[/dim]")
     err_console.print()
     err_console.print("  [dim]Add: meridian client add NAME  |  Remove: meridian client remove NAME[/dim]")
     err_console.print()
