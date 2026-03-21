@@ -104,6 +104,9 @@ class ServerConnection:
         # Check if our public IP matches the target (root without prior deploy)
         if _is_on_server(self.ip):
             self.local_mode = True
+            if self.user != "root":
+                self.needs_sudo = True
+                warn("Running as non-root on the server. Using sudo for commands.")
             return True
 
         return False
