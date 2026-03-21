@@ -173,7 +173,7 @@ def _run_provisioner(
         user=resolved.user,  # type: ignore[attr-defined]
         domain=domain,
         sni=sni or "www.microsoft.com",
-        xhttp_enabled=xhttp or True,  # default on
+        xhttp_enabled=xhttp,
         creds_dir=str(resolved.creds_dir),  # type: ignore[attr-defined]
     )
 

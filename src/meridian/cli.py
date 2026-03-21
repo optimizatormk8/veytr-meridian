@@ -59,7 +59,7 @@ def setup_cmd(
     domain: str = typer.Option("", "--domain", "-d", help="Add CDN fallback via Cloudflare"),
     email: str = typer.Option("", "--email", help="Email for TLS certificates (optional)"),
     sni: str = typer.Option("", "--sni", "-s", help="Reality camouflage target"),
-    xhttp: bool = typer.Option(False, "--xhttp", help="Add XHTTP transport"),
+    xhttp: bool = typer.Option(True, "--xhttp/--no-xhttp", help="XHTTP transport (on by default)"),
     name: str = typer.Option("", "--name", help="Name the first client"),
     user: str = typer.Option("root", "--user", "-u", help="SSH user"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip prompts"),
