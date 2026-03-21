@@ -134,11 +134,15 @@ These are easy to break by editing one file without updating the others:
 - Website references the same app download links as the HTML templates in roles
 - `docs/ping.html` — standalone web ping tool, uses `fetch()` timing to test server reachability from browser. Supports URL params (`?ip=...&domain=...&name=...`) for shareable pre-filled links. Stores server history in localStorage.
 
-### Connection info HTML templates (3 copies)
-- `roles/caddy/templates/connection-info.html.j2` — served on the server (domain mode)
-- `roles/output/templates/connection-info.html.j2` — saved locally (standalone/exit)
-- `roles/output_relay/templates/connection-info.html.j2` — saved locally (relay)
-- All three have similar CSS/JS but different Jinja2 variables; app download links must be kept in sync across all three
+### Connection info HTML template
+- `roles/shared/templates/connection-info.html.j2` — unified template for all modes
+- Uses `is_server_hosted` variable to toggle between server-hosted (Caddy) and local-saved output
+- Uses `domain_mode` to toggle WSS backup card, `xhttp_enabled` for XHTTP card
+- Server-hosted pages get usage stats JS; local pages don't
+- QR codes: server-hosted uses `reality_qr_b64` (generated on server), local uses `reality_qr_b64_local` (generated locally)
+- i18n (ru/fa/zh) via `data-t` attributes and inline JS translations
+- `docs/demo.html` mirrors the same CSS/structure with static demo data
+- CI checks app download links match between the template and `docs/demo.html`
 
 ### Credential flow
 - Server is source of truth: `/etc/meridian/proxy.yml` on the server
@@ -309,7 +313,7 @@ When adding or changing a feature, update ALL relevant surfaces. The source of t
 | **Architecture & modes** | ★ `CLAUDE.md` architecture section | docs/ai/architecture.md, docs/ai/context.md, README.md "How it works" |
 | **SNI recommendations** | ★ `group_vars/all.yml` comments | docs/ai/troubleshooting.md SNI section, roles/output/templates/connection-summary.txt.j2 |
 | **Troubleshooting guidance** | ★ `docs/ai/troubleshooting.md` | docs/index.html troubleshooting section, connection_issue.yml template |
-| **App download links** | ★ `docs/index.html` apps section | 3x connection-info.html.j2 templates, README.md client apps table |
+| **App download links** | ★ `docs/index.html` apps section | shared/templates/connection-info.html.j2, docs/demo.html, README.md client apps table |
 | **Version** | ★ `VERSION` file | `importlib.metadata` at runtime (hatchling reads VERSION at build), docs/version (CD sync) |
 | **Error/failure guidance** | ★ `src/meridian/console.py` `fail()` function | docs/ai/troubleshooting.md decision tree |
 
@@ -338,11 +342,10 @@ When adding a **new inbound/transport type** (all `roles/` paths are relative to
 - [ ] `roles/xray/tasks/` — create/update inbound task
 - [ ] `roles/xray/tasks/main.yml` — add include gate
 - [ ] `roles/shared/tasks/generate_client_output.yml` — VLESS URL + QR codes
+- [ ] `roles/shared/templates/connection-info.html.j2` — unified HTML page (both local and server-hosted)
 - [ ] `roles/output/tasks/main.yml` — terminal output (QR + URL display)
 - [ ] `roles/output/templates/connection-summary.txt.j2` — admin summary
 - [ ] `roles/output/templates/connection-summary-client.txt.j2` — client summary
-- [ ] `roles/output/templates/connection-info.html.j2` — local HTML page
-- [ ] `roles/caddy/templates/connection-info.html.j2` — server HTML page (+ QR gen in caddy/tasks/main.yml)
 - [ ] `roles/caddy/tasks/main.yml` — build URL + generate QR on server
 - [ ] `roles/client_management/tasks/main.yml` — discover inbound
 - [ ] `roles/client_management/tasks/add_client.yml` — add client to inbound + terminal output
