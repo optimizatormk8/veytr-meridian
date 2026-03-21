@@ -35,7 +35,7 @@ class ServerConfig:
 
 
 @dataclass
-class RealityProtocol:
+class RealityConfig:
     """Reality protocol credentials."""
 
     uuid: str | None = None
@@ -45,7 +45,7 @@ class RealityProtocol:
 
 
 @dataclass
-class WSSProtocol:
+class WSSConfig:
     """WSS protocol credentials."""
 
     uuid: str | None = None
@@ -53,7 +53,7 @@ class WSSProtocol:
 
 
 @dataclass
-class XHTTPProtocol:
+class XHTTPConfig:
     """XHTTP protocol credentials."""
 
     uuid: str | None = None
@@ -159,35 +159,35 @@ class ServerCredentials:
         return bool(self.panel.username and self.panel.password)
 
     @property
-    def reality(self) -> RealityProtocol:
+    def reality(self) -> RealityConfig:
         """Get or create the Reality protocol config."""
         if "reality" not in self.protocols:
-            self.protocols["reality"] = RealityProtocol()
+            self.protocols["reality"] = RealityConfig()
         proto = self.protocols["reality"]
         if isinstance(proto, dict):
-            self.protocols["reality"] = RealityProtocol(**proto)
+            self.protocols["reality"] = RealityConfig(**proto)
             return self.protocols["reality"]
         return proto
 
     @property
-    def wss(self) -> WSSProtocol:
+    def wss(self) -> WSSConfig:
         """Get or create the WSS protocol config."""
         if "wss" not in self.protocols:
-            self.protocols["wss"] = WSSProtocol()
+            self.protocols["wss"] = WSSConfig()
         proto = self.protocols["wss"]
         if isinstance(proto, dict):
-            self.protocols["wss"] = WSSProtocol(**proto)
+            self.protocols["wss"] = WSSConfig(**proto)
             return self.protocols["wss"]
         return proto
 
     @property
-    def xhttp(self) -> XHTTPProtocol:
+    def xhttp(self) -> XHTTPConfig:
         """Get or create the XHTTP protocol config."""
         if "xhttp" not in self.protocols:
-            self.protocols["xhttp"] = XHTTPProtocol()
+            self.protocols["xhttp"] = XHTTPConfig()
         proto = self.protocols["xhttp"]
         if isinstance(proto, dict):
-            self.protocols["xhttp"] = XHTTPProtocol(**proto)
+            self.protocols["xhttp"] = XHTTPConfig(**proto)
             return self.protocols["xhttp"]
         return proto
 
@@ -256,11 +256,11 @@ def _migrate_v1(data: dict[str, Any]) -> ServerCredentials:
     # Convert protocol dicts to dataclasses
     typed_protocols: dict[str, Any] = {}
     if "reality" in protocols:
-        typed_protocols["reality"] = RealityProtocol(**protocols["reality"])
+        typed_protocols["reality"] = RealityConfig(**protocols["reality"])
     if "wss" in protocols:
-        typed_protocols["wss"] = WSSProtocol(**protocols["wss"])
+        typed_protocols["wss"] = WSSConfig(**protocols["wss"])
     if "xhttp" in protocols:
-        typed_protocols["xhttp"] = XHTTPProtocol(**protocols["xhttp"])
+        typed_protocols["xhttp"] = XHTTPConfig(**protocols["xhttp"])
 
     return ServerCredentials(
         version=2,
@@ -298,7 +298,7 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
     protos_data = data.get("protocols", {})
     if "reality" in protos_data:
         r = protos_data["reality"]
-        protocols["reality"] = RealityProtocol(
+        protocols["reality"] = RealityConfig(
             uuid=r.get("uuid"),
             private_key=r.get("private_key"),
             public_key=r.get("public_key"),
@@ -306,13 +306,13 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
         )
     if "wss" in protos_data:
         w = protos_data["wss"]
-        protocols["wss"] = WSSProtocol(
+        protocols["wss"] = WSSConfig(
             uuid=w.get("uuid"),
             ws_path=w.get("ws_path"),
         )
     if "xhttp" in protos_data:
         x = protos_data["xhttp"]
-        protocols["xhttp"] = XHTTPProtocol(
+        protocols["xhttp"] = XHTTPConfig(
             uuid=x.get("uuid"),
         )
 

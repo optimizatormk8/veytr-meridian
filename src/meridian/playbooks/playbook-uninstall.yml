@@ -105,7 +105,6 @@
       loop:
         - "443"
         - "80"
-        - "8444"
         - "{{ xhttp_port }}"
       failed_when: false
 
@@ -118,7 +117,7 @@
             - 3x-ui container and data
             - HAProxy config (if present)
             - Caddy Meridian config and web files (if present)
-            - Firewall rules for ports 443, 80, 8444
+            - Firewall rules for ports 443, 80
             - Saved credentials (/etc/meridian/ and meridian CLI on server)
 
           NOT removed (may be used by other apps):

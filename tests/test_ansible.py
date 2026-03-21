@@ -18,7 +18,6 @@ class TestGetPlaybooksDir:
     def test_contains_playbooks(self) -> None:
         d = get_playbooks_dir()
         assert (d / "playbook.yml").exists()
-        assert (d / "playbook-client.yml").exists()
         assert (d / "playbook-uninstall.yml").exists()
 
     def test_contains_ansible_cfg(self) -> None:

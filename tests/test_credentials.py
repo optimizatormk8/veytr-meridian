@@ -196,6 +196,16 @@ class TestV1Migration:
         creds = ServerCredentials.load(f)
         assert creds._extra["panel_configured"] is True
 
+    def test_panel_configured_round_trip(self, tmp_path: Path) -> None:
+        """panel_configured survives load→save→load (critical for Ansible)."""
+        f = tmp_path / "proxy.yml"
+        f.write_text("panel_username: admin\npanel_configured: true\n")
+        creds = ServerCredentials.load(f)
+        creds.save(f)
+        creds2 = ServerCredentials.load(f)
+        assert creds2._extra["panel_configured"] is True
+        assert creds2.panel.username == "admin"
+
 
 class TestMergeClientsFile:
     def test_merge_clients(self, tmp_path: Path) -> None:

@@ -41,23 +41,26 @@ class TestLogin:
         panel = _make_panel(conn)
         panel.login("admin", "secret")
 
-        # Verify curl command was constructed correctly
-        call_args = conn.run.call_args[0][0]
-        assert "curl -s -c" in call_args
-        assert "username=" in call_args
-        assert "password=" in call_args
-        assert "/login" in call_args
+        # First call is the curl login, second is chmod for cookie permissions
+        login_call = conn.run.call_args_list[0][0][0]
+        assert "curl -s -c" in login_call
+        assert "username=" in login_call
+        assert "password=" in login_call
+        assert "/login" in login_call
         # Verify form-urlencoded (not JSON content-type)
-        assert "Content-Type: application/json" not in call_args
+        assert "Content-Type: application/json" not in login_call
+        # Verify cookie permissions are secured
+        chmod_call = conn.run.call_args_list[1][0][0]
+        assert "chmod 600" in chmod_call
 
     def test_login_with_special_characters(self) -> None:
         conn = _make_conn(stdout='{"success": true}')
         panel = _make_panel(conn)
         panel.login("admin", "p@ss'w\"ord")
 
-        call_args = conn.run.call_args[0][0]
-        # shlex.quote should handle special chars
-        assert "p@ss" in call_args
+        login_call = conn.run.call_args_list[0][0][0]
+        # URL-encoded: @ → %40, ' → %27, " → %22
+        assert "p%40ss" in login_call
 
     def test_login_failure_returns_error(self) -> None:
         conn = _make_conn(stdout='{"success": false, "msg": "wrong password"}')

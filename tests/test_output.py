@@ -7,10 +7,10 @@ from unittest.mock import patch
 
 from meridian.credentials import (
     PanelConfig,
-    RealityProtocol,
+    RealityConfig,
     ServerConfig,
     ServerCredentials,
-    WSSProtocol,
+    WSSConfig,
 )
 from meridian.output import (
     ClientURLs,
@@ -35,7 +35,7 @@ def _make_creds(
         panel=PanelConfig(username="admin", password="pass", port=2053),
         server=ServerConfig(ip=ip, sni=sni, domain=domain or None),
         protocols={
-            "reality": RealityProtocol(
+            "reality": RealityConfig(
                 uuid="base-uuid",
                 public_key=public_key,
                 short_id=short_id,
@@ -44,7 +44,7 @@ def _make_creds(
         },
     )
     if ws_path:
-        creds.protocols["wss"] = WSSProtocol(uuid="wss-uuid", ws_path=ws_path)
+        creds.protocols["wss"] = WSSConfig(uuid="wss-uuid", ws_path=ws_path)
     return creds
 
 
@@ -206,7 +206,7 @@ class TestBuildVlessURLsEdgeCases:
             panel=PanelConfig(username="admin", password="pass", port=2053),
             server=ServerConfig(ip="1.2.3.4", sni=None),
             protocols={
-                "reality": RealityProtocol(
+                "reality": RealityConfig(
                     uuid="base-uuid",
                     public_key="pk",
                     short_id="sid",

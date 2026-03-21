@@ -50,16 +50,22 @@ class PanelClient:
         """Login and store session cookie.
 
         IMPORTANT: Login uses form-urlencoded (not JSON) -- 3x-ui requirement.
+        Values are URL-encoded to handle special characters (&, =, etc.).
         """
-        q_user = shlex.quote(username)
-        q_pass = shlex.quote(password)
+        from urllib.parse import quote as urlquote
+
+        encoded_user = urlquote(username, safe="")
+        encoded_pass = urlquote(password, safe="")
+        form_data = f"username={encoded_user}&password={encoded_pass}"
         cmd = (
-            f"mkdir -p $HOME/.meridian && "
+            f"mkdir -p $HOME/.meridian && chmod 700 $HOME/.meridian && "
             f"curl -s -c {self._cookie_path}"
-            f" -d username={q_user}'&'password={q_pass}"
+            f" -d {shlex.quote(form_data)}"
             f" {shlex.quote(self.base_url + '/login')}"
         )
         result = self.conn.run(cmd, timeout=15)
+        # Secure cookie file permissions (don't leave world-readable)
+        self.conn.run(f"chmod 600 {self._cookie_path} 2>/dev/null", timeout=5)
         if result.returncode != 0:
             raise PanelError(f"Login request failed: {result.stderr.strip()}")
 
