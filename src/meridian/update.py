@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from pathlib import Path
 
 from packaging.version import Version
 
@@ -76,6 +77,8 @@ def check_for_update(current_version: str) -> None:
 
 def do_upgrade() -> bool:
     """Upgrade via uv > pipx > pip3."""
+    success = False
+
     if shutil.which("uv"):
         result = subprocess.run(
             ["uv", "tool", "upgrade", PYPI_PACKAGE],
@@ -83,18 +86,18 @@ def do_upgrade() -> bool:
             text=True,
         )
         if result.returncode == 0:
-            return True
+            success = True
 
-    if shutil.which("pipx"):
+    if not success and shutil.which("pipx"):
         result = subprocess.run(
             ["pipx", "upgrade", PYPI_PACKAGE],
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
-            return True
+            success = True
 
-    if shutil.which("pip3"):
+    if not success and shutil.which("pip3"):
         # Try --user first, then --break-system-packages for PEP 668
         for extra_args in [["--user"], ["--user", "--break-system-packages"]]:
             result = subprocess.run(
@@ -103,9 +106,32 @@ def do_upgrade() -> bool:
                 text=True,
             )
             if result.returncode == 0:
-                return True
+                success = True
+                break
 
-    return False
+    if success:
+        _refresh_symlink()
+
+    return success
+
+
+def _refresh_symlink() -> None:
+    """Re-create /usr/local/bin/meridian symlink after upgrade."""
+    meridian_bin = shutil.which("meridian")
+    if not meridian_bin or meridian_bin == "/usr/local/bin/meridian":
+        return
+    symlink = Path("/usr/local/bin/meridian")
+    if not symlink.is_symlink():
+        return
+    # Only refresh if the symlink already exists (install.sh created it)
+    try:
+        subprocess.run(
+            ["sudo", "-n", "ln", "-sf", meridian_bin, "/usr/local/bin/meridian"],
+            capture_output=True,
+            timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
 
 def run_self_update() -> None:

@@ -89,11 +89,10 @@ class ServerConnection:
         except (PermissionError, OSError):
             # We can see the directory exists but can't read — non-root on server
             if _is_on_server(self.ip):
-                self_bin = shutil.which("meridian") or "~/.local/bin/meridian"
                 err_console.print(
                     "\n  [warn]![/warn] Running on the server as non-root. Meridian needs root to access credentials."
                 )
-                err_console.print(f"  [dim]Run: sudo {self_bin} setup {self.ip}[/dim]")
+                err_console.print(f"  [dim]Run: sudo meridian setup {self.ip}[/dim]")
                 err_console.print(f"  [dim]Or from laptop: meridian setup {self.ip} --user {self.user}[/dim]\n")
                 fail("Root access required on the server itself")
             return False

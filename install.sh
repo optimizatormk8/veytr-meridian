@@ -134,6 +134,16 @@ for pybin in "$HOME"/Library/Python/*/bin; do
 done
 
 # =============================================================================
+# Symlink to /usr/local/bin/ so `sudo meridian` works on servers
+# =============================================================================
+MERIDIAN_BIN="$(command -v meridian 2>/dev/null || true)"
+if [[ -n "$MERIDIAN_BIN" ]] && [[ "$MERIDIAN_BIN" != "/usr/local/bin/meridian" ]]; then
+  if sudo -n ln -sf "$MERIDIAN_BIN" /usr/local/bin/meridian 2>/dev/null; then
+    ok "Linked to /usr/local/bin/meridian (sudo meridian will work)"
+  fi
+fi
+
+# =============================================================================
 # Verify and show success
 # =============================================================================
 INSTALLED_VERSION=""
