@@ -63,7 +63,7 @@ def _make_panel(creds: ServerCredentials, conn: object) -> PanelClient:
     try:
         panel.login(creds.panel.username or "", creds.panel.password or "")
     except PanelError as e:
-        fail(f"Panel login failed: {e}", hint="Check credentials or run: meridian setup")
+        fail(f"Could not connect to server panel: {e}", hint="Check credentials or run: meridian setup")
     return panel
 
 
@@ -131,7 +131,7 @@ def run_add(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}")
+            fail(f"Could not retrieve server configuration: {e}")
 
         # Reality is the canonical protocol -- must exist
         reality_proto = get_protocol("reality")
@@ -140,8 +140,8 @@ def run_add(
 
         if reality_inbound is None:
             fail(
-                "No Reality inbound found on the server",
-                hint="Make sure the server is set up first: meridian setup",
+                "Server is not set up yet",
+                hint="Deploy first: meridian setup",
             )
 
         # Check if client already exists in the panel (by email)
@@ -273,7 +273,7 @@ def run_list(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}")
+            fail(f"Could not retrieve server configuration: {e}")
 
         _display_client_list_from_inbounds(inbounds)
     finally:
@@ -304,7 +304,7 @@ def run_remove(
         try:
             inbounds = panel.list_inbounds()
         except PanelError as e:
-            fail(f"Failed to list inbounds: {e}")
+            fail(f"Could not retrieve server configuration: {e}")
 
         # Verify client exists in Reality inbound (canonical)
         reality_proto = get_protocol("reality")
@@ -312,7 +312,7 @@ def run_remove(
         reality_inbound = reality_proto.find_inbound(inbounds)
 
         if reality_inbound is None:
-            fail("No Reality inbound found on the server")
+            fail("Server is not set up yet", hint="Deploy first: meridian setup")
 
         # Find client by email in Reality inbound
         client_email = f"{reality_proto.email_prefix}{name}"

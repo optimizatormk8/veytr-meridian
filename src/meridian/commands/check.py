@@ -42,7 +42,7 @@ def run(
     results: dict[str, str] = {}
 
     # --- SNI reachability ---
-    info(f"Checking SNI target ({sni_host}) reachability from server...")
+    info(f"Checking camouflage target ({sni_host}) reachability from server...")
     sni_result = resolved.conn.run(
         f"timeout 5 bash -c 'echo | openssl s_client -connect {q_sni}:443 -servername {q_sni} 2>/dev/null | head -1'",
         timeout=10,
@@ -66,7 +66,7 @@ def run(
         issues += 1
 
     # --- ASN mismatch check ---
-    info("Checking SNI target ASN match...")
+    info("Checking camouflage target ASN match...")
     server_org_result = resolved.conn.run("curl -s --max-time 5 https://ipinfo.io/org 2>/dev/null", timeout=10)
     server_org = server_org_result.stdout.strip()
 
@@ -86,16 +86,16 @@ def run(
             server_asn = server_org.split()[0] if server_org else ""
             sni_asn = sni_org.split()[0] if sni_org else ""
             if server_asn == sni_asn:
-                ok(f"SNI target is on the same ASN ({server_asn})")
+                ok(f"Camouflage target is on the same ASN ({server_asn})")
             elif "Apple" in sni_org or "icloud.com" in sni_host or "apple.com" in sni_host:
-                warn(f"SNI target ({sni_host}) is risky -- Apple infrastructure, detectable ASN mismatch")
+                warn(f"Camouflage target ({sni_host}) is risky -- Apple infrastructure, detectable ASN mismatch")
                 err_console.print("       Use a global CDN domain: www.microsoft.com, www.twitch.tv, github.com")
                 issues += 1
             else:
-                info(f"SNI on different ASN (server: {server_org}, SNI: {sni_org})")
+                info(f"Camouflage target on different ASN (server: {server_org}, target: {sni_org})")
                 err_console.print("       Fine for global CDN domains. For best stealth, run: meridian scan")
         else:
-            ok("ASN check skipped (could not resolve SNI org)")
+            ok("ASN check skipped (could not resolve camouflage target org)")
     else:
         ok("ASN check skipped (ipinfo.io unavailable)")
 
@@ -220,7 +220,7 @@ def run(
         from meridian.ai import build_ai_prompt
 
         check_lines = [f"Pre-flight Check for {resolved.ip}"]
-        check_lines.append(f"SNI target ({sni_host}): {results.get('sni', 'unknown')}")
+        check_lines.append(f"Camouflage target ({sni_host}): {results.get('sni', 'unknown')}")
         check_lines.append(f"Port 443: {results.get('port443', 'unknown')}")
         check_lines.append(f"Port 443 external: {results.get('port443_external', 'unknown')}")
         if domain:
