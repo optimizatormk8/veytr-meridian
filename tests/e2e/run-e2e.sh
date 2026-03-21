@@ -44,9 +44,6 @@ check_no_output() {
     if echo "$output" | grep -q "$pattern"; then fail_test "$desc (pattern '$pattern' found)"; else pass "$desc"; fi
 }
 
-# Save the meridian binary path (uninstall removes /usr/local/bin/meridian)
-MERIDIAN_BIN=$(command -v meridian)
-
 # ---------------------------------------------------------------------------
 # 0. Prerequisites
 # ---------------------------------------------------------------------------
@@ -166,22 +163,12 @@ fi
 
 # ---------------------------------------------------------------------------
 # 9. Re-setup after uninstall
-# Uninstall removes /usr/local/bin/meridian symlink. Restore the real binary.
+# Uninstall removes /usr/local/bin/meridian. Reinstall from source.
 # ---------------------------------------------------------------------------
 stage "9. Re-setup after uninstall"
-if [ ! -f "$MERIDIAN_BIN" ]; then
-    # pip-installed binary is still at the original location
-    REAL_BIN=$(find /usr/local/lib/python*/dist-packages -path '*/bin/meridian' 2>/dev/null | head -1)
-    if [ -z "$REAL_BIN" ]; then
-        REAL_BIN=$(find /usr/lib/python*/dist-packages -path '*/bin/meridian' 2>/dev/null | head -1)
-    fi
-    if [ -n "$REAL_BIN" ]; then
-        ln -sf "$REAL_BIN" /usr/local/bin/meridian
-    fi
-fi
-# Fallback: reinstall if binary truly gone
 if ! command -v meridian >/dev/null 2>&1; then
     pip install --break-system-packages /src >/dev/null 2>&1
+    hash -r  # clear shell's command cache
 fi
 
 run_capture_ok "meridian setup (after uninstall)" meridian setup "$IP" --user root --yes
