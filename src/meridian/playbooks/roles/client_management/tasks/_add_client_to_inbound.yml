@@ -1,0 +1,47 @@
+---
+# Parameterized task: add a client to a single inbound.
+# Called via include_tasks with loop over inbound_types.
+#
+# Expected variables from the loop item:
+#   _inbound.key           — e.g., "reality"
+#   _inbound.email_prefix  — e.g., "reality-"
+#   _inbound.flow          — e.g., "xtls-rprx-vision"
+#
+# Expected variables from the parent:
+#   _inbound_ids           — dict mapping key -> inbound_id
+#   client_reality_uuid    — UUID for reality and xhttp clients
+#   client_wss_uuid        — UUID for wss client
+
+- name: "Add client to {{ _inbound.key }} inbound"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/panel/api/inbounds/addClient"
+    method: POST
+    headers:
+      Cookie: "{{ session_cookie }}"
+    body_format: json
+    body:
+      id: "{{ _inbound_ids[_inbound.key] | int }}"
+      settings: >-
+        {
+          "clients": [{
+            "id": "{{ client_wss_uuid if _inbound.key == 'wss' else client_reality_uuid }}",
+            "flow": "{{ _inbound.flow }}",
+            "email": "{{ _inbound.email_prefix }}{{ client_name }}",
+            "limitIp": {{ client_limit_ip }},
+            "totalGB": {{ (client_total_bytes / 1073741824) | int }},
+            "expiryTime": 0,
+            "enable": true,
+            "tgId": "",
+            "subId": "",
+            "reset": 0
+          }]
+        }
+    status_code: [200]
+    return_content: true
+  register: _add_result
+  no_log: true
+
+- name: "Verify {{ _inbound.key }} client was added"
+  ansible.builtin.assert:
+    that: _add_result.json.success | default(false)
+    fail_msg: "Failed to add client to {{ _inbound.key }} inbound: {{ _add_result.json.msg | default('unknown error') }}"
