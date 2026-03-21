@@ -69,7 +69,11 @@ def _make_panel(creds: ServerCredentials, conn: ServerConnection) -> PanelClient
     try:
         panel.login(creds.panel.username or "", creds.panel.password or "")
     except PanelError as e:
-        fail(f"Could not connect to server panel: {e}", hint="Check credentials or run: meridian setup", hint_type="system")
+        fail(
+            f"Could not connect to server panel: {e}",
+            hint="Check credentials or run: meridian setup",
+            hint_type="system",
+        )
     return panel
 
 
