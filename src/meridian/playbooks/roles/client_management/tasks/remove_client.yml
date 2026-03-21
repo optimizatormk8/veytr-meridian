@@ -35,7 +35,7 @@
       xhttp: "{{ xhttp_clients | default([]) }}"
 
 # -- Remove client from each active inbound --
-- name: "Remove client from {{ _inbound.key }} inbound"
+- name: "Remove client from inbound {{ _inbound.key }}"
   ansible.builtin.include_tasks: _remove_client_from_inbound.yml
   loop: "{{ inbound_types }}"
   loop_control:

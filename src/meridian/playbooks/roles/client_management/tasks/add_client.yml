@@ -64,7 +64,7 @@
       xhttp: "{{ xhttp_inbound_id | default('') }}"
 
 # -- Add client to each active inbound --
-- name: "Add client to {{ _inbound.key }} inbound"
+- name: "Add client to inbound {{ _inbound.key }}"
   ansible.builtin.include_tasks: _add_client_to_inbound.yml
   loop: "{{ inbound_types }}"
   loop_control:

@@ -12,7 +12,7 @@
 #   client_reality_uuid    — UUID for reality and xhttp clients
 #   client_wss_uuid        — UUID for wss client
 
-- name: "Add client to {{ _inbound.key }} inbound"
+- name: "Add client to inbound {{ _inbound.key }}"
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/panel/api/inbounds/addClient"
     method: POST
@@ -41,7 +41,7 @@
   register: _add_result
   no_log: true
 
-- name: "Verify {{ _inbound.key }} client was added"
+- name: "Verify client was added to {{ _inbound.key }}"
   ansible.builtin.assert:
     that: _add_result.json.success | default(false)
     fail_msg: "Failed to add client to {{ _inbound.key }} inbound: {{ _add_result.json.msg | default('unknown error') }}"

@@ -21,7 +21,7 @@ from meridian.output import (
     save_connection_text,
 )
 from meridian.panel import Inbound, PanelClient, PanelError
-from meridian.protocols import PROTOCOLS, get_protocol
+from meridian.protocols import PROTOCOLS, Protocol, get_protocol
 from meridian.servers import ServerRegistry
 
 # -- Helpers --
@@ -160,7 +160,7 @@ def run_add(
         domain = creds.server.domain or ""
 
         # Build active protocol list: (protocol, inbound, uuid)
-        active: list[tuple[object, Inbound, str]] = []
+        active: list[tuple[Protocol, Inbound, str]] = []
         uuids: dict[str, str] = {"reality": reality_uuid}
 
         for proto in PROTOCOLS:

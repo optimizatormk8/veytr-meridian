@@ -10,11 +10,11 @@
 #   _inbound_clients       — dict mapping key -> client list
 #   _inbound_ids           — dict mapping key -> inbound_id
 
-- name: "Find {{ _inbound.key }} client by email"
+- name: "Find client by email in {{ _inbound.key }}"
   ansible.builtin.set_fact:
     _client_match: "{{ _inbound_clients[_inbound.key] | selectattr('email', 'equalto', _inbound.email_prefix + client_name) | list }}"
 
-- name: "Remove client from {{ _inbound.key }} inbound"
+- name: "Remove client from inbound {{ _inbound.key }}"
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ panel_internal_port }}/{{ panel_web_base_path }}/panel/api/inbounds/{{ _inbound_ids[_inbound.key] }}/delClient/{{ _client_match[0].id }}"
     method: POST
@@ -25,7 +25,7 @@
   no_log: true
   when: _client_match | length > 0
 
-- name: "Verify {{ _inbound.key }} client was removed"
+- name: "Verify client was removed from {{ _inbound.key }}"
   ansible.builtin.assert:
     that: _del_result.json.success | default(false)
     fail_msg: "Failed to remove client from {{ _inbound.key }} inbound: {{ _del_result.json.msg | default('unknown error') }}"

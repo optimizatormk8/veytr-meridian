@@ -15,9 +15,7 @@ from meridian.config import is_ipv4
 
 class TestDetectPublicIP:
     def test_returns_valid_ip(self) -> None:
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="93.184.216.34\n", stderr=""
-        )
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="93.184.216.34\n", stderr="")
         with patch("meridian.commands.setup.subprocess.run", return_value=mock_result):
             ip = _detect_public_ip()
         assert ip == "93.184.216.34"
@@ -40,17 +38,13 @@ class TestDetectPublicIP:
         assert ip == ""
 
     def test_returns_empty_on_invalid_output(self) -> None:
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="not-an-ip\n", stderr=""
-        )
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="not-an-ip\n", stderr="")
         with patch("meridian.commands.setup.subprocess.run", return_value=mock_result):
             ip = _detect_public_ip()
         assert ip == ""
 
     def test_returns_empty_on_curl_failure(self) -> None:
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="error"
-        )
+        mock_result = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="error")
         with patch("meridian.commands.setup.subprocess.run", return_value=mock_result):
             ip = _detect_public_ip()
         assert ip == ""

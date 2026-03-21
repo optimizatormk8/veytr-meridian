@@ -33,9 +33,7 @@ class TestServerConnectionRun:
     def test_remote_command_uses_ssh(self) -> None:
         conn = ServerConnection(ip="1.2.3.4", user="root")
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok\n", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
             conn.run("echo hello")
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -46,9 +44,7 @@ class TestServerConnectionRun:
     def test_local_mode_uses_bash(self) -> None:
         conn = ServerConnection(ip="1.2.3.4", local_mode=True)
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok\n", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
             conn.run("echo hello")
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -58,9 +54,7 @@ class TestServerConnectionRun:
         conn = ServerConnection(ip="1.2.3.4", local_mode=True)
         conn.needs_sudo = True
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok\n", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
             conn.run("cat /etc/meridian/proxy.yml")
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -69,9 +63,7 @@ class TestServerConnectionRun:
     def test_remote_includes_ssh_opts(self) -> None:
         conn = ServerConnection(ip="5.6.7.8", user="deploy")
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             conn.run("whoami")
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -82,9 +74,7 @@ class TestServerConnectionRun:
     def test_stdin_devnull(self) -> None:
         conn = ServerConnection(ip="1.2.3.4")
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             conn.run("echo test")
             kwargs = mock_run.call_args[1]
             assert kwargs["stdin"] == subprocess.DEVNULL
@@ -93,9 +83,7 @@ class TestServerConnectionRun:
 class TestTcpConnect:
     def test_constructs_correct_bash_command(self) -> None:
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             tcp_connect("example.com", 443)
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -107,9 +95,7 @@ class TestTcpConnect:
 
     def test_host_is_shell_quoted(self) -> None:
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             tcp_connect("evil;rm -rf /", 443)
             call_args = mock_run.call_args
             cmd = call_args[0][0]
@@ -120,9 +106,7 @@ class TestTcpConnect:
 
     def test_returns_true_on_success(self) -> None:
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             assert tcp_connect("1.2.3.4", 443) is True
 
     def test_returns_false_on_failure(self) -> None:
@@ -145,9 +129,7 @@ class TestTcpConnect:
 
     def test_custom_timeout(self) -> None:
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             tcp_connect("1.2.3.4", 80, timeout=10)
             kwargs = mock_run.call_args[1]
             assert kwargs["timeout"] == 10
@@ -155,9 +137,7 @@ class TestTcpConnect:
     def test_special_chars_in_host_quoted(self) -> None:
         """Hosts with spaces or quotes should be safely quoted."""
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             tcp_connect("host with spaces", 443)
             bash_cmd = mock_run.call_args[0][0][2]
             quoted = shlex.quote("host with spaces")
@@ -165,9 +145,7 @@ class TestTcpConnect:
 
     def test_stdin_devnull(self) -> None:
         with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             tcp_connect("1.2.3.4", 443)
             kwargs = mock_run.call_args[1]
             assert kwargs["stdin"] == subprocess.DEVNULL
@@ -182,9 +160,7 @@ class TestCheckSSH:
     def test_ssh_success(self) -> None:
         conn = ServerConnection(ip="1.2.3.4")
         with patch.object(conn, "run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="ok\n", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
             conn.check_ssh()  # should not raise
 
     def test_ssh_failure_exits(self) -> None:
