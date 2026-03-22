@@ -13,6 +13,7 @@ export const translations: Record<string, Record<string, string>> = {
     'nav.docs': 'Документация',
     'nav.demo': 'Демо',
     'nav.ping': 'Пинг',
+    'toc.label': 'На этой странице',
 
     // Hero
     'hero.kicker': 'Инструмент для свободы интернета',
@@ -28,6 +29,7 @@ export const translations: Record<string, Record<string, string>> = {
     'setup.desc': 'Вам нужен VPS (любой сервер за $5/мес) и терминал на вашем ноутбуке. Meridian сделает всё остальное.',
     'setup.step1.label': 'Шаг 1 — Установка',
     'setup.step2.label': 'Шаг 2 — Развёртывание',
+    'setup.then': 'затем',
     'setup.hint': 'Мастер спросит IP сервера и настроит всё. Или передайте флаги напрямую — смотрите <a href="/docs/en/cli-reference/">справочник CLI</a>.',
     'setup.details': 'Что происходит за кулисами',
     'setup.idempotent': 'Безопасно перезапускать. Полная идемпотентность — данные сохраняются, настройки обновляются на месте.',
@@ -113,6 +115,7 @@ export const translations: Record<string, Record<string, string>> = {
     'nav.docs': 'مستندات',
     'nav.demo': 'نمونه',
     'nav.ping': 'پینگ',
+    'toc.label': 'در این صفحه',
 
     'hero.kicker': 'ابزار آزادی اینترنت',
     'hero.title': 'اینترنت <em>امن</em> را با عزیزانتان به&nbsp;اشتراک&nbsp;بگذارید',
@@ -126,6 +129,7 @@ export const translations: Record<string, Record<string, string>> = {
     'setup.desc': 'یک VPS (هر سروری با ۵ دلار/ماه) و یک ترمینال روی لپ‌تاپ خود نیاز دارید. Meridian بقیه کارها را انجام می‌دهد.',
     'setup.step1.label': 'مرحله ۱ — نصب',
     'setup.step2.label': 'مرحله ۲ — راه‌اندازی',
+    'setup.then': 'سپس',
     'setup.hint': 'ویزارد IP سرور را می‌پرسد و بقیه را انجام می‌دهد. یا فلگ‌ها را مستقیم وارد کنید — <a href="/docs/en/cli-reference/">مرجع CLI</a> را ببینید.',
     'setup.details': 'آنچه پشت صحنه اتفاق می‌افتد',
     'setup.idempotent': 'می‌توان هر زمان دوباره اجرا کرد. کاملاً idempotent — اعتبارنامه‌ها حفظ و تنظیمات در جا به‌روز می‌شوند.',
@@ -205,6 +209,7 @@ export const translations: Record<string, Record<string, string>> = {
     'nav.docs': '文档',
     'nav.demo': '演示',
     'nav.ping': '测试',
+    'toc.label': '本页目录',
 
     'hero.kicker': '开源隐私工具',
     'hero.title': '与关心的人分享<em>安全的互联网</em>',
@@ -218,6 +223,7 @@ export const translations: Record<string, Record<string, string>> = {
     'setup.desc': '你需要一台 VPS（每月 $5 的服务器）和笔记本上的终端。Meridian 处理其余一切。',
     'setup.step1.label': '步骤 1 — 安装',
     'setup.step2.label': '步骤 2 — 部署',
+    'setup.then': '然后',
     'setup.hint': '向导会询问服务器 IP 并处理其余事项。或直接传递参数 — 查看 <a href="/docs/en/cli-reference/">CLI 参考</a>。',
     'setup.details': '幕后发生了什么',
     'setup.idempotent': '可随时安全重新运行。完全幂等——凭证保留，设置原地更新。',

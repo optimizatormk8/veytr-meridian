@@ -47,6 +47,9 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
 
 <Base title={`${title} — Meridian Docs`} description={description}>
   {mdPath && <link slot="head" rel="alternate" type="text/markdown" href={mdPath} />}
+  {availableLocales.map((l) => (
+    <link slot="head" rel="alternate" hreflang={l.code === 'zh' ? 'zh-Hans' : l.code} href={l.href} />
+  ))}
   <div class="docs-layout" dir={dir}>
     <DocsSidebar sections={sections} currentSlug={currentSlug} />
 

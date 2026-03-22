@@ -19,7 +19,7 @@ const filtered = headings.filter(h => h.depth >= 2 && h.depth <= 3);
 
 {filtered.length > 0 && (
   <div class="toc" id="toc">
-    <div class="toc__label">On this page</div>
+    <div class="toc__label" data-t="toc.label">On this page</div>
     <nav aria-label="Table of contents">
       <ul class="toc__list">
         {filtered.map((h) => (

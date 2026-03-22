@@ -5,13 +5,14 @@ interface Props {
   code: string;
   lang?: string;
   label?: string;
+  labelKey?: string;
 }
 
-const { code, lang, label } = Astro.props;
+const { code, lang, label, labelKey } = Astro.props;
 ---
 
 <div class="code-block">
-  {label && <div class="code-block__label">{label}</div>}
+  {label && <div class="code-block__label" {...(labelKey ? { 'data-t': labelKey } : {})}>{label}</div>}
   <div class="code-block__inner">
     <pre><code class={lang ? `language-${lang}` : ''}>{code}</code></pre>
     <CopyButton text={code} class="code-block__copy" />
