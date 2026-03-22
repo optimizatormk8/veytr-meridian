@@ -30,9 +30,9 @@ const detailSteps = [
     <!-- HOW IT WORKS (simple) -->
     <section id="setup">
       <div class="container">
-        <div class="section-label">How it works</div>
-        <h2>Three steps to secure internet</h2>
-        <p class="section-desc">
+        <div class="section-label" data-t="setup.label">How it works</div>
+        <h2 data-t="setup.title">Three steps to secure internet</h2>
+        <p class="section-desc" data-t="setup.desc">
           You need a VPS (any $5/month server) and a terminal on your laptop. Meridian handles everything else.
         </p>
 
@@ -46,14 +46,14 @@ const detailSteps = [
 
             <CodeBlock code="meridian deploy" label="Step 2 — Deploy" />
 
-            <p class="setup-hint">
+            <p class="setup-hint" data-t="setup.hint">
               The wizard asks for your server IP and handles the rest. Or pass flags directly —
               see the <a href="/docs/en/cli-reference/" data-astro-prefetch>CLI reference</a>.
             </p>
           </div>
 
           <div class="setup-aside">
-            <h3>What happens behind the scenes</h3>
+            <h3 data-t="setup.details">What happens behind the scenes</h3>
             <Timeline steps={detailSteps} />
             <Callout variant="tip" icon="⏱">
               Safe to re-run anytime. Fully idempotent — credentials preserved, settings updated in place.
@@ -68,9 +68,9 @@ const detailSteps = [
     <!-- WHY IT WORKS -->
     <section id="technology">
       <div class="container">
-        <div class="section-label">Technology</div>
-        <h2>Why censors can't detect it</h2>
-        <p class="section-desc">
+        <div class="section-label" data-t="tech.label">Technology</div>
+        <h2 data-t="tech.title">Why censors can't detect it</h2>
+        <p class="section-desc" data-t="tech.desc">
           Traditional VPNs have distinctive traffic signatures. VLESS+Reality is
           indistinguishable from normal web browsing.
         </p>
@@ -121,9 +121,9 @@ const detailSteps = [
     <!-- CONNECT -->
     <section id="connect">
       <div class="container">
-        <div class="section-label">Connect</div>
-        <h2>Scan and go</h2>
-        <p class="section-desc">
+        <div class="section-label" data-t="connect.label">Connect</div>
+        <h2 data-t="connect.title">Scan and go</h2>
+        <p class="section-desc" data-t="connect.desc">
           After deploying, you get a connection page with QR codes. Send it to
           whoever needs it — they tap once and connect.
         </p>
@@ -142,8 +142,8 @@ const detailSteps = [
     <!-- ARCHITECTURE -->
     <section id="architecture">
       <div class="container">
-        <div class="section-label">Architecture</div>
-        <h2>Under the hood</h2>
+        <div class="section-label" data-t="arch.label">Architecture</div>
+        <h2 data-t="arch.title">Under the hood</h2>
 
         <div class="arch-img">
           <img
@@ -188,8 +188,8 @@ const detailSteps = [
     <!-- REFERENCE -->
     <section id="reference">
       <div class="container">
-        <div class="section-label">Reference</div>
-        <h2>Configuration & operations</h2>
+        <div class="section-label" data-t="ref.label">Reference</div>
+        <h2 data-t="ref.title">Configuration & operations</h2>
 
         <Accordion title="Customization">
           <p>All settings are passed as CLI flags to <code>meridian deploy</code>:</p>

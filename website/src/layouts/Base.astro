@@ -58,6 +58,39 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
     <Nav />
     <slot />
     <Footer />
+
+    <!-- i18n: client-side language switching -->
+    <script>
+      import { detectLocale, setLang } from '../i18n/index';
+      import { translations } from '../i18n/translations';
+
+      // Auto-detect and apply language on load
+      const lang = detectLocale();
+      if (lang !== 'en') {
+        setLang(lang, translations);
+      } else {
+        // Still update picker active state for English
+        document.querySelectorAll('.lang-picker__btn').forEach((btn) => {
+          btn.classList.toggle('lang-picker__btn--active', (btn as HTMLElement).dataset.lang === 'en');
+        });
+      }
+
+      // Handle language picker clicks
+      document.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest('.lang-picker__btn') as HTMLButtonElement;
+        if (!btn) return;
+        const lang = btn.dataset.lang as 'en' | 'ru' | 'fa' | 'zh';
+        if (!lang) return;
+
+        if (lang === 'en') {
+          // Reload to get build-time English content
+          localStorage.setItem('meridian-lang', 'en');
+          location.reload();
+        } else {
+          setLang(lang, translations);
+        }
+      });
+    </script>
   </body>
 </html>
 
