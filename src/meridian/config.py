@@ -26,7 +26,7 @@ WEBSITE_URL = "https://getmeridian.org"
 UPDATE_CHECK_INTERVAL = 60
 
 # Relay (Realm TCP relay)
-REALM_VERSION = "2.7.0"
+REALM_VERSION = "2.9.3"
 REALM_GITHUB_URL = "https://github.com/zhboner/realm/releases/download"
 RELAY_SERVICE_NAME = "meridian-relay"
 RELAY_CONFIG_PATH = "/etc/meridian/realm.toml"

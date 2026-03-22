@@ -141,36 +141,46 @@ class TestBuildRelayUrls:
 
         creds = ServerCredentials.load(sample_proxy_with_relays)
         uuid = "550e8400-e29b-41d4-a716-446655440000"
+        wss_uuid = "660e8400-e29b-41d4-a716-446655440001"
 
-        result = build_relay_urls("alice", uuid, creds, "1.2.3.4", "ru-moscow")
+        result = build_relay_urls("alice", uuid, wss_uuid, creds, "1.2.3.4", "ru-moscow")
 
         assert isinstance(result, RelayURLSet)
         assert result.relay_ip == "1.2.3.4"
         assert result.relay_name == "ru-moscow"
-        assert len(result.urls) == 1
-        assert result.urls[0].key == "reality"
+        # Should have Reality + XHTTP + WSS (since sample has domain='' but xhttp_path set)
+        assert len(result.urls) >= 1
 
-        # URL should contain relay IP, not exit IP
-        url = result.urls[0].url
-        assert "@1.2.3.4:" in url
-        assert "@5.6.7.8:" not in url
+        # Reality URL should contain relay IP, not exit IP
+        reality_url = next(u for u in result.urls if u.key == "reality")
+        assert "@1.2.3.4:" in reality_url.url
+        assert "@5.6.7.8:" not in reality_url.url
 
         # URL should contain exit's Reality parameters
-        assert "K6JYbz4MflVPaaxdtRHoWBNp7SHzGMaqp6ohXMfJHUy" in url  # public key
-        assert "abcd1234" in url  # short ID
-        assert "www.microsoft.com" in url  # SNI
-        assert uuid in url
+        assert "K6JYbz4MflVPaaxdtRHoWBNp7SHzGMaqp6ohXMfJHUy" in reality_url.url  # public key
+        assert "abcd1234" in reality_url.url  # short ID
+        assert "www.microsoft.com" in reality_url.url  # SNI
+        assert uuid in reality_url.url
 
         # Fragment should include relay identifier
-        assert "via-ru-moscow" in url
+        assert "via-ru-moscow" in reality_url.url
+
+        # XHTTP URL should exist (xhttp_path is set in fixture)
+        xhttp_urls = [u for u in result.urls if u.key == "xhttp"]
+        assert len(xhttp_urls) == 1
+        xhttp_url = xhttp_urls[0].url
+        assert "@1.2.3.4:" in xhttp_url  # connects to relay
+        assert "sni=5.6.7.8" in xhttp_url  # TLS identity is exit IP
+        assert "xhttp123" in xhttp_url  # path preserved
 
     def test_build_relay_urls_no_name(self, sample_proxy_with_relays: Path) -> None:
         from meridian.urls import build_relay_urls
 
         creds = ServerCredentials.load(sample_proxy_with_relays)
         uuid = "550e8400-e29b-41d4-a716-446655440000"
+        wss_uuid = "660e8400-e29b-41d4-a716-446655440001"
 
-        result = build_relay_urls("bob", uuid, creds, "9.9.9.9")
+        result = build_relay_urls("bob", uuid, wss_uuid, creds, "9.9.9.9")
         assert "via-9.9.9.9" in result.urls[0].url
 
     def test_build_all_relay_urls(self, sample_proxy_with_relays: Path) -> None:
@@ -178,8 +188,9 @@ class TestBuildRelayUrls:
 
         creds = ServerCredentials.load(sample_proxy_with_relays)
         uuid = "550e8400-e29b-41d4-a716-446655440000"
+        wss_uuid = "660e8400-e29b-41d4-a716-446655440001"
 
-        results = build_all_relay_urls("alice", uuid, creds)
+        results = build_all_relay_urls("alice", uuid, wss_uuid, creds)
         assert len(results) == 2
         assert results[0].relay_ip == "1.2.3.4"
         assert results[1].relay_ip == "10.20.30.40"
@@ -190,7 +201,7 @@ class TestBuildRelayUrls:
         creds = ServerCredentials.load(sample_proxy_yml)
         uuid = "550e8400-e29b-41d4-a716-446655440000"
 
-        results = build_all_relay_urls("alice", uuid, creds)
+        results = build_all_relay_urls("alice", uuid, "", creds)
         assert results == []
 
 

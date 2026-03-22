@@ -90,53 +90,88 @@ def build_protocol_urls(
 def build_relay_urls(
     name: str,
     reality_uuid: str,
+    wss_uuid: str,
     creds: ServerCredentials,
     relay_ip: str,
     relay_name: str = "",
 ) -> RelayURLSet:
-    """Build Reality-only connection URLs that route through a relay node.
+    """Build connection URLs that route through a relay node.
 
-    Only Reality+TCP works reliably through a dumb L4 relay because the
-    Reality handshake is end-to-end.  XHTTP and WSS require TLS cert
-    matching that would break with a relay IP.
+    A dumb L4 relay forwards TCP transparently, so TLS goes end-to-end
+    to the exit server.  All protocols work if we set explicit ``sni=``
+    parameters pointing to the exit's TLS certificate identity:
+
+    - **Reality**: uses its own handshake — works as-is with relay IP.
+    - **XHTTP**: add ``sni=<exit_ip_or_domain>`` so Caddy's cert matches.
+    - **WSS**: add ``sni=<domain>`` + ``host=<domain>`` (domain mode only).
 
     Args:
         name: Client display name.
-        reality_uuid: UUID for Reality connection.
-        creds: Exit server credentials (for SNI, public key, short ID).
+        reality_uuid: UUID for Reality and XHTTP connections.
+        wss_uuid: UUID for WSS connection (empty if not domain mode).
+        creds: Exit server credentials (SNI, keys, paths).
         relay_ip: Relay node IP address (substituted for exit IP).
         relay_name: Friendly relay name (used in URL fragment).
 
     Returns:
-        A ``RelayURLSet`` with Reality-only URLs via this relay.
+        A ``RelayURLSet`` with all active protocol URLs via this relay.
     """
     from meridian.protocols import get_protocol
 
-    reality_proto = get_protocol("reality")
-    if reality_proto is None:
-        return RelayURLSet(relay_ip=relay_ip, relay_name=relay_name, urls=[])
-
+    exit_ip = creds.server.ip or ""
     sni = creds.server.sni or DEFAULT_SNI
     public_key = creds.reality.public_key or ""
     short_id = creds.reality.short_id or ""
+    domain = creds.server.domain or ""
+    xhttp_path = creds.xhttp.xhttp_path or ""
+    ws_path = creds.wss.ws_path or ""
 
     suffix = f"-via-{relay_name}" if relay_name else f"-via-{relay_ip}"
-    url = reality_proto.build_url(
-        reality_uuid,
-        f"{name}{suffix}",
-        ip=relay_ip,
-        sni=sni,
-        public_key=public_key,
-        short_id=short_id,
-    )
+    relay_label = relay_name or relay_ip
+    urls: list[ProtocolURL] = []
 
-    urls = [ProtocolURL(key="reality", label="Primary (via relay)", url=url)]
+    # Reality — end-to-end Reality handshake, relay is fully transparent
+    reality_proto = get_protocol("reality")
+    if reality_proto is not None:
+        url = reality_proto.build_url(
+            reality_uuid,
+            f"{name}{suffix}",
+            ip=relay_ip,
+            sni=sni,
+            public_key=public_key,
+            short_id=short_id,
+        )
+        urls.append(ProtocolURL(key="reality", label=f"Primary (via {relay_label})", url=url))
+
+    # XHTTP — TLS goes to exit, explicit sni= makes Caddy cert match
+    if xhttp_path:
+        # sni must match exit's TLS certificate (domain or IP)
+        xhttp_sni = domain or exit_ip
+        xhttp_url = (
+            f"vless://{reality_uuid}@{relay_ip}:443"
+            f"?encryption=none&security=tls&sni={xhttp_sni}"
+            f"&type=xhttp&path=%2F{xhttp_path}"
+            f"#{name}{suffix}-XHTTP"
+        )
+        urls.append(ProtocolURL(key="xhttp", label=f"XHTTP (via {relay_label})", url=xhttp_url))
+
+    # WSS — domain mode only, TLS sni+host must match domain cert
+    if domain and wss_uuid and ws_path:
+        wss_url = (
+            f"vless://{wss_uuid}@{relay_ip}:443"
+            f"?encryption=none&security=tls&sni={domain}"
+            f"&type=ws&host={domain}&path=%2F{ws_path}"
+            f"#{name}{suffix}-WSS"
+        )
+        urls.append(ProtocolURL(key="wss", label=f"CDN Backup (via {relay_label})", url=wss_url))
+
     return RelayURLSet(relay_ip=relay_ip, relay_name=relay_name, urls=urls)
 
 
 def build_all_relay_urls(
     name: str,
     reality_uuid: str,
+    wss_uuid: str,
     creds: ServerCredentials,
 ) -> list[RelayURLSet]:
     """Build relay URL sets for all relays attached to the exit server.
@@ -144,7 +179,7 @@ def build_all_relay_urls(
     Returns an empty list if no relays are configured.
     """
     return [
-        build_relay_urls(name, reality_uuid, creds, relay.ip, relay.name)
+        build_relay_urls(name, reality_uuid, wss_uuid, creds, relay.ip, relay.name)
         for relay in creds.relays
     ]
 

@@ -308,7 +308,7 @@ def run_add(
         )
 
         # Build relay URL sets (if exit has relays)
-        relay_url_sets = build_all_relay_urls(name, reality_uuid, creds)
+        relay_url_sets = build_all_relay_urls(name, reality_uuid, wss_uuid, creds)
 
         server_ip = creds.server.ip or resolved.ip
         file_prefix = f"{resolved.ip}-{name}"

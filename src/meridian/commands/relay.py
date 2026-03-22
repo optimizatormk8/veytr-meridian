@@ -105,7 +105,7 @@ def _regenerate_client_pages(
             wss_uuid=client.wss_uuid,
             creds=creds,
         )
-        relay_url_sets = build_all_relay_urls(client.name, client.reality_uuid, creds)
+        relay_url_sets = build_all_relay_urls(client.name, client.reality_uuid, client.wss_uuid, creds)
 
         server_ip = creds.server.ip or resolved_exit.ip
         domain = creds.server.domain or ""
@@ -187,6 +187,15 @@ def run_deploy(
 
     registry = ServerRegistry(SERVERS_FILE)
 
+    # --- Explain what a relay does ---
+    err_console.print()
+    err_console.print("  [bold]What is a relay?[/bold]")
+    err_console.print("  [dim]A relay is a lightweight server inside your country that forwards[/dim]")
+    err_console.print("  [dim]traffic to an exit server abroad. Censors see only domestic traffic.[/dim]")
+    err_console.print("  [dim]The relay runs Realm (a fast TCP forwarder) — no VPN software needed.[/dim]")
+    err_console.print("  [dim]All encryption remains end-to-end between client and exit server.[/dim]")
+    err_console.print()
+
     # Resolve exit server
     info(f"Resolving exit server: {exit_arg}")
     resolved_exit = _resolve_exit(registry, exit_arg, user)
@@ -197,9 +206,25 @@ def run_deploy(
         if relay.ip == relay_ip:
             fail(
                 f"Relay {relay_ip} is already attached to exit {resolved_exit.ip}",
-                hint="Remove it first: meridian relay remove",
+                hint="To re-deploy, remove first: meridian relay remove "
+                f"{relay_ip} --exit {resolved_exit.ip}",
                 hint_type="user",
             )
+
+    # Same-server warning (exit and relay on same IP)
+    if relay_ip == resolved_exit.ip:
+        if listen_port == 443:
+            fail(
+                "Relay and exit are the same server — port 443 is already in use by the exit",
+                hint="Use a different port: meridian relay deploy "
+                f"{relay_ip} --exit {resolved_exit.ip} --port 8443\n"
+                "  This is useful for testing but not for production.",
+                hint_type="user",
+            )
+        warn(
+            f"Relay and exit are the same server ({relay_ip}). "
+            "This is fine for testing but won't bypass IP blocks in production."
+        )
 
     ok(f"Exit server verified: {resolved_exit.ip}")
 
@@ -223,11 +248,19 @@ def run_deploy(
     # Show deployment summary
     from rich.panel import Panel
 
+    from meridian.config import REALM_VERSION
+
     summary = (
         f"Relay:    {user}@{relay_ip}:{listen_port}\n"
         f"Exit:     {resolved_exit.ip}:443\n"
-        f"Engine:   Realm (TCP relay)\n"
-        f"Name:     {relay_name or '(auto)'}"
+        f"Engine:   Realm v{REALM_VERSION} (zero-copy TCP forwarder)\n"
+        f"Name:     {relay_name or '(auto)'}\n"
+        f"\n"
+        f"How it works:\n"
+        f"  Client -> {relay_ip}:{listen_port} -> "
+        f"{resolved_exit.ip}:443 -> Internet\n"
+        f"  Censors see: domestic traffic to {relay_ip}\n"
+        f"  Encryption: end-to-end (relay cannot read content)"
     )
     err_console.print()
     err_console.print(Panel(summary, title="[bold]Relay deployment plan[/bold]", border_style="cyan", padding=(0, 2)))
@@ -294,9 +327,28 @@ def run_deploy(
     ok(f"Relay {relay_ip} is forwarding to exit {resolved_exit.ip}")
     err_console.print()
 
+    err_console.print("  [bold]How clients connect now:[/bold]")
+    err_console.print(
+        f"  [dim]Client -> {relay_ip}:443 (domestic) -> "
+        f"{resolved_exit.ip}:443 (abroad) -> Internet[/dim]"
+    )
+    err_console.print(f"  [dim]Censors only see traffic to {relay_ip} — a domestic IP.[/dim]")
+    err_console.print()
+
+    err_console.print("  [bold]What changed for existing clients:[/bold]")
+    if exit_creds.clients:
+        n = len(exit_creds.clients)
+        err_console.print(
+            f"  [dim]All {n} client page(s) now show relay connection as recommended.[/dim]"
+        )
+        err_console.print("  [dim]Direct connection URLs are still available as backup.[/dim]")
+    else:
+        err_console.print("  [dim]No clients yet. When you add them, relay URLs will be included automatically.[/dim]")
+    err_console.print()
+
     err_console.print("  [bold]Next steps:[/bold]\n")
-    err_console.print("  [ok]1.[/ok] New clients will automatically use the relay:")
-    err_console.print("     [info]meridian client add alice[/info]\n")
+    err_console.print("  [ok]1.[/ok] Add a client (relay URLs included automatically):")
+    err_console.print(f"     [info]meridian client add alice --server {resolved_exit.ip}[/info]\n")
     err_console.print("  [ok]2.[/ok] Check relay health:")
     err_console.print(f"     [info]meridian relay check {relay_ip}[/info]\n")
     err_console.print("  [ok]3.[/ok] List all relays:")

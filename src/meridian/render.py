@@ -323,13 +323,22 @@ def _build_template_variables(
     if relay_entries:
         relay_data = []
         for relay_set in relay_entries:
-            relay_url = relay_set.urls[0].url if relay_set.urls else ""
-            relay_qr = generate_qr_base64(relay_url) if relay_url else ""
+            relay_urls_data = []
+            for purl in relay_set.urls:
+                if purl.url:
+                    relay_urls_data.append({
+                        "key": purl.key,
+                        "label": purl.label,
+                        "url": purl.url,
+                        "qr_b64": generate_qr_base64(purl.url),
+                    })
             relay_data.append({
                 "ip": relay_set.relay_ip,
                 "name": relay_set.relay_name,
-                "url": relay_url,
-                "qr_b64": relay_qr,
+                "urls": relay_urls_data,
+                # Keep first URL for backwards compat with template
+                "url": relay_urls_data[0]["url"] if relay_urls_data else "",
+                "qr_b64": relay_urls_data[0]["qr_b64"] if relay_urls_data else "",
             })
         variables["relays"] = relay_data
         variables["has_relays"] = True
