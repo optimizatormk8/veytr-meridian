@@ -48,15 +48,17 @@ check "AI docs up to date" bash -c '
     [ "$expected" = "$actual" ]
 '
 
-check "App links match (template ↔ demo)" python3 -c "
-import re, sys
-def extract(p):
+check "App links match (template ↔ apps.json)" python3 -c "
+import json, re, sys
+def extract_template(p):
     return sorted(set(re.findall(r'https://(?:play\.google\.com|apps\.apple\.com|github\.com/\S+/releases)[^\s\"<]*', open(p).read())))
-t = extract('src/meridian/templates/connection-info.html.j2')
-d = extract('docs/demo.html')
+def extract_json(p):
+    return sorted(set(item['url'] for item in json.load(open(p)) if re.match(r'https://(?:play\.google\.com|apps\.apple\.com|github\.com/)', item['url'])))
+t = extract_template('src/meridian/templates/connection-info.html.j2')
+d = extract_json('website/src/data/apps.json')
 if t != d:
     print(f'Template: {t}')
-    print(f'Demo:     {d}')
+    print(f'Data:     {d}')
     sys.exit(1)
 "
 
