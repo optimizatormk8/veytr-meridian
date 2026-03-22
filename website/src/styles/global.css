@@ -2,6 +2,7 @@
  * Meridian Global Styles — Warm Editorial
  */
 
+@import './fonts.css';
 @import './tokens.css';
 
 /* Reset */
