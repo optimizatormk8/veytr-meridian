@@ -12,7 +12,7 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import CREDS_BASE, DEFAULT_PANEL_PORT, DEFAULT_SNI, SERVERS_FILE, is_ipv4
-from meridian.console import confirm, err_console, fail, info, line, ok, prompt
+from meridian.console import confirm, err_console, fail, info, line, ok, prompt, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
 
@@ -58,64 +58,13 @@ def run(
 
     # Interactive wizard if no IP given
     if not server_ip:
-        sni_display = sni or DEFAULT_SNI
-        err_console.print("  Deploy a private internet connection that censors can't detect.")
-        err_console.print(f"  Your server will impersonate [dim]{sni_display}[/dim] — probes")
-        err_console.print("  get a real TLS certificate back. Takes ~2 minutes. Safe to re-run.")
-        err_console.print()
-        line()
-        err_console.print()
-        err_console.print("  [bold]Where is the server?[/bold]\n")
-
-        detected_ip = _detect_public_ip()
-
-        while True:
-            server_ip = prompt("IP address", default=detected_ip)
-            if is_ipv4(server_ip):
-                break
-            err_console.print("  [error]Enter a valid IPv4 address (e.g. 123.45.67.89)[/error]")
-
-        ssh_user = prompt("SSH user", default="root")
-        if ssh_user != "root":
-            err_console.print("  [dim](sudo will be used for privileged operations)[/dim]")
-
-        err_console.print()
-        err_console.print("  [bold]Optional — CDN fallback:[/bold]\n")
-
-        # Suggest domain from saved credentials
-        suggested_domain = ""
-        creds_dir = CREDS_BASE / server_ip
-        if (creds_dir / "proxy.yml").exists():
-            saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
-            suggested_domain = saved_creds.server.domain or ""
-
-        if suggested_domain:
-            err_console.print(f"  [dim]Detected: {suggested_domain}[/dim]")
-
-        domain = prompt("Domain (optional, leave blank for standalone)", default=suggested_domain or "")
-        if domain in ("skip", ""):
-            domain = ""
-
-        err_console.print()
-        line()
-        err_console.print()
-        err_console.print("  [bold]Summary[/bold]\n")
-        err_console.print(f"  Target:  [ok]{ssh_user}@{server_ip}[/ok]")
-        if domain:
-            err_console.print(f"  Domain:  [ok]{domain}[/ok]")
-            err_console.print("  Mode:    Reality + CDN fallback")
-        else:
-            err_console.print("  Domain:  [dim](none)[/dim]")
-            err_console.print("  Mode:    Standalone (Reality only)")
-        sni_display = sni or DEFAULT_SNI
-        err_console.print(f"  SNI:     {sni_display}")
-        err_console.print(f"  XHTTP:   {'enabled' if xhttp else 'disabled'}")
-        err_console.print()
-        line()
-
-        if not yes:
-            confirm(f"Deploy to {ssh_user}@{server_ip}?")
-        err_console.print()
+        server_ip, ssh_user, sni, domain, email, xhttp = _interactive_wizard(
+            sni=sni,
+            xhttp=xhttp,
+            domain=domain,
+            email=email,
+            yes=yes,
+        )
 
     # Validate IP
     if not is_ipv4(server_ip):
@@ -164,6 +113,167 @@ def run(
 
     # Success output
     _print_success(resolved, name, domain)
+
+
+def _interactive_wizard(
+    sni: str,
+    xhttp: bool,
+    domain: str,
+    email: str,
+    yes: bool,
+) -> tuple[str, str, str, str, str, bool]:
+    """Interactive deployment wizard. Returns (ip, user, sni, domain, email, xhttp)."""
+    from meridian.ssh import ServerConnection
+
+    # --- Protocol explanation ---
+    err_console.print()
+    info("Protocol: VLESS + Reality")
+    err_console.print("  [dim]Your server impersonates a real website \u2014 censors see[/dim]")
+    err_console.print("  [dim]normal HTTPS traffic, not a VPN connection.[/dim]")
+    err_console.print()
+
+    # --- Server IP ---
+    detected_ip = _detect_public_ip()
+
+    while True:
+        server_ip = prompt("Server IP address", default=detected_ip)
+        if is_ipv4(server_ip):
+            break
+        err_console.print("  [error]Enter a valid IPv4 address (e.g. 123.45.67.89)[/error]")
+
+    # --- SSH user ---
+    ssh_user = prompt("SSH user", default="root")
+    if ssh_user != "root":
+        err_console.print("  [dim](sudo will be used for privileged operations)[/dim]")
+
+    # --- Offer scan for SNI ---
+    if not sni:
+        err_console.print()
+        err_console.print("  [bold]Camouflage target[/bold]")
+        err_console.print("  [dim]Your server pretends to be a real website. Targets on the[/dim]")
+        err_console.print("  [dim]same network are hardest for censors to distinguish.[/dim]")
+        err_console.print()
+
+        # Check for previously scanned SNI
+        saved_scanned_sni = ""
+        creds_dir = CREDS_BASE / server_ip
+        if (creds_dir / "proxy.yml").exists():
+            saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
+            saved_scanned_sni = saved_creds.server.scanned_sni or ""
+
+        if saved_scanned_sni:
+            info(f"Previous scan found: {saved_scanned_sni}")
+            if not yes:
+                answer = prompt(f"Use {saved_scanned_sni}? (Y/n)")
+                if answer.lower() != "n":
+                    sni = saved_scanned_sni
+            else:
+                sni = saved_scanned_sni
+
+        if not sni and not yes:
+            if _confirm_scan():
+                # Establish SSH for scan
+                try:
+                    conn = ServerConnection(ip=server_ip, user=ssh_user)
+                    conn.check_ssh()
+
+                    from meridian.commands.scan import scan_for_sni
+
+                    candidates = scan_for_sni(conn, server_ip)
+
+                    if candidates:
+                        err_console.print()
+                        top = candidates[:5]
+                        for i, candidate in enumerate(top, 1):
+                            marker = " [dim]\u2190 recommended[/dim]" if i == 1 else ""
+                            err_console.print(f"    {i}. {candidate}{marker}")
+                        skip_idx = len(top) + 1
+                        err_console.print(f"    {skip_idx}. [dim]Skip \u2014 use default ({DEFAULT_SNI})[/dim]")
+                        err_console.print()
+
+                        choice = prompt("Choose", default="1")
+                        if choice.isdigit():
+                            idx = int(choice) - 1
+                            if 0 <= idx < len(top):
+                                sni = top[idx]
+
+                                # Save scanned SNI to credentials
+                                creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+                                proxy_file = creds_dir / "proxy.yml"
+                                creds = ServerCredentials.load(proxy_file)
+                                creds.server.scanned_sni = sni
+                                creds.save(proxy_file)
+                    else:
+                        warn("No targets found on the same network")
+                except Exception:
+                    warn("Could not connect to scan. You can run 'meridian scan' later.")
+
+        if not sni:
+            sni = DEFAULT_SNI
+
+    # --- Domain (optional) ---
+    err_console.print()
+    err_console.print("  [bold]CDN fallback[/bold] [dim](optional)[/dim]")
+    err_console.print("  [dim]Routes through Cloudflare when direct connection is blocked.[/dim]")
+    err_console.print("  [dim]Guide: meridian.msu.rocks/cloudflare[/dim]")
+
+    # Suggest domain from saved credentials
+    suggested_domain = domain
+    if not suggested_domain:
+        creds_dir = CREDS_BASE / server_ip
+        if (creds_dir / "proxy.yml").exists():
+            saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
+            suggested_domain = saved_creds.server.domain or ""
+
+    if suggested_domain:
+        err_console.print(f"  [dim]Detected: {suggested_domain}[/dim]")
+
+    if not yes:
+        domain_input = prompt("Domain (leave blank to skip)", default=suggested_domain or "")
+        if domain_input and domain_input != "skip":
+            domain = domain_input
+        elif not domain_input or domain_input == "skip":
+            domain = ""
+    elif not domain:
+        domain = ""
+
+    # --- Summary panel ---
+    from rich.panel import Panel
+
+    protocol_line = "VLESS + Reality (TCP)"
+    if xhttp:
+        protocol_line += "\n           + XHTTP fallback (same port)"
+    if domain:
+        protocol_line += f"\n           + CDN fallback ({domain})"
+
+    summary = (
+        f"Server:     {ssh_user}@{server_ip}\n"
+        f"Protocol:   {protocol_line}\n"
+        f"Camouflage: {sni}\n"
+        f"Mode:       {'CDN fallback' if domain else 'Standalone (IP certificate)'}"
+    )
+
+    err_console.print()
+    err_console.print(Panel(summary, title="[bold]Deployment plan[/bold]", border_style="cyan", padding=(0, 2)))
+    err_console.print()
+
+    # --- Confirm ---
+    if not yes:
+        confirm(f"Deploy to {ssh_user}@{server_ip}?")
+    err_console.print()
+
+    return server_ip, ssh_user, sni, domain, email, xhttp
+
+
+def _confirm_scan() -> bool:
+    """Ask user if they want to scan. Returns True/False without exiting on 'n'."""
+    try:
+        with open("/dev/tty") as tty:
+            err_console.print("  [info]\u2192[/info] Scan for optimal target? (~30 seconds) [dim][Y/n][/dim] ", end="")
+            answer = tty.readline().strip().lower()
+    except OSError:
+        return False
+    return answer in ("", "y", "yes")
 
 
 def _run_provisioner(

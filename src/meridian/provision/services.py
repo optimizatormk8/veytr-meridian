@@ -97,6 +97,8 @@ def _render_caddy_config(
     panel_internal_port: int,
     info_page_path: str,
     email: str = "",
+    xhttp_path: str = "",
+    xhttp_internal_port: int = 0,
 ) -> str:
     """Render the Meridian Caddy configuration.
 
@@ -106,6 +108,21 @@ def _render_caddy_config(
     HAProxy terminates nothing -- just routes by SNI. Caddy handles TLS.
     """
     tls_line = f"    tls {email}\n" if email else ""
+
+    xhttp_block = ""
+    if xhttp_path and xhttp_internal_port > 0:
+        xhttp_block = textwrap.dedent(f"""\
+
+            # --- VLESS+XHTTP (enhanced stealth, Caddy-terminated TLS) ---
+            handle /{xhttp_path}/* {{
+                reverse_proxy 127.0.0.1:{xhttp_internal_port} {{
+                    transport http {{
+                        read_timeout 360s
+                    }}
+                    flush_interval -1
+                }}
+            }}
+        """).rstrip()
 
     return textwrap.dedent(f"""\
         # Meridian Proxy Configuration
@@ -125,6 +142,7 @@ def _render_caddy_config(
                     }}
                 }}
             }}
+{xhttp_block}
 
             # --- 3x-ui Panel (management interface on secret path) ---
             handle /{panel_web_base_path}/* {{
@@ -166,6 +184,8 @@ def _render_caddy_ip_config(
     panel_internal_port: int,
     info_page_path: str,
     email: str = "",
+    xhttp_path: str = "",
+    xhttp_internal_port: int = 0,
 ) -> str:
     """Render Caddy configuration for IP certificate mode (no domain).
 
@@ -174,6 +194,21 @@ def _render_caddy_ip_config(
     Falls back to self-signed if IP cert issuance is not supported.
     """
     email_line = f"\n            email {email}" if email else ""
+
+    xhttp_block = ""
+    if xhttp_path and xhttp_internal_port > 0:
+        xhttp_block = textwrap.dedent(f"""\
+
+            # --- VLESS+XHTTP (enhanced stealth, Caddy-terminated TLS) ---
+            handle /{xhttp_path}/* {{
+                reverse_proxy 127.0.0.1:{xhttp_internal_port} {{
+                    transport http {{
+                        read_timeout 360s
+                    }}
+                    flush_interval -1
+                }}
+            }}
+        """).rstrip()
 
     return textwrap.dedent(f"""\
         # Meridian Proxy Configuration (IP Certificate Mode)
@@ -189,6 +224,7 @@ def _render_caddy_ip_config(
                     profile shortlived
                 }}
             }}
+{xhttp_block}
 
             # --- 3x-ui Panel (management interface on secret path) ---
             handle /{panel_web_base_path}/* {{
@@ -479,6 +515,8 @@ class InstallCaddy:
         server_ip: str = "",
         skip_dns_check: bool = False,
         ip_mode: bool = False,
+        xhttp_path: str = "",
+        xhttp_internal_port: int = 0,
     ) -> None:
         self.domain = domain
         self.caddy_internal_port = caddy_internal_port
@@ -491,6 +529,8 @@ class InstallCaddy:
         self.server_ip = server_ip
         self.skip_dns_check = skip_dns_check
         self.ip_mode = ip_mode
+        self.xhttp_path = xhttp_path
+        self.xhttp_internal_port = xhttp_internal_port
 
     @timed
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
@@ -499,6 +539,8 @@ class InstallCaddy:
         info_page_path = self.info_page_path or ctx.get("info_page_path", "")
         panel_internal_port = self.panel_internal_port or ctx.panel_port
         server_ip = self.server_ip or ctx.ip
+        xhttp_path = self.xhttp_path or ctx.get("xhttp_path", "")
+        xhttp_internal_port = self.xhttp_internal_port or (ctx.xhttp_port if ctx.xhttp_enabled else 0)
 
         # -- DNS pre-check (domain mode only) --
         if not self.ip_mode and not self.skip_dns_check:
@@ -585,6 +627,8 @@ class InstallCaddy:
                 panel_internal_port=panel_internal_port,
                 info_page_path=info_page_path,
                 email=self.email,
+                xhttp_path=xhttp_path,
+                xhttp_internal_port=xhttp_internal_port,
             )
         else:
             caddy_config = _render_caddy_config(
@@ -596,6 +640,8 @@ class InstallCaddy:
                 panel_internal_port=panel_internal_port,
                 info_page_path=info_page_path,
                 email=self.email,
+                xhttp_path=xhttp_path,
+                xhttp_internal_port=xhttp_internal_port,
             )
         q_config = shlex.quote(caddy_config)
         result = conn.run(
@@ -689,7 +735,7 @@ class DeployConnectionPage:
         panel_internal_port = creds.panel.port or ctx.panel_port
         first_client_name = ctx.get("first_client_name", "default") or "default"
         xhttp_enabled = ctx.xhttp_enabled
-        xhttp_port = ctx.xhttp_port
+        xhttp_path = creds.xhttp.xhttp_path or ctx.get("xhttp_path", "")
 
         if not reality_uuid:
             return StepResult(
@@ -746,12 +792,13 @@ class DeployConnectionPage:
 
         xhttp_qr_b64 = ""
         xhttp_url = ""
-        if xhttp_enabled and xhttp_port > 0:
+        if xhttp_enabled and xhttp_path:
+            # Use domain if available, otherwise IP
+            xhttp_host = domain or self.server_ip
             xhttp_url = (
-                f"vless://{reality_uuid}@{self.server_ip}:{xhttp_port}"
-                f"?encryption=none&security=reality&sni={sni}&fp={self.fingerprint}"
-                f"&pbk={reality_public_key}&sid={reality_short_id}"
-                f"&type=xhttp&mode=packet-up&path=%2F#VLESS-XHTTP"
+                f"vless://{reality_uuid}@{xhttp_host}:443"
+                f"?encryption=none&security=tls"
+                f"&type=xhttp&path=%2F{xhttp_path}#VLESS-XHTTP"
             )
             q_xhttp = shlex.quote(xhttp_url)
             result = conn.run(

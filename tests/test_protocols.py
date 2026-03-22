@@ -158,19 +158,43 @@ class TestXHTTPBuildURL:
             "test-uuid",
             "bob",
             ip="1.2.3.4",
-            port=12345,
-            sni="www.microsoft.com",
-            public_key="myPBK",
-            short_id="abc123",
+            xhttp_path="myxhttppath",
         )
-        assert url.startswith("vless://test-uuid@1.2.3.4:12345")
-        assert "security=reality" in url
+        assert url.startswith("vless://test-uuid@1.2.3.4:443")
+        assert "security=tls" in url
         assert "type=xhttp" in url
-        assert "mode=packet-up" in url
-        assert "path=%2F" in url
+        assert "path=%2Fmyxhttppath" in url
         assert url.endswith("#bob-XHTTP")
         # XHTTP must NOT have flow parameter
         assert "flow=" not in url
+        # No Reality params
+        assert "pbk=" not in url
+        assert "sid=" not in url
+        assert "sni=" not in url
+
+    def test_url_with_domain(self) -> None:
+        proto = XHTTPProtocol()
+        url = proto.build_url(
+            "test-uuid",
+            "bob",
+            ip="1.2.3.4",
+            xhttp_path="mypath",
+            domain="example.com",
+        )
+        assert url.startswith("vless://test-uuid@example.com:443")
+        assert "security=tls" in url
+        assert "type=xhttp" in url
+        assert "path=%2Fmypath" in url
+
+    def test_url_without_domain_uses_ip(self) -> None:
+        proto = XHTTPProtocol()
+        url = proto.build_url(
+            "test-uuid",
+            "bob",
+            ip="5.6.7.8",
+            xhttp_path="p",
+        )
+        assert "vless://test-uuid@5.6.7.8:443" in url
 
     def test_url_suffix(self) -> None:
         assert XHTTPProtocol().url_suffix == "-XHTTP"

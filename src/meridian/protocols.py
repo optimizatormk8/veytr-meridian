@@ -187,7 +187,7 @@ class RealityProtocol(Protocol):
 
 
 class XHTTPProtocol(Protocol):
-    """VLESS + Reality + XHTTP — enhanced stealth transport."""
+    """VLESS + XHTTP — enhanced stealth transport behind Caddy."""
 
     @property
     def key(self) -> str:
@@ -211,19 +211,11 @@ class XHTTPProtocol(Protocol):
 
     def build_url(self, uuid: str, name: str, **kwargs: Any) -> str:
         ip = kwargs["ip"]
-        port = kwargs["port"]
-        sni = kwargs.get("sni", DEFAULT_SNI)
-        public_key = kwargs.get("public_key", "")
-        short_id = kwargs.get("short_id", "")
-        fingerprint = kwargs.get("fingerprint", DEFAULT_FINGERPRINT)
-        return (
-            f"vless://{uuid}@{ip}:{port}"
-            f"?encryption=none"
-            f"&security=reality&sni={sni}&fp={fingerprint}"
-            f"&pbk={public_key}&sid={short_id}"
-            f"&type=xhttp&mode=packet-up&path=%2F"
-            f"#{name}-XHTTP"
-        )
+        xhttp_path = kwargs.get("xhttp_path", "")
+        domain = kwargs.get("domain", "")
+        # Use domain if available, otherwise IP
+        host = domain or ip
+        return f"vless://{uuid}@{host}:443?encryption=none&security=tls&type=xhttp&path=%2F{xhttp_path}#{name}-XHTTP"
 
 
 class WSSProtocol(Protocol):

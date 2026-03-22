@@ -120,7 +120,7 @@ MOCK_VARS: dict[str, object] = {
     "reality_short_id": "abcd1234",
     "xhttp_enabled": True,
     "xhttp_inbound_port": 34567,
-    "vless_xhttp_url": "vless://test-uuid@1.2.3.4:34567?security=reality&type=xhttp#Test-XHTTP",
+    "vless_xhttp_url": "vless://test-uuid@1.2.3.4:443?security=tls&type=xhttp&path=%2Ftestxhttp#Test-XHTTP",
     "xhttp_qr_terminal": MockResult(stdout="QR_CODE_HERE"),
     "xhttp_qr_b64_local": MockResult(),
     "xhttp_qr_b64": MockResult(),

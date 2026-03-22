@@ -87,9 +87,9 @@ Add --ai to preflight or doctor for an AI-ready prompt.
 
 ### XHTTP inbound creation fails (port already exists)
 
-**Cause:** In standalone mode, both Reality TCP and XHTTP tried to bind port 443. 3x-ui rejects duplicate ports.
+**Cause:** In older versions (pre-v3.6.0), both Reality TCP and XHTTP tried to bind port 443 or used a separate external port. 3x-ui rejects duplicate ports.
 
-**Fix:** Fixed in v1.2.1. XHTTP now uses a separate dedicated port (`xhttp_port` variable). The port is deterministic (seeded by hostname) and automatically opened in UFW.
+**Fix:** Update to v3.6.0+. XHTTP now runs on a localhost-only port and is routed through Caddy via path-based routing on port 443. No extra external port is needed.
 
 ### Docker installation fails
 

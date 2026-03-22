@@ -10,9 +10,114 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import SERVERS_FILE
-from meridian.console import err_console, fail, info, line, ok, prompt, warn
+from meridian.console import err_console, info, line, ok, prompt, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
+from meridian.ssh import ServerConnection
+
+
+def scan_for_sni(conn: ServerConnection, ip: str) -> list[str]:
+    """Run RealiTLScanner on the server and return list of discovered SNI targets.
+
+    Returns empty list if scan fails or no results found.
+    Does NOT prompt the user -- just returns the candidates.
+    """
+    # Detect server architecture
+    try:
+        arch_result = conn.run("uname -m", timeout=10)
+    except Exception:
+        return []
+    raw_arch = arch_result.stdout.strip()
+    match raw_arch:
+        case "x86_64":
+            arch = "64"
+        case "aarch64":
+            warn("RealiTLScanner has no arm64 build.")
+            return []
+        case _:
+            warn(f"Unsupported architecture for scanner: {raw_arch}")
+            return []
+
+    # Download RealiTLScanner to server
+    scanner_url = f"https://github.com/XTLS/RealiTLScanner/releases/latest/download/RealiTLScanner-linux-{arch}"
+    q_url = shlex.quote(scanner_url)
+    info("Downloading RealiTLScanner...")
+    try:
+        dl_result = conn.run(
+            f"curl -sSfL --max-time 30 -o /tmp/realitlscanner {q_url} </dev/null && chmod +x /tmp/realitlscanner",
+            timeout=40,
+        )
+    except Exception:
+        warn("Scanner download timed out")
+        return []
+    if dl_result.returncode != 0:
+        warn("Failed to download RealiTLScanner")
+        return []
+
+    # Get server's subnet CIDR for scanning
+    try:
+        cidr_result = conn.run(
+            "ip addr show | grep 'inet ' | grep -v '127.0.0\\|172.17\\|10.0\\|192.168' | head -1 | awk '{print $2}'",
+            timeout=10,
+        )
+        server_cidr = cidr_result.stdout.strip()
+    except Exception:
+        server_cidr = ""
+    if not server_cidr:
+        server_cidr = f"{ip}/24"
+
+    # Run scan
+    q_cidr = shlex.quote(server_cidr)
+    info(f"Scanning {server_cidr} (~30 seconds)...")
+    try:
+        conn.run(
+            f"cd /tmp && timeout 90 ./realitlscanner -addr {q_cidr}"
+            " -out /tmp/meridian-scan.csv -thread 4 -timeout 5 >/dev/null 2>&1",
+            timeout=100,
+        )
+    except Exception:
+        warn("Scan timed out")
+        # Clean up
+        conn.run("rm -f /tmp/realitlscanner /tmp/meridian-scan.csv", timeout=5)
+        return []
+
+    # Clean up binary, read CSV, clean up CSV -- all in one SSH call
+    try:
+        csv_result = conn.run(
+            "cat /tmp/meridian-scan.csv 2>/dev/null; rm -f /tmp/realitlscanner /tmp/meridian-scan.csv",
+            timeout=10,
+        )
+    except Exception:
+        return []
+    csv_output = csv_result.stdout.strip()
+
+    if not csv_output or csv_output == "IP,ORIGIN,CERT_DOMAIN,CERT_ISSUER,GEO_CODE":
+        return []
+
+    # Parse CSV: extract cert_domain (column 3), skip header, deduplicate, filter bad targets
+    domains: list[str] = []
+    for csv_line in csv_output.splitlines():
+        parts = csv_line.split(",")
+        if len(parts) < 3:
+            continue
+        csv_ip, _origin, cert_domain = parts[0], parts[1], parts[2]
+        if csv_ip == "IP":
+            continue  # header
+        if not cert_domain:
+            continue
+        if cert_domain.startswith("*"):
+            continue  # wildcard certs
+        # Filter known-bad targets
+        if any(bad in cert_domain for bad in ("apple.com", "icloud.com")):
+            continue
+        # Skip the server's own IP in domain
+        if ip in cert_domain:
+            continue
+        # Deduplicate
+        if cert_domain not in domains:
+            domains.append(cert_domain)
+
+    return domains
 
 
 def run(
@@ -32,81 +137,7 @@ def run(
     err_console.print("  [dim]Finding optimal Reality SNI targets near your server...[/dim]")
     err_console.print()
 
-    # Detect server architecture
-    arch_result = resolved.conn.run("uname -m", timeout=10)
-    raw_arch = arch_result.stdout.strip()
-    match raw_arch:
-        case "x86_64":
-            arch = "64"
-        case "aarch64":
-            warn("RealiTLScanner has no arm64 build. You can set SNI manually with --sni.")
-            return
-        case _:
-            fail(f"Unsupported architecture: {raw_arch}", hint_type="system")
-
-    # Download RealiTLScanner to server
-    scanner_url = f"https://github.com/XTLS/RealiTLScanner/releases/latest/download/RealiTLScanner-linux-{arch}"
-    q_url = shlex.quote(scanner_url)
-    info("Downloading RealiTLScanner...")
-    dl_result = resolved.conn.run(
-        f"curl -sSfL --max-time 30 -o /tmp/realitlscanner {q_url} </dev/null && chmod +x /tmp/realitlscanner",
-        timeout=40,
-    )
-    if dl_result.returncode != 0:
-        fail("Failed to download RealiTLScanner. Check network connectivity.", hint_type="system")
-
-    # Get server's subnet CIDR for scanning
-    cidr_result = resolved.conn.run(
-        "ip addr show | grep 'inet ' | grep -v '127.0.0\\|172.17\\|10.0\\|192.168' | head -1 | awk '{print $2}'",
-        timeout=10,
-    )
-    server_cidr = cidr_result.stdout.strip()
-    if not server_cidr:
-        server_cidr = f"{resolved.ip}/24"
-
-    # Run scan
-    q_cidr = shlex.quote(server_cidr)
-    info(f"Scanning {server_cidr} for TLS targets (this takes 30-60 seconds)...")
-    resolved.conn.run(
-        f"cd /tmp && timeout 90 ./realitlscanner -addr {q_cidr}"
-        " -out /tmp/meridian-scan.csv -thread 4 -timeout 5 >/dev/null 2>&1",
-        timeout=100,
-    )
-
-    # Clean up binary, read CSV, clean up CSV — all in one SSH call
-    csv_result = resolved.conn.run(
-        "cat /tmp/meridian-scan.csv 2>/dev/null; rm -f /tmp/realitlscanner /tmp/meridian-scan.csv",
-        timeout=10,
-    )
-    csv_output = csv_result.stdout.strip()
-
-    if not csv_output or csv_output == "IP,ORIGIN,CERT_DOMAIN,CERT_ISSUER,GEO_CODE":
-        warn("Scan produced no results. The server may have limited network visibility.")
-        err_console.print(f"\n  [dim]You can manually set SNI with: meridian deploy {resolved.ip} --sni DOMAIN[/dim]\n")
-        return
-
-    # Parse CSV: extract cert_domain (column 3), skip header, deduplicate, filter bad targets
-    domains: list[str] = []
-    for csv_line in csv_output.splitlines():
-        parts = csv_line.split(",")
-        if len(parts) < 3:
-            continue
-        csv_ip, _origin, cert_domain = parts[0], parts[1], parts[2]
-        if csv_ip == "IP":
-            continue  # header
-        if not cert_domain:
-            continue
-        if cert_domain.startswith("*"):
-            continue  # wildcard certs
-        # Filter known-bad targets
-        if any(bad in cert_domain for bad in ("apple.com", "icloud.com")):
-            continue
-        # Skip the server's own IP in domain
-        if resolved.ip in cert_domain:
-            continue
-        # Deduplicate
-        if cert_domain not in domains:
-            domains.append(cert_domain)
+    domains = scan_for_sni(resolved.conn, resolved.ip)
 
     if not domains:
         warn("No suitable SNI targets found.")

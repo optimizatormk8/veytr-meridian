@@ -242,7 +242,7 @@ button:focus-visible,input:focus-visible,a:focus-visible,details summary:focus-v
         </div>
         <div class="bf" id="row-xhttp">
           <label class="bl" style="cursor:pointer"><input id="f-xhttp" type="checkbox" checked onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px"><span data-i18n="field.xhttp">XHTTP transport</span></label>
-          <span class="bh" data-i18n="field.xhttp.hint">Add XHTTP transport for enhanced post-handshake stealth. Requires v2rayNG 1.9+ or Hiddify.</span>
+          <span class="bh" data-i18n="field.xhttp.hint">Enabled by default. Routed through port 443 via Caddy (no extra port). Adds post-handshake stealth. Requires v2rayNG 1.9+ or Hiddify.</span>
         </div>
         <div class="bf" id="row-yes">
           <label class="bl" style="cursor:pointer"><input id="f-yes" type="checkbox" onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px"><span data-i18n="field.yes">Skip prompts</span></label>
@@ -344,7 +344,7 @@ button:focus-visible,input:focus-visible,a:focus-visible,details summary:focus-v
   <details open>
     <summary data-i18n="arch.standalone">Standalone mode (no domain)</summary>
     <div class="inner" data-i18n="arch.standalone.body">
-      <p><strong>HAProxy</strong> sits on port 443 and routes traffic by TLS SNI. Reality connections (SNI = microsoft.com) route to <strong>Xray</strong>, while <strong>Caddy</strong> handles everything else — serving hosted connection pages with QR codes over HTTPS, using a Let's Encrypt IP certificate (auto-renewed every 6 days).</p>
+      <p><strong>HAProxy</strong> sits on port 443 and routes traffic by TLS SNI. Reality connections (SNI = microsoft.com) route to <strong>Xray</strong>, while <strong>Caddy</strong> handles everything else — serving hosted connection pages with QR codes over HTTPS, using a Let's Encrypt IP certificate (auto-renewed every 6 days). XHTTP transport is also routed through Caddy via path-based routing on port 443 — no extra port exposed.</p>
       <p>The 3x-ui panel is reverse-proxied by Caddy on a secret path — accessible via HTTPS, no SSH tunnel needed. Every connection looks like normal HTTPS. Only clients with your private key get through to the proxy.</p>
     </div>
   </details>
@@ -376,7 +376,7 @@ button:focus-visible,input:focus-visible,a:focus-visible,details summary:focus-v
         <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
         <tr><td>--sni HOST</td><td>www.microsoft.com</td><td>Site that Reality impersonates</td></tr>
         <tr><td>--domain DOMAIN</td><td>(none)</td><td>Enable domain mode with CDN fallback</td></tr>
-        <tr><td>--xhttp</td><td>enabled</td><td>Add XHTTP transport for enhanced stealth</td></tr>
+        <tr><td>--xhttp</td><td>enabled</td><td>XHTTP transport (routed through port 443 via Caddy)</td></tr>
         <tr><td>--no-xhttp</td><td></td><td>Disable XHTTP transport</td></tr>
         <tr><td>--email EMAIL</td><td>(none)</td><td>Email for TLS certificates (optional)</td></tr>
         <tr><td>--name NAME</td><td>default</td><td>Name for the first client</td></tr>
@@ -463,7 +463,7 @@ cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
   <details>
     <summary data-i18n="ref.security">Security notes <span></span></summary>
     <div class="inner">
-      <p>Credentials are stored at <code>/etc/meridian/</code> on the server (source of truth) and cached locally at <code>~/.meridian/credentials/</code>. The panel is reverse-proxied by Caddy on a secret HTTPS path in all modes — no SSH tunnel required. SSH password auth is disabled. UFW allows only ports 22 and 443.</p>
+      <p>Credentials are stored at <code>/etc/meridian/</code> on the server (source of truth) and cached locally at <code>~/.meridian/credentials/</code>. The panel is reverse-proxied by Caddy on a secret HTTPS path in all modes — no SSH tunnel required. SSH password auth is disabled. UFW allows only ports 22, 80, and 443 — all transports (Reality, XHTTP, WSS) run through port 443.</p>
       <p>The 3x-ui Docker image is pinned to a tested version. All secrets are redacted from terminal output.</p>
     </div>
   </details>
@@ -579,7 +579,7 @@ function buildCmd(){
   if(curTab==='install'){
     if(!ip){hint.textContent='Enter your server IP, or just run the base command — the interactive wizard will ask.';hint.style.color='var(--t3)';}
     else if(domOn&&!dom){hint.textContent='Enter a domain or uncheck to skip.';hint.style.color='var(--t3)';}
-    else{var mode=domOn?'Reality + CDN fallback':'Reality-only';if(xhttp)mode+=' + XHTTP stealth';hint.textContent='Deploys '+mode+'.';hint.style.color='var(--ok)';}
+    else{var mode=domOn?'Reality + CDN fallback':'Reality-only';hint.textContent='Deploys '+mode+(xhttp?'':' (XHTTP disabled)')+'.';hint.style.color='var(--ok)';}
   }else if(curTab==='check'){
     hint.textContent=ip?'Runs preflight checks (ports, SNI, ASN, DNS) without installing anything.':'Enter your server IP to run the preflight.';
     hint.style.color=ip?'var(--ok)':'var(--t3)';

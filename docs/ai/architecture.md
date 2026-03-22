@@ -19,19 +19,15 @@ Internet
 │  │ SNI = server IP              │    │
 │  │  → Port 8443: Caddy (TLS)   │    │
 │  │     ├─ /info-path → page    │    │
-│  │     └─ /panel-path → 3x-ui  │    │
+│  │     ├─ /panel-path → 3x-ui  │    │
+│  │     └─ /xhttp-path → Xray   │    │
 │  └──────────────────────────────┘    │
 │                                      │
 │  Port 80: Caddy (ACME challenges)    │
 │                                      │
-│  Port XHTTP (random)                 │
-│  ┌────────────────────────────┐      │
-│  │  └─ Xray (Reality XHTTP)  │      │
-│  └────────────────────────────┘      │
-│                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
-│  └─ XHTTP inbound (random port)     │
+│  └─ XHTTP inbound (localhost port)   │
 │                                      │
 │  Caddy (systemd)                     │
 │  └─ IP cert via Let's Encrypt        │
@@ -42,7 +38,7 @@ Internet
 └──────────────────────────────────────┘
 ```
 
-Note: In standalone mode, Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. XHTTP uses a separate deterministic port (`30000 + hash(ip) % 10000`) because 3x-ui rejects duplicate ports.
+Note: In standalone mode, Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. XHTTP runs on a localhost-only port and is reverse-proxied by Caddy via path-based routing on port 443 — no extra external port is exposed.
 
 ### Domain Mode
 
@@ -62,6 +58,7 @@ Internet
 │  │  → Port 8443: Caddy (TLS)   │    │
 │  │     ├─ /info-path → page    │    │
 │  │     ├─ /panel-path → 3x-ui  │    │
+│  │     ├─ /xhttp-path → Xray   │    │
 │  │     └─ /ws-path → Xray WSS  │    │
 │  └──────────────────────────────┘    │
 │                                      │
@@ -69,8 +66,8 @@ Internet
 │                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
-│  ├─ XHTTP inbound (random port)     │
-│  └─ WSS inbound (random port, local) │
+│  ├─ XHTTP inbound (localhost port)   │
+│  └─ WSS inbound (localhost port)     │
 │                                      │
 │  Caddy (systemd)                     │
 │  └─ Auto TLS via Let's Encrypt       │
@@ -114,6 +111,7 @@ Caddy handles:
 - Auto-TLS certificate (domain cert or Let's Encrypt IP cert via ACME `shortlived` profile)
 - Reverse proxy for the 3x-ui panel (at a random web base path)
 - Connection info page serving (hosted pages with shareable URLs)
+- Reverse proxy for XHTTP traffic to Xray (path-based routing, all modes when XHTTP enabled)
 - Reverse proxy for WSS traffic to Xray (domain mode only)
 
 ## Provisioning Step Pipeline
@@ -127,13 +125,13 @@ Steps execute sequentially via `build_setup_steps()`. Each step gets `(conn, ctx
 | 3 | `SetTimezone` | `common.py` | Set server timezone to UTC |
 | 4 | `HardenSSH` | `common.py` | Disable password auth, harden SSH config |
 | 5 | `ConfigureBBR` | `common.py` | Enable TCP BBR congestion control |
-| 6 | `ConfigureFirewall` | `common.py` | UFW deny-all + allow 22, 80, 443, XHTTP port |
+| 6 | `ConfigureFirewall` | `common.py` | UFW deny-all + allow 22, 80, 443 |
 | 7 | `InstallDocker` | `docker.py` | Install Docker CE |
 | 8 | `Deploy3xui` | `docker.py` | Deploy 3x-ui Docker container |
 | 9 | `ConfigurePanel` | `panel.py` | Set panel credentials, web base path, settings |
 | 10 | `LoginToPanel` | `panel.py` | Authenticate to 3x-ui API |
 | 11 | `CreateRealityInbound` | `xray.py` | Create VLESS+Reality inbound on port 10443 |
-| 12 | `CreateXHTTPInbound` | `xray.py` | Create VLESS+Reality+XHTTP inbound (if enabled) |
+| 12 | `CreateXHTTPInbound` | `xray.py` | Create VLESS+XHTTP inbound on localhost (routed via Caddy) |
 | 13 | `CreateWSSInbound` | `xray.py` | Create VLESS+WSS inbound (domain mode only) |
 | 14 | `VerifyXray` | `xray.py` | Verify Xray is running with correct config |
 | 15 | `InstallHAProxy` | `services.py` | Install and configure HAProxy SNI routing |

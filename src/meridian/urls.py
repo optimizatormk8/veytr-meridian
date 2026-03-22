@@ -27,14 +27,15 @@ def build_protocol_urls(
     Iterates over ``PROTOCOLS`` in registry order and produces a
     ``ProtocolURL`` for every protocol whose URL can be built given the
     supplied arguments.  Protocols that are not active (e.g. WSS without a
-    domain, XHTTP without a port) are omitted from the returned list.
+    domain, XHTTP without a path) are omitted from the returned list.
 
     Args:
         name: Client display name (used in URL fragment).
         reality_uuid: UUID for Reality and XHTTP connections.
         wss_uuid: UUID for WSS connection (empty if not domain mode).
         creds: Server credentials with protocol configs.
-        xhttp_port: XHTTP inbound port (0 = no XHTTP).
+        xhttp_port: XHTTP inbound port (0 = no XHTTP). Kept for legacy
+            callers; the XHTTP path is read from creds.xhttp.xhttp_path.
 
     Returns:
         Ordered list of ``ProtocolURL`` objects, one per active protocol.
@@ -45,6 +46,7 @@ def build_protocol_urls(
     short_id = creds.reality.short_id or ""
     domain = creds.server.domain or ""
     ws_path = creds.wss.ws_path or ""
+    xhttp_path = creds.xhttp.xhttp_path or ""
 
     # Shared kwargs for Reality-based protocols.
     reality_kwargs = {
@@ -64,8 +66,14 @@ def build_protocol_urls(
         if key == "reality":
             url = proto.build_url(reality_uuid, name, **reality_kwargs)
         elif key == "xhttp":
-            if xhttp_port > 0:
-                url = proto.build_url(reality_uuid, name, port=xhttp_port, **reality_kwargs)
+            if xhttp_path or xhttp_port > 0:
+                url = proto.build_url(
+                    reality_uuid,
+                    name,
+                    ip=ip,
+                    xhttp_path=xhttp_path,
+                    domain=domain,
+                )
         elif key == "wss":
             if domain and wss_uuid:
                 url = proto.build_url(wss_uuid, name, domain=domain, ws_path=ws_path)

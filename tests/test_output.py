@@ -11,6 +11,7 @@ from meridian.credentials import (
     ServerConfig,
     ServerCredentials,
     WSSConfig,
+    XHTTPConfig,
 )
 from meridian.output import (
     ClientURLs,
@@ -29,6 +30,7 @@ def _make_creds(
     short_id: str = "abcd1234",
     domain: str = "",
     ws_path: str = "",
+    xhttp_path: str = "",
 ) -> ServerCredentials:
     """Create test credentials."""
     creds = ServerCredentials(
@@ -45,6 +47,8 @@ def _make_creds(
     )
     if ws_path:
         creds.protocols["wss"] = WSSConfig(uuid="wss-uuid", ws_path=ws_path)
+    if xhttp_path:
+        creds.protocols["xhttp"] = XHTTPConfig(xhttp_path=xhttp_path)
     return creds
 
 
@@ -64,21 +68,21 @@ class TestBuildVlessURLs:
         assert "type=tcp" in urls.reality
         assert "#alice" in urls.reality
 
-    def test_no_xhttp_when_port_zero(self) -> None:
+    def test_no_xhttp_when_no_path(self) -> None:
         creds = _make_creds()
         urls = build_vless_urls("alice", "uuid-1", "", creds, xhttp_port=0)
         assert urls.xhttp == ""
 
-    def test_xhttp_url_with_port(self) -> None:
-        creds = _make_creds()
-        urls = build_vless_urls("alice", "uuid-1", "", creds, xhttp_port=12345)
+    def test_xhttp_url_with_path(self) -> None:
+        creds = _make_creds(xhttp_path="myxhttp")
+        urls = build_vless_urls("alice", "uuid-1", "", creds)
 
-        assert urls.xhttp.startswith("vless://uuid-1@1.2.3.4:12345")
+        assert urls.xhttp.startswith("vless://uuid-1@1.2.3.4:443")
         assert "type=xhttp" in urls.xhttp
-        assert "mode=packet-up" in urls.xhttp
+        assert "path=%2Fmyxhttp" in urls.xhttp
         assert "#alice-XHTTP" in urls.xhttp
-        # XHTTP uses Reality too
-        assert "security=reality" in urls.xhttp
+        # XHTTP now uses TLS (via Caddy), not Reality
+        assert "security=tls" in urls.xhttp
         # XHTTP must NOT have flow (empty)
         assert "flow=" not in urls.xhttp
 
@@ -104,8 +108,8 @@ class TestBuildVlessURLs:
 
     def test_reality_uuid_used_for_xhttp(self) -> None:
         """XHTTP shares the Reality UUID, not a separate one."""
-        creds = _make_creds()
-        urls = build_vless_urls("alice", "reality-uuid", "wss-uuid", creds, xhttp_port=9999)
+        creds = _make_creds(xhttp_path="xp")
+        urls = build_vless_urls("alice", "reality-uuid", "wss-uuid", creds)
         assert urls.xhttp.startswith("vless://reality-uuid@")
 
     def test_different_sni(self) -> None:
@@ -191,10 +195,11 @@ class TestBuildVlessURLsEdgeCases:
 
     def test_all_protocols_together(self) -> None:
         """Test building URLs with all three protocols enabled."""
-        creds = _make_creds(domain="example.com", ws_path="myws")
-        urls = build_vless_urls("alice", "r-uuid", "w-uuid", creds, xhttp_port=8443)
+        creds = _make_creds(domain="example.com", ws_path="myws", xhttp_path="xp")
+        urls = build_vless_urls("alice", "r-uuid", "w-uuid", creds)
         assert urls.reality.startswith("vless://r-uuid@1.2.3.4:443")
-        assert urls.xhttp.startswith("vless://r-uuid@1.2.3.4:8443")
+        assert urls.xhttp.startswith("vless://r-uuid@example.com:443")
+        assert "path=%2Fxp" in urls.xhttp
         assert urls.wss.startswith("vless://w-uuid@example.com:443")
         assert "#alice" in urls.reality
         assert "#alice-XHTTP" in urls.xhttp
@@ -224,8 +229,8 @@ class TestBuildVlessURLsEdgeCases:
 
     def test_xhttp_no_flow_parameter(self) -> None:
         """XHTTP must NOT include flow parameter (xtls-rprx-vision is incompatible)."""
-        creds = _make_creds()
-        urls = build_vless_urls("test", "uuid-1", "", creds, xhttp_port=9000)
+        creds = _make_creds(xhttp_path="xp")
+        urls = build_vless_urls("test", "uuid-1", "", creds)
         # XHTTP URL should not have flow= at all
         assert "flow=" not in urls.xhttp
         # But reality URL should have it
@@ -237,11 +242,11 @@ class TestBuildVlessURLsEdgeCases:
         urls = build_vless_urls("test", "r-uuid", "w-uuid", creds)
         assert "host=cdn.example.com" in urls.wss
 
-    def test_xhttp_path_is_slash(self) -> None:
-        """XHTTP path should be URL-encoded /."""
-        creds = _make_creds()
-        urls = build_vless_urls("test", "uuid", "", creds, xhttp_port=5000)
-        assert "path=%2F" in urls.xhttp
+    def test_xhttp_path_in_url(self) -> None:
+        """XHTTP path should be included in the URL."""
+        creds = _make_creds(xhttp_path="myxhttppath")
+        urls = build_vless_urls("test", "uuid", "", creds)
+        assert "path=%2Fmyxhttppath" in urls.xhttp
 
     def test_client_name_with_numbers(self) -> None:
         creds = _make_creds()

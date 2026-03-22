@@ -60,6 +60,7 @@ class XHTTPConfig:
     """XHTTP protocol credentials."""
 
     uuid: str | None = None
+    xhttp_path: str | None = None
 
 
 @dataclass
@@ -222,6 +223,7 @@ _V1_FIELD_MAP: dict[str, tuple[str, str]] = {
     "wss_uuid": ("protocols.wss", "uuid"),
     "ws_path": ("protocols.wss", "ws_path"),
     "xhttp_uuid": ("protocols.xhttp", "uuid"),
+    "xhttp_path": ("protocols.xhttp", "xhttp_path"),
 }
 
 # Fields to skip during v1 migration (consumed but not carried forward)
@@ -318,6 +320,7 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
         x = protos_data["xhttp"]
         protocols["xhttp"] = XHTTPConfig(
             uuid=x.get("uuid"),
+            xhttp_path=x.get("xhttp_path"),
         )
 
     # Clients

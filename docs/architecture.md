@@ -27,7 +27,7 @@ graph LR
 
 ## Traffic flow: Standalone mode
 
-In standalone mode (no domain), HAProxy on port 443 routes by SNI. Xray handles Reality connections, Caddy handles everything else with a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity). Caddy listens on port 80 for ACME HTTP-01 challenges.
+In standalone mode (no domain), HAProxy on port 443 routes by SNI. Xray handles Reality connections, Caddy handles everything else with a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity). Caddy listens on port 80 for ACME HTTP-01 challenges. XHTTP is reverse-proxied by Caddy via path-based routing — no extra external port.
 
 ```mermaid
 graph TD
@@ -46,10 +46,7 @@ graph TD
     subgraph caddy_routes["Caddy Routes"]
         Pages["/connection/<br/>Connection Pages"]
         Panel["/secret-path/<br/>3x-ui Panel"]
-    end
-
-    subgraph xhttp_port["Dedicated Port"]
-        XrayXHTTP["Xray :3xxxx<br/>VLESS+XHTTP+Reality"]
+        XHTTP["/xhttp-path/ → Xray XHTTP<br/>(127.0.0.1)"]
     end
 
     Client -->|"SNI: microsoft.com"| HAProxy
@@ -57,13 +54,13 @@ graph TD
     HAProxy -->|"default / IP SNI"| Caddy
     Caddy --> Pages
     Caddy --> Panel
+    Caddy --> XHTTP
     HTTP80 -->|"ACME challenges"| Caddy
-    Client -->|"XHTTP (direct)"| XrayXHTTP
 ```
 
 ## Traffic flow: Domain mode
 
-Domain mode adds VLESS+WSS (Cloudflare CDN fallback) and uses a real domain for TLS. HAProxy still sits on port 443 for SNI routing. Caddy terminates TLS for the domain and reverse-proxies WSS to Xray.
+Domain mode adds VLESS+WSS (Cloudflare CDN fallback) and uses a real domain for TLS. HAProxy still sits on port 443 for SNI routing. Caddy terminates TLS for the domain and reverse-proxies both XHTTP and WSS to Xray.
 
 ```mermaid
 graph TD
@@ -80,23 +77,20 @@ graph TD
     end
 
     subgraph caddy_routes["Caddy Routes"]
+        XHTTP["/xhttp-path/ → Xray XHTTP<br/>(127.0.0.1)"]
         WSS["/ws-path/ → Xray WSS<br/>(127.0.0.1)"]
         Pages["/connection/<br/>Connection Pages"]
         Panel["/secret-path/<br/>3x-ui Panel"]
-    end
-
-    subgraph xhttp_port["Dedicated Port"]
-        XrayXHTTP["Xray :3xxxx<br/>VLESS+XHTTP+Reality"]
     end
 
     Client -->|"SNI: microsoft.com"| HAProxy
     HAProxy -->|"SNI matches reality_sni"| Xray
     HAProxy -->|"SNI: domain.com"| Caddy
     CDN -->|"WSS over TLS"| Caddy
+    Caddy --> XHTTP
     Caddy --> WSS
     Caddy --> Pages
     Caddy --> Panel
-    Client -->|"XHTTP (direct)"| XrayXHTTP
 ```
 
 ## Provisioner step pipeline

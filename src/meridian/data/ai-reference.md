@@ -10,7 +10,7 @@ Website: https://meridian.msu.rocks
 - **VLESS+Reality** (Xray-core) — proxy protocol that impersonates a legitimate TLS website. Censors probing the server see a real certificate (e.g., from microsoft.com). Only clients with the correct private key can connect.
 - **3x-ui** — web panel for managing Xray, deployed as a Docker container. Meridian controls it entirely via REST API.
 - **HAProxy** — TCP-level SNI router on port 443 in all modes. Routes traffic by SNI hostname without terminating TLS.
-- **Caddy** — reverse proxy with automatic TLS in all modes. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection info pages, reverse-proxies the 3x-ui panel, and (in domain mode) proxies WSS traffic.
+- **Caddy** — reverse proxy with automatic TLS in all modes. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection info pages, reverse-proxies the 3x-ui panel, and proxies both XHTTP (path-based routing) and WSS (domain mode) traffic to Xray.
 - **Docker** — runs 3x-ui (which contains Xray). All proxy traffic flows through the Docker container.
 - **Pure-Python provisioner** — `src/meridian/provision/` executes deployment steps via SSH. Each step gets `(conn: ServerConnection, ctx: ProvisionContext)` and returns a `StepResult`.
 - **uTLS** — impersonates Chrome's TLS Client Hello fingerprint, making connections indistinguishable from real browser traffic.
@@ -19,14 +19,15 @@ Website: https://meridian.msu.rocks
 
 ### Standalone (no domain)
 
-HAProxy on port 443 routes by SNI. Caddy gets a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity) for hosting connection pages and the panel.
+HAProxy on port 443 routes by SNI. Caddy gets a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity) for hosting connection pages, the panel, and XHTTP transport (path-based routing through Caddy).
 
 ```
 User → Server:443 (HAProxy)
          ├─ SNI matches reality_sni → Xray:10443 (Reality)
          └─ SNI matches server IP   → Caddy:8443 (TLS, IP cert)
                                         ├─ /<info_page_path> → connection page
-                                        └─ /<web_base_path> → 3x-ui panel
+                                        ├─ /<web_base_path> → 3x-ui panel
+                                        └─ /<xhttp_path> → Xray XHTTP (localhost)
 ```
 
 - 3x-ui panel accessible via HTTPS at a secret path (reverse-proxied by Caddy)
@@ -42,6 +43,7 @@ User → Server:443 (HAProxy)
          └─ SNI matches domain     → Caddy:8443 (TLS)
                                         ├─ /<info_page_path> → connection page
                                         ├─ /<web_base_path> → 3x-ui panel
+                                        ├─ /<xhttp_path> → Xray XHTTP (localhost)
                                         └─ /ws-path   → Xray WSS (CDN fallback)
 ```
 
@@ -99,10 +101,11 @@ Global flag: `--server NAME` targets a specific named server (works with most co
 | 80 | Caddy (ACME challenges) | All modes |
 | 10443 | Xray (Reality, internal) | All modes |
 | 8443 | Caddy (TLS, internal) | All modes |
-| XHTTP port* | Xray (XHTTP, direct) | When XHTTP enabled |
+| XHTTP port | Xray (XHTTP, localhost only) | When XHTTP enabled |
+| WSS port | Xray (WSS, localhost only) | Domain mode |
 | 2053 | 3x-ui panel (localhost) | All modes |
 
-*XHTTP port is deterministic: `30000 + hash(ip) % 10000`
+XHTTP and WSS inbound ports are internal (localhost only) — Caddy reverse-proxies to them via path-based routing on port 443. No extra external ports are exposed.
 
 ## Client Apps
 
@@ -135,19 +138,15 @@ Internet
 │  │ SNI = server IP              │    │
 │  │  → Port 8443: Caddy (TLS)   │    │
 │  │     ├─ /info-path → page    │    │
-│  │     └─ /panel-path → 3x-ui  │    │
+│  │     ├─ /panel-path → 3x-ui  │    │
+│  │     └─ /xhttp-path → Xray   │    │
 │  └──────────────────────────────┘    │
 │                                      │
 │  Port 80: Caddy (ACME challenges)    │
 │                                      │
-│  Port XHTTP (random)                 │
-│  ┌────────────────────────────┐      │
-│  │  └─ Xray (Reality XHTTP)  │      │
-│  └────────────────────────────┘      │
-│                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
-│  └─ XHTTP inbound (random port)     │
+│  └─ XHTTP inbound (localhost port)   │
 │                                      │
 │  Caddy (systemd)                     │
 │  └─ IP cert via Let's Encrypt        │
@@ -158,7 +157,7 @@ Internet
 └──────────────────────────────────────┘
 ```
 
-Note: In standalone mode, Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. XHTTP uses a separate deterministic port (`30000 + hash(ip) % 10000`) because 3x-ui rejects duplicate ports.
+Note: In standalone mode, Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. XHTTP runs on a localhost-only port and is reverse-proxied by Caddy via path-based routing on port 443 — no extra external port is exposed.
 
 ### Domain Mode
 
@@ -178,6 +177,7 @@ Internet
 │  │  → Port 8443: Caddy (TLS)   │    │
 │  │     ├─ /info-path → page    │    │
 │  │     ├─ /panel-path → 3x-ui  │    │
+│  │     ├─ /xhttp-path → Xray   │    │
 │  │     └─ /ws-path → Xray WSS  │    │
 │  └──────────────────────────────┘    │
 │                                      │
@@ -185,8 +185,8 @@ Internet
 │                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
-│  ├─ XHTTP inbound (random port)     │
-│  └─ WSS inbound (random port, local) │
+│  ├─ XHTTP inbound (localhost port)   │
+│  └─ WSS inbound (localhost port)     │
 │                                      │
 │  Caddy (systemd)                     │
 │  └─ Auto TLS via Let's Encrypt       │
@@ -230,6 +230,7 @@ Caddy handles:
 - Auto-TLS certificate (domain cert or Let's Encrypt IP cert via ACME `shortlived` profile)
 - Reverse proxy for the 3x-ui panel (at a random web base path)
 - Connection info page serving (hosted pages with shareable URLs)
+- Reverse proxy for XHTTP traffic to Xray (path-based routing, all modes when XHTTP enabled)
 - Reverse proxy for WSS traffic to Xray (domain mode only)
 
 ## Provisioning Step Pipeline
@@ -243,13 +244,13 @@ Steps execute sequentially via `build_setup_steps()`. Each step gets `(conn, ctx
 | 3 | `SetTimezone` | `common.py` | Set server timezone to UTC |
 | 4 | `HardenSSH` | `common.py` | Disable password auth, harden SSH config |
 | 5 | `ConfigureBBR` | `common.py` | Enable TCP BBR congestion control |
-| 6 | `ConfigureFirewall` | `common.py` | UFW deny-all + allow 22, 80, 443, XHTTP port |
+| 6 | `ConfigureFirewall` | `common.py` | UFW deny-all + allow 22, 80, 443 |
 | 7 | `InstallDocker` | `docker.py` | Install Docker CE |
 | 8 | `Deploy3xui` | `docker.py` | Deploy 3x-ui Docker container |
 | 9 | `ConfigurePanel` | `panel.py` | Set panel credentials, web base path, settings |
 | 10 | `LoginToPanel` | `panel.py` | Authenticate to 3x-ui API |
 | 11 | `CreateRealityInbound` | `xray.py` | Create VLESS+Reality inbound on port 10443 |
-| 12 | `CreateXHTTPInbound` | `xray.py` | Create VLESS+Reality+XHTTP inbound (if enabled) |
+| 12 | `CreateXHTTPInbound` | `xray.py` | Create VLESS+XHTTP inbound on localhost (routed via Caddy) |
 | 13 | `CreateWSSInbound` | `xray.py` | Create VLESS+WSS inbound (domain mode only) |
 | 14 | `VerifyXray` | `xray.py` | Verify Xray is running with correct config |
 | 15 | `InstallHAProxy` | `services.py` | Install and configure HAProxy SNI routing |
@@ -368,9 +369,9 @@ Add --ai to preflight or doctor for an AI-ready prompt.
 
 ### XHTTP inbound creation fails (port already exists)
 
-**Cause:** In standalone mode, both Reality TCP and XHTTP tried to bind port 443. 3x-ui rejects duplicate ports.
+**Cause:** In older versions (pre-v3.6.0), both Reality TCP and XHTTP tried to bind port 443 or used a separate external port. 3x-ui rejects duplicate ports.
 
-**Fix:** Fixed in v1.2.1. XHTTP now uses a separate dedicated port (`xhttp_port` variable). The port is deterministic (seeded by hostname) and automatically opened in UFW.
+**Fix:** Update to v3.6.0+. XHTTP now runs on a localhost-only port and is routed through Caddy via path-based routing on port 443. No extra external port is needed.
 
 ### Docker installation fails
 

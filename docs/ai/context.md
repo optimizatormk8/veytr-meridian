@@ -10,7 +10,7 @@ Website: https://meridian.msu.rocks
 - **VLESS+Reality** (Xray-core) — proxy protocol that impersonates a legitimate TLS website. Censors probing the server see a real certificate (e.g., from microsoft.com). Only clients with the correct private key can connect.
 - **3x-ui** — web panel for managing Xray, deployed as a Docker container. Meridian controls it entirely via REST API.
 - **HAProxy** — TCP-level SNI router on port 443 in all modes. Routes traffic by SNI hostname without terminating TLS.
-- **Caddy** — reverse proxy with automatic TLS in all modes. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection info pages, reverse-proxies the 3x-ui panel, and (in domain mode) proxies WSS traffic.
+- **Caddy** — reverse proxy with automatic TLS in all modes. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection info pages, reverse-proxies the 3x-ui panel, and proxies both XHTTP (path-based routing) and WSS (domain mode) traffic to Xray.
 - **Docker** — runs 3x-ui (which contains Xray). All proxy traffic flows through the Docker container.
 - **Pure-Python provisioner** — `src/meridian/provision/` executes deployment steps via SSH. Each step gets `(conn: ServerConnection, ctx: ProvisionContext)` and returns a `StepResult`.
 - **uTLS** — impersonates Chrome's TLS Client Hello fingerprint, making connections indistinguishable from real browser traffic.
@@ -19,14 +19,15 @@ Website: https://meridian.msu.rocks
 
 ### Standalone (no domain)
 
-HAProxy on port 443 routes by SNI. Caddy gets a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity) for hosting connection pages and the panel.
+HAProxy on port 443 routes by SNI. Caddy gets a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity) for hosting connection pages, the panel, and XHTTP transport (path-based routing through Caddy).
 
 ```
 User → Server:443 (HAProxy)
          ├─ SNI matches reality_sni → Xray:10443 (Reality)
          └─ SNI matches server IP   → Caddy:8443 (TLS, IP cert)
                                         ├─ /<info_page_path> → connection page
-                                        └─ /<web_base_path> → 3x-ui panel
+                                        ├─ /<web_base_path> → 3x-ui panel
+                                        └─ /<xhttp_path> → Xray XHTTP (localhost)
 ```
 
 - 3x-ui panel accessible via HTTPS at a secret path (reverse-proxied by Caddy)
@@ -42,6 +43,7 @@ User → Server:443 (HAProxy)
          └─ SNI matches domain     → Caddy:8443 (TLS)
                                         ├─ /<info_page_path> → connection page
                                         ├─ /<web_base_path> → 3x-ui panel
+                                        ├─ /<xhttp_path> → Xray XHTTP (localhost)
                                         └─ /ws-path   → Xray WSS (CDN fallback)
 ```
 
@@ -99,10 +101,11 @@ Global flag: `--server NAME` targets a specific named server (works with most co
 | 80 | Caddy (ACME challenges) | All modes |
 | 10443 | Xray (Reality, internal) | All modes |
 | 8443 | Caddy (TLS, internal) | All modes |
-| XHTTP port* | Xray (XHTTP, direct) | When XHTTP enabled |
+| XHTTP port | Xray (XHTTP, localhost only) | When XHTTP enabled |
+| WSS port | Xray (WSS, localhost only) | Domain mode |
 | 2053 | 3x-ui panel (localhost) | All modes |
 
-*XHTTP port is deterministic: `30000 + hash(ip) % 10000`
+XHTTP and WSS inbound ports are internal (localhost only) — Caddy reverse-proxies to them via path-based routing on port 443. No extra external ports are exposed.
 
 ## Client Apps
 

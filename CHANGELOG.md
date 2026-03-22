@@ -4,6 +4,26 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.6.0] - 2026-03-22
+
+### Changed
+- **BREAKING:** XHTTP now routed through port 443 via Caddy (no extra port exposed)
+  - URLs simplified: `security=tls`, path-based routing, no Reality params
+  - Old XHTTP URLs (with separate port + Reality) no longer work
+  - XHTTP remains enabled by default — it's now a free fallback with zero cost
+- Deploy wizard redesigned with protocol explanation, Rich Panel summary
+- Inline SNI scan: wizard offers to scan for optimal camouflage target (~30s)
+- "Camouflage target" terminology replaces "SNI" in user-facing text
+- Flag descriptions improved for non-VPN-expert users
+
+### Added
+- `scan_for_sni()` extracted as reusable function for wizard integration
+- `xhttp_path` field in credentials (random 16-char path for Caddy routing)
+- Caddy reverse proxy for XHTTP in both IP and domain modes
+
+### Fixed
+- XHTTP no longer opens external firewall port (localhost-only)
+
 ## [3.5.0] - 2026-03-22
 
 ### Added

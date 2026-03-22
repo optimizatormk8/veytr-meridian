@@ -94,7 +94,7 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 | `meridian update` | Update CLI |
 | `meridian --version` | Show installed version |
 
-**Setup flags**: `--domain DOMAIN`, `--sni HOST`, `--xhttp/--no-xhttp` (default: enabled), `--email EMAIL`, `--name NAME`, `--user USER`, `--yes`
+**Setup flags**: `--domain DOMAIN`, `--sni HOST`, `--no-xhttp` (XHTTP enabled by default), `--email EMAIL`, `--name NAME`, `--user USER`, `--yes`
 
 **Global flag**: `--server NAME` — target a specific named server (works with most commands)
 
@@ -102,7 +102,7 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 
 <img src="docs/img/architecture.png" width="720" alt="Meridian architecture">
 
-**Standalone mode** — HAProxy on port 443 routes Reality traffic to Xray. Caddy provides auto-TLS (Let's Encrypt IP certificate) for hosted connection pages and panel access. No domain needed.
+**Standalone mode** — HAProxy on port 443 routes Reality traffic to Xray. Caddy provides auto-TLS (Let's Encrypt IP certificate) for hosted connection pages, panel access, and XHTTP transport. No domain needed.
 
 **Domain mode** — Same architecture, plus Caddy handles VLESS+WSS through Cloudflare CDN as a fallback when the server IP is blocked.
 

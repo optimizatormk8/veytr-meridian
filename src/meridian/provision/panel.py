@@ -104,6 +104,7 @@ class ConfigurePanel:
         web_base_path = _random_lower_digits(24)
         info_page_path = _random_lower_digits(24)
         ws_path = _random_lower_digits(16)
+        xhttp_path = _random_lower_digits(16)
 
         # -- Discover Xray binary path --
         xray_bin = _discover_xray_binary(conn)
@@ -137,6 +138,7 @@ class ConfigurePanel:
         creds.reality.short_id = short_id
         creds.wss.uuid = wss_uuid
         creds.wss.ws_path = ws_path
+        creds.xhttp.xhttp_path = xhttp_path
 
         # Track first client
         from meridian.credentials import ClientEntry
@@ -177,6 +179,7 @@ class ConfigurePanel:
         ctx["web_base_path"] = web_base_path
         ctx["info_page_path"] = info_page_path
         ctx["ws_path"] = ws_path
+        ctx["xhttp_path"] = xhttp_path
         ctx["reality_uuid"] = reality_uuid
         ctx["reality_private_key"] = private_key
         ctx["reality_public_key"] = public_key

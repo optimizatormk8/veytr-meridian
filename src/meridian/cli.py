@@ -59,14 +59,28 @@ def main_callback(
 @app.command("deploy")
 def deploy_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
-    domain: str = typer.Option("", "--domain", "-d", help="Add CDN fallback via Cloudflare"),
-    email: str = typer.Option("", "--email", help="Email for TLS certificates (optional)"),
-    sni: str = typer.Option("", "--sni", "-s", help="Reality camouflage target"),
-    xhttp: bool = typer.Option(True, "--xhttp/--no-xhttp", help="XHTTP transport (on by default)"),
-    name: str = typer.Option("", "--name", help="Name the first client"),
-    user: str = typer.Option("root", "--user", "-u", help="SSH user"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Skip prompts"),
-    server: str = typer.Option("", "--server", help="Target server (name or IP) for re-runs"),
+    domain: str = typer.Option(
+        "",
+        "--domain",
+        "-d",
+        help="CDN fallback via Cloudflare (guide: meridian.msu.rocks/cloudflare)",
+    ),
+    email: str = typer.Option("", "--email", help="Email for TLS certificate notifications"),
+    sni: str = typer.Option(
+        "",
+        "--sni",
+        "-s",
+        help="Camouflage target (default: www.microsoft.com). Use 'meridian scan' for optimal",
+    ),
+    xhttp: bool = typer.Option(
+        True,
+        "--xhttp/--no-xhttp",
+        help="XHTTP fallback transport (on by default, routed through port 443)",
+    ),
+    name: str = typer.Option("", "--name", help="Name for the first client (default: 'default')"),
+    user: str = typer.Option("root", "--user", "-u", help="SSH user on the server"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip all prompts (use defaults)"),
+    server: str = typer.Option("", "--server", help="Target server name or IP (for re-deploys)"),
 ) -> None:
     """Deploy a VLESS+Reality proxy server. Interactive wizard if no IP provided.
 
@@ -74,6 +88,7 @@ def deploy_cmd(
       [cyan]meridian deploy[/cyan]                          Interactive wizard
       [cyan]meridian deploy 1.2.3.4[/cyan]                  Deploy with defaults
       [cyan]meridian deploy 1.2.3.4 --domain d.io[/cyan]    CDN fallback via Cloudflare
+      [cyan]meridian deploy 1.2.3.4 --no-xhttp[/cyan]       Reality only, no XHTTP
     """
     from meridian.commands.setup import run
 

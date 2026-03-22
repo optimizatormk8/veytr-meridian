@@ -87,6 +87,7 @@ def build_vless_urls(
     short_id = creds.reality.short_id or ""
     domain = creds.server.domain or ""
     ws_path = creds.wss.ws_path or ""
+    xhttp_path = creds.xhttp.xhttp_path or ""
 
     reality_kwargs = {
         "ip": ip,
@@ -101,11 +102,17 @@ def build_vless_urls(
     reality_url = reality_proto.build_url(reality_uuid, name, **reality_kwargs)
 
     xhttp_url = ""
-    if xhttp_port > 0:
+    if xhttp_path or xhttp_port > 0:
         xhttp_proto = get_protocol("xhttp")
         if xhttp_proto is None:
             raise ValueError("XHTTP protocol not registered -- this is a bug")
-        xhttp_url = xhttp_proto.build_url(reality_uuid, name, port=xhttp_port, **reality_kwargs)
+        xhttp_url = xhttp_proto.build_url(
+            reality_uuid,
+            name,
+            ip=ip,
+            xhttp_path=xhttp_path,
+            domain=domain,
+        )
 
     wss_url = ""
     if domain and wss_uuid:

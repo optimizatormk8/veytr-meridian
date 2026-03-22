@@ -290,18 +290,6 @@ class ConfigureFirewall:
             if result.returncode == 0 and "Skipping" not in result.stdout and "Could not" not in result.stdout:
                 changed = True
 
-        # XHTTP: allow dedicated port
-        if ctx.xhttp_enabled and ctx.xhttp_port > 0:
-            result = conn.run(f"ufw allow {ctx.xhttp_port}/tcp", timeout=10)
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"failed to allow XHTTP port: {result.stderr.strip()[:200]}",
-                )
-            if "Skipping" not in result.stdout:
-                changed = True
-
         # Set default policies and enable
         conn.run("ufw default deny incoming", timeout=10)
         conn.run("ufw default allow outgoing", timeout=10)
