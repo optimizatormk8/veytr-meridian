@@ -178,19 +178,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [python-test, python-lint]
     timeout-minutes: 15
-
-  website:
-    name: Website Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Build Astro site
-        run: cd website && npm ci && npm run build
     steps:
       - uses: actions/checkout@v5
 
@@ -211,3 +198,16 @@ jobs:
         run: |
           docker rm -f 3x-ui 2>/dev/null || true
           docker compose -f tests/e2e/docker-compose.e2e.yml down -v
+
+  website:
+    name: Website Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build Astro site
+        run: cd website && npm ci && npm run build
