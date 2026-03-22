@@ -1,4 +1,7 @@
 ---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
 interface Props {
   title: string;
   description?: string;
@@ -51,7 +54,9 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
+    <Nav />
     <slot />
+    <Footer />
   </body>
 </html>
 

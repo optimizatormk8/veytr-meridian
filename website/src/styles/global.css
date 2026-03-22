@@ -1,6 +1,6 @@
 /*
  * Meridian Global Styles
- * Reset, base typography, utility classes, accessibility, focus states.
+ * Reset, base typography, grid background, accessibility.
  */
 
 @import './tokens.css';
@@ -21,8 +21,14 @@ body {
   font-family: var(--sans);
   background: var(--bg);
   color: var(--t1);
-  line-height: 1.6;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Subtle crosshair grid */
+  background-image:
+    radial-gradient(circle at center, var(--b1) 0.5px, transparent 0.5px);
+  background-size: 32px 32px;
+  background-position: center;
 }
 
 ::selection {
@@ -30,7 +36,7 @@ body {
   color: var(--bg);
 }
 
-/* Focus states (accessibility) */
+/* Focus states */
 button:focus-visible,
 input:focus-visible,
 a:focus-visible,
@@ -48,11 +54,11 @@ details summary:focus-visible {
   color: var(--bg);
   padding: 8px 16px;
   border-radius: var(--r);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
   z-index: 200;
-  transition: top 0.06s;
+  transition: top 0.1s;
 }
 .skip-link:focus {
   top: 16px;
@@ -60,52 +66,103 @@ details summary:focus-visible {
 
 /* RTL support */
 [dir="rtl"] pre,
-[dir="rtl"] code {
+[dir="rtl"] code,
+[dir="rtl"] .mono {
   direction: ltr;
   text-align: left;
   unicode-bidi: embed;
 }
 
-/* Responsive container */
+/* Container */
 .container {
-  max-width: 1100px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
+.container--wide {
+  max-width: 960px;
+}
+
 /* Section spacing */
 section {
-  padding: 80px 0;
+  padding: 72px 0;
+  position: relative;
 }
 
 /* Headings */
 h1, h2, h3 {
   font-family: var(--serif);
-  font-weight: 400;
-  line-height: 1.2;
+  font-weight: 500;
+  line-height: 1.15;
 }
 
 h1 {
-  font-size: clamp(2.4rem, 6vw, 3.8rem);
-  letter-spacing: -0.01em;
+  font-size: clamp(2.6rem, 7vw, 4.2rem);
+  letter-spacing: -0.02em;
 }
 
 h2 {
-  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-  margin-bottom: 12px;
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  letter-spacing: -0.01em;
 }
 
 h3 {
   font-size: clamp(1.1rem, 2vw, 1.3rem);
-  margin-bottom: 8px;
 }
 
 /* Links */
 a {
   color: var(--ac);
   text-decoration: none;
-  transition: color 0.06s;
+  transition: color 0.1s;
 }
 a:hover {
   color: var(--t1);
+}
+
+/* Section label — "coordinate" style */
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ac);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-label::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--ac);
+}
+
+/* Section description */
+.section-desc {
+  color: var(--t2);
+  font-size: 0.95rem;
+  max-width: 520px;
+  margin-bottom: 36px;
+  line-height: 1.65;
+}
+
+/* Horizontal rule */
+.hr {
+  border: none;
+  height: 1px;
+  background: var(--b1);
+  margin: 0;
+}
+
+/* RTL overrides */
+[dir="rtl"] .section-label {
+  flex-direction: row-reverse;
+}
+[dir="rtl"] .section-label::before {
+  /* same behavior, reversed by flex */
 }

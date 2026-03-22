@@ -1,0 +1,83 @@
+---
+/**
+ * Callout — note/warning callout box.
+ * Variants: 'note' (gold), 'warning' (amber), 'tip' (green), 'danger' (red).
+ */
+interface Props {
+  variant?: 'note' | 'warning' | 'tip' | 'danger';
+  icon?: string;
+}
+
+const { variant = 'note', icon } = Astro.props;
+
+const icons: Record<string, string> = {
+  note: '→',
+  warning: '⚠',
+  tip: '✓',
+  danger: '✕',
+};
+
+const displayIcon = icon ?? icons[variant];
+---
+
+<div class:list={['callout', `callout--${variant}`]}>
+  <span class="callout__icon" aria-hidden="true">{displayIcon}</span>
+  <div class="callout__content">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .callout {
+    border-radius: var(--r);
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 0.85rem;
+    display: flex;
+    gap: 10px;
+    line-height: 1.6;
+    border: 1px solid;
+  }
+
+  .callout--note {
+    background: var(--ac2);
+    border-color: #d4a24e30;
+    color: var(--ac);
+  }
+
+  .callout--warning {
+    background: #e8c85c10;
+    border-color: #e8c85c30;
+    color: var(--warn);
+  }
+
+  .callout--tip {
+    background: var(--ok2);
+    border-color: #5ce88e25;
+    color: var(--ok);
+  }
+
+  .callout--danger {
+    background: #f0606010;
+    border-color: #f0606030;
+    color: var(--err);
+  }
+
+  .callout__icon {
+    font-weight: 600;
+    flex-shrink: 0;
+    line-height: 1.6;
+  }
+
+  .callout__content {
+    flex: 1;
+  }
+
+  .callout__content :global(strong) {
+    font-weight: 500;
+  }
+
+  [dir="rtl"] .callout {
+    flex-direction: row-reverse;
+  }
+</style>

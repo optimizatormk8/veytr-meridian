@@ -1,0 +1,90 @@
+---
+/**
+ * AppGrid — client app download grid.
+ * App links MUST match those in connection-info.html.j2 (CI validates this).
+ */
+interface App {
+  name: string;
+  platform: string;
+  url: string;
+}
+
+const apps: App[] = [
+  {
+    name: 'v2RayTun',
+    platform: 'iOS',
+    url: 'https://apps.apple.com/app/v2raytun/id6476628951',
+  },
+  {
+    name: 'v2rayNG',
+    platform: 'Android',
+    url: 'https://github.com/2dust/v2rayNG/releases/latest',
+  },
+  {
+    name: 'Hiddify',
+    platform: 'All platforms',
+    url: 'https://github.com/hiddify/hiddify-app/releases/latest',
+  },
+  {
+    name: 'v2rayN',
+    platform: 'Windows',
+    url: 'https://github.com/2dust/v2rayN/releases/latest',
+  },
+];
+---
+
+<div class="app-grid">
+  {apps.map((app) => (
+    <a class="app-grid__item" href={app.url} target="_blank" rel="noopener">
+      <span class="app-grid__name">{app.name}</span>
+      <span class="app-grid__platform">{app.platform}</span>
+    </a>
+  ))}
+</div>
+
+<style>
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .app-grid__item {
+    background: var(--s1);
+    border: 1px solid var(--b1);
+    border-radius: var(--r);
+    padding: 16px 10px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--t1);
+    transition: border-color 0.1s, background 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .app-grid__item:hover {
+    border-color: var(--b2);
+    background: var(--s2);
+    color: var(--t1);
+  }
+
+  .app-grid__name {
+    font-size: 0.84rem;
+    font-weight: 500;
+  }
+
+  .app-grid__platform {
+    font-size: 0.68rem;
+    color: var(--t3);
+    font-family: var(--mono);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 540px) {
+    .app-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
