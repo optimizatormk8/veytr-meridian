@@ -1,0 +1,118 @@
+---
+title: مرجع CLI
+description: مرجع کامل برای تمام دستورات و پرچم‌های Meridian CLI.
+order: 8
+section: reference
+---
+
+## دستورات
+
+### meridian deploy
+
+نصب سرور proxy روی یک VPS.
+
+```
+meridian deploy [IP] [flags]
+```
+
+| پرچم | پیش‌فرض | توضیح |
+|------|---------|-------------|
+| `--sni HOST` | www.microsoft.com | سایتی که Reality تقلب می‌کند |
+| `--domain DOMAIN` | (none) | فعال کردن حالت دامنه با fallback CDN |
+| `--email EMAIL` | (none) | ایمیل برای گواهینامه‌های TLS |
+| `--xhttp / --no-xhttp` | enabled | پروتکل انتقال XHTTP |
+| `--name NAME` | default | نام برای اولین کلاینت |
+| `--user USER` | root | کاربر SSH |
+| `--yes` | | رد کردن تأیید‌های پیش |
+
+### meridian client
+
+مدیریت کلیدهای دسترسی کلاینت.
+
+```
+meridian client add NAME [--server NAME]
+meridian client list [--server NAME]
+meridian client remove NAME [--server NAME]
+```
+
+### meridian server
+
+مدیریت سرورهای شناخته‌شده.
+
+```
+meridian server add [IP]
+meridian server list
+meridian server remove NAME
+```
+
+### meridian preflight
+
+تأیید سرور قبل از نصب. SNI، پورت‌ها، DNS، OS، دیسک، ASN را بدون نصب هیچ چیز تست می‌کند.
+
+```
+meridian preflight [IP] [--ai] [--server NAME]
+```
+
+### meridian scan
+
+یافتن هدف‌های SNI بهینه روی شبکه سرور با استفاده از RealiTLScanner.
+
+```
+meridian scan [IP] [--server NAME]
+```
+
+### meridian test
+
+تست رسیدپذیری proxy از دستگاه کلاینت. SSH لازم نیست.
+
+```
+meridian test [IP] [--server NAME]
+```
+
+### meridian doctor
+
+جمع‌آوری تشخیص‌های سیستم برای اشکال‌زدایی. نام مستعار: `meridian rage`.
+
+```
+meridian doctor [IP] [--ai] [--server NAME]
+```
+
+### meridian teardown
+
+حذف proxy از سرور.
+
+```
+meridian teardown [IP] [--server NAME] [--yes]
+```
+
+### meridian update
+
+بروزرسانی CLI به آخرین نسخه.
+
+```
+meridian update
+```
+
+### meridian --version
+
+نمایش نسخه CLI.
+
+```
+meridian --version
+meridian -v
+```
+
+## پرچم‌های سراسری
+
+| پرچم | توضیح |
+|------|-------------|
+| `--server NAME` | هدف قرار دادن یک سرور نام‌گذاری شده خاص |
+
+## تعریف سرور
+
+دستوراتی که به سرور نیاز دارند این اولویت را دنبال می‌کنند:
+1. استدلال IP صریح
+2. پرچم `--server NAME`
+3. تشخیص حالت محلی (اجرا روی خود سرور)
+4. انتخاب خودکار سرور تک (اگر فقط یکی ذخیره شده باشد)
+5. درخواست تعاملی
