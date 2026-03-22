@@ -1,0 +1,73 @@
+---
+title: 部署指南
+description: 完整的部署演练，包括所有配置选项。
+order: 3
+section: guides
+---
+
+## 基本部署
+
+```
+meridian deploy 1.2.3.4
+```
+
+向导会指导您完成配置。或者预先指定所有内容：
+
+```
+meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
+```
+
+## 所有标志
+
+| 标志 | 默认值 | 说明 |
+|------|---------|-------------|
+| `--sni HOST` | www.microsoft.com | Reality 伪装的站点 |
+| `--domain DOMAIN` | （无） | 启用带有 CDN 回退的域名模式 |
+| `--email EMAIL` | （无） | TLS 证书的电子邮件（可选） |
+| `--xhttp / --no-xhttp` | 启用 | XHTTP 传输（通过 Caddy 的端口 443） |
+| `--name NAME` | default | 第一个客户端的名称 |
+| `--user USER` | root | SSH 用户（非 root 用户自动获得 sudo） |
+| `--yes` | | 跳过确认提示 |
+
+## 选择 SNI 目标
+
+SNI（服务器名称指示）目标是 Reality 伪装的域。默认值（`www.microsoft.com`）对大多数情况都适用。
+
+为了获得最佳隐身效果，扫描服务器网络以寻找相同 ASN 的目标：
+
+```
+meridian scan 1.2.3.4
+```
+
+**良好的目标**（全球 CDN）：
+- `www.microsoft.com` — Azure CDN，全球
+- `www.twitch.tv` — Fastly CDN，全球
+- `dl.google.com` — Google CDN，全球
+- `github.com` — Fastly CDN，全球
+
+**避免** `apple.com` 和 `icloud.com` — Apple 控制自己的 ASN 范围，使 IP/ASN 不匹配立即可被检测。
+
+## 部署前检查
+
+不确定您的服务器是否兼容？
+
+```
+meridian preflight 1.2.3.4
+```
+
+测试 SNI 目标可达性、ASN 匹配、端口可用性、DNS、操作系统兼容性和磁盘空间 — 无需安装任何内容。
+
+## 重新运行部署
+
+随时重新运行 `meridian deploy` 是安全的。预配程序是完全幂等的：
+- 凭证从缓存加载，不会重新生成
+- 步骤在执行前检查现有状态
+- 没有重复工作
+
+## 非 root 部署
+
+```
+meridian deploy 1.2.3.4 --user ubuntu
+```
+
+非 root 用户会自动获得 `sudo`。用户必须有无密码 sudo 访问权限。
