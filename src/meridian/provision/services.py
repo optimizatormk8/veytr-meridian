@@ -506,62 +506,68 @@ class InstallCaddy:
             if dns_result is not None:
                 return StepResult(name=self.name, status="failed", detail=dns_result)
 
-        # -- Install prerequisites --
-        result = conn.run(
-            "DEBIAN_FRONTEND=noninteractive apt-get install -y "
-            "debian-keyring debian-archive-keyring apt-transport-https curl dnsutils",
-            timeout=120,
-        )
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to install Caddy prerequisites: {result.stderr.strip()}",
-            )
+        # -- Check if Caddy is already installed --
+        check = conn.run("dpkg -l caddy 2>/dev/null | grep -q '^ii'", timeout=10)
+        already_installed = check.returncode == 0
 
-        # -- Add Caddy GPG key --
-        result = conn.run(
-            "curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key "
-            "-o /etc/apt/keyrings/caddy-stable.asc && "
-            "chmod 644 /etc/apt/keyrings/caddy-stable.asc",
-            timeout=30,
-        )
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to add Caddy GPG key: {result.stderr.strip()}",
+        if not already_installed:
+            # -- Install prerequisites --
+            result = conn.run(
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y "
+                "debian-keyring debian-archive-keyring apt-transport-https curl dnsutils",
+                timeout=120,
             )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"Failed to install Caddy prerequisites: {result.stderr.strip()}",
+                )
 
-        # -- Add Caddy apt repository --
-        repo_line = (
-            "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] "
-            "https://dl.cloudsmith.io/public/caddy/stable/deb/debian "
-            "any-version main"
-        )
-        q_repo = shlex.quote(repo_line)
-        result = conn.run(
-            f"echo {q_repo} > /etc/apt/sources.list.d/caddy-stable.list",
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to add Caddy repo: {result.stderr.strip()}",
+            # -- Add Caddy GPG key --
+            result = conn.run(
+                "curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key "
+                "-o /etc/apt/keyrings/caddy-stable.asc && "
+                "chmod 644 /etc/apt/keyrings/caddy-stable.asc",
+                timeout=30,
             )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"Failed to add Caddy GPG key: {result.stderr.strip()}",
+                )
 
-        # -- Install Caddy --
-        result = conn.run(
-            "DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y caddy",
-            timeout=120,
-        )
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to install Caddy: {result.stderr.strip()}",
+            # -- Add Caddy apt repository --
+            repo_line = (
+                "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] "
+                "https://dl.cloudsmith.io/public/caddy/stable/deb/debian "
+                "any-version main"
             )
+            q_repo = shlex.quote(repo_line)
+            result = conn.run(
+                f"echo {q_repo} > /etc/apt/sources.list.d/caddy-stable.list",
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"Failed to add Caddy repo: {result.stderr.strip()}",
+                )
+
+            # -- Install Caddy --
+            result = conn.run(
+                "DEBIAN_FRONTEND=noninteractive apt-get update && "
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y caddy",
+                timeout=120,
+            )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"Failed to install Caddy: {result.stderr.strip()}",
+                )
 
         # -- Create directories --
         conn.run(
