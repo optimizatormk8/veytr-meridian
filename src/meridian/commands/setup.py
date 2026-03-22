@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 import subprocess
 from pathlib import Path
 
@@ -106,6 +108,12 @@ def run(
                         sni = creds.server.scanned_sni
 
     # Route to legacy Ansible or new Python provisioner
+    if name and not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", name):
+        fail(
+            f"Client name '{name}' is invalid",
+            hint="Use letters, numbers, hyphens, and underscores.",
+            hint_type="user",
+        )
     _run_provisioner(resolved, domain, sni, name, xhttp)
 
     # Register server
@@ -298,8 +306,10 @@ def _run_provisioner(
 
     # Default panel port — 3x-ui starts on 2053. ConfigurePanel may change it later.
     ctx.panel_port = DEFAULT_PANEL_PORT
-    ctx.xhttp_port = 30000 + (hash(ctx.ip) % 10000)
-    ctx.reality_port = 443 if not ctx.needs_web_server else (10000 + hash(ctx.ip) % 1000)
+    # Deterministic port derivation (hashlib, not hash() which is randomized per process)
+    ip_hash = int(hashlib.sha256(ctx.ip.encode()).hexdigest()[:8], 16)
+    ctx.xhttp_port = 30000 + (ip_hash % 10000)
+    ctx.reality_port = 443 if not ctx.needs_web_server else (10000 + ip_hash % 1000)
 
     # Load existing credentials into context if available
     proxy_file = Path(ctx.creds_dir) / "proxy.yml"

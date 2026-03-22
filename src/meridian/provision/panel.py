@@ -253,11 +253,11 @@ def _discover_xray_binary(conn: ServerConnection) -> str:
     cmd = "docker exec 3x-ui sh -c 'ls /app/bin/xray-linux-* 2>/dev/null || which xray 2>/dev/null || echo NOT_FOUND'"
     result = conn.run(cmd, timeout=10)
     if result.returncode != 0:
-        raise RuntimeError(f"Failed to discover Xray binary: {result.stderr.strip()}")
+        raise PanelError(f"Failed to discover Xray binary: {result.stderr.strip()}")
 
     binary = result.stdout.strip().splitlines()[0]
     if "NOT_FOUND" in binary:
-        raise RuntimeError(
+        raise PanelError(
             "Xray binary not found in 3x-ui container. Try: docker exec 3x-ui find / -name 'xray*' -type f"
         )
     return binary
@@ -275,20 +275,20 @@ def _generate_x25519_keypair(conn: ServerConnection, xray_bin: str) -> tuple[str
     cmd = f"docker exec 3x-ui {q_bin} x25519"
     result = conn.run(cmd, timeout=10)
     if result.returncode != 0:
-        raise RuntimeError(f"x25519 key generation failed: {result.stderr.strip()}")
+        raise PanelError(f"x25519 key generation failed: {result.stderr.strip()}")
 
     output = result.stdout
     private_match = re.search(r"(?:Private key|PrivateKey):\s*(.+)", output)
     public_match = re.search(r"(?:Public key|Password):\s*(.+)", output)
 
     if not private_match or not public_match:
-        raise RuntimeError(f"Failed to parse x25519 output. Format may have changed.\nOutput: {output}")
+        raise PanelError(f"Failed to parse x25519 output. Format may have changed.\nOutput: {output}")
 
     private_key = private_match.group(1).strip()
     public_key = public_match.group(1).strip()
 
     if len(private_key) < 20 or len(public_key) < 20:
-        raise RuntimeError(
+        raise PanelError(
             f"x25519 keys are too short (private={len(private_key)}, "
             f"public={len(public_key)}). The Xray version may have changed the output format."
         )
@@ -302,11 +302,11 @@ def _generate_uuid(conn: ServerConnection, xray_bin: str) -> str:
     cmd = f"docker exec 3x-ui {q_bin} uuid"
     result = conn.run(cmd, timeout=10)
     if result.returncode != 0:
-        raise RuntimeError(f"UUID generation failed: {result.stderr.strip()}")
+        raise PanelError(f"UUID generation failed: {result.stderr.strip()}")
 
     uuid = result.stdout.strip()
     if not uuid:
-        raise RuntimeError("Xray uuid command returned empty output")
+        raise PanelError("Xray uuid command returned empty output")
     return uuid
 
 
@@ -382,7 +382,7 @@ def _apply_panel_settings(
     # Step 4: Restart container to apply webBasePath
     result = conn.run("docker restart 3x-ui", timeout=30)
     if result.returncode != 0:
-        raise RuntimeError(f"Failed to restart 3x-ui: {result.stderr.strip()}")
+        raise PanelError(f"Failed to restart 3x-ui: {result.stderr.strip()}")
 
     # Step 5: Wait for panel to come back up
     _wait_for_panel(conn, panel_port, web_base_path)
@@ -421,6 +421,6 @@ def _wait_for_panel(
             return
         time.sleep(delay)
 
-    raise RuntimeError(
+    raise PanelError(
         f"Panel did not become responsive after {retries * delay:.0f}s. Check: docker logs 3x-ui --tail 30"
     )

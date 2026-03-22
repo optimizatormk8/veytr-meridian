@@ -341,7 +341,7 @@ def _render_template(
         try:
             from jinja2 import BaseLoader, Environment
 
-            env = Environment(loader=BaseLoader(), autoescape=False)
+            env = Environment(loader=BaseLoader(), autoescape=True)
 
             def default_filter(value: object, default_value: object = "") -> object:
                 if value is None or value == "":

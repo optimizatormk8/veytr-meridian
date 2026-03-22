@@ -77,8 +77,9 @@ def run(
     sni_ip = sni_ip_result.stdout.strip()
 
     if server_org and sni_ip and sni_ip[0].isdigit():
+        q_sni_ip = shlex.quote(sni_ip)
         sni_org_result = resolved.conn.run(
-            f"curl -s --max-time 5 https://ipinfo.io/{sni_ip}/org 2>/dev/null",
+            f"curl -s --max-time 5 https://ipinfo.io/{q_sni_ip}/org 2>/dev/null",
             timeout=10,
         )
         sni_org = sni_org_result.stdout.strip()

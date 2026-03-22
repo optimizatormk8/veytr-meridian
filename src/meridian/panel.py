@@ -164,9 +164,12 @@ class PanelClient:
 
         IMPORTANT: Use the UUID-based endpoint, NOT email-based deletion.
         Email-based deletion silently succeeds but doesn't actually delete.
+
+        Note: UUID is not shlex-quoted here because it's part of the URL path
+        and the outer api_post_empty already quotes the full URL for shell safety.
+        UUIDs contain only hex chars and hyphens, so no URL encoding is needed.
         """
-        q_uuid = shlex.quote(client_uuid)
-        path = f"/panel/api/inbounds/{inbound_id}/delClient/{q_uuid}"
+        path = f"/panel/api/inbounds/{inbound_id}/delClient/{client_uuid}"
         data = self.api_post_empty(path)
         if not data.get("success"):
             raise PanelError(f"Remove client failed: {data.get('msg', 'unknown error')}")
