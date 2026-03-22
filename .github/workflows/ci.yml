@@ -209,4 +209,4 @@ jobs:
           cache-dependency-path: website/package-lock.json
 
       - name: Build Astro site
-        run: cd website && npm ci && npm run build
+        run: cd website && npm ci && npx playwright install --with-deps chromium && npm run build

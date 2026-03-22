@@ -36,6 +36,14 @@
   --warn: #C8933A;
   --warn2: #C8933A10;
 
+  /* Protocol card colors (connection page) */
+  --blue: #2b7de9;
+  --blue-bg: #2b7de90a;
+  --blue-br: #2b7de925;
+  --amber: #c4882a;
+  --amber-bg: #c4882a0a;
+  --amber-br: #c4882a25;
+
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(26, 29, 46, 0.04);
   --shadow-md: 0 2px 8px rgba(26, 29, 46, 0.06);
@@ -78,6 +86,12 @@
     --err2: #F0606014;
     --warn: #D4A24E;
     --warn2: #D4A24E14;
+    --blue: #5b9cf5;
+    --blue-bg: #5b9cf512;
+    --blue-br: #5b9cf530;
+    --amber: #e5a44e;
+    --amber-bg: #e5a44e12;
+    --amber-br: #e5a44e30;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.25);
     --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.3);

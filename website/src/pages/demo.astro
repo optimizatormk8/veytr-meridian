@@ -82,7 +82,7 @@ import Base from '../layouts/Base.astro';
         <p>Your device clock must be accurate within 30 seconds. Go to Settings > Date & Time > enable "Set Automatically".</p>
       </div>
 
-      <div class="demo-warn" style="border-color: #d4a24e33; background: #d4a24e08;">
+      <div class="demo-warn">
         <h3>Not connecting?</h3>
         <p>Test if the server is reachable: <a href="/ping/">Run ping test</a></p>
       </div>
@@ -201,8 +201,8 @@ import Base from '../layouts/Base.astro';
     right: 0;
     height: 2px;
   }
-  .demo-card-blue::before { background: #5b9cf5; }
-  .demo-card-amber::before { background: #e5a44e; }
+  .demo-card-blue::before { background: var(--blue); }
+  .demo-card-amber::before { background: var(--amber); }
   .demo-card-label {
     display: inline-flex;
     align-items: center;
@@ -213,16 +213,16 @@ import Base from '../layouts/Base.astro';
     text-transform: uppercase;
     margin-bottom: 12px;
   }
-  .demo-card-blue .demo-card-label { color: #5b9cf5; }
-  .demo-card-amber .demo-card-label { color: #e5a44e; }
+  .demo-card-blue .demo-card-label { color: var(--blue); }
+  .demo-card-amber .demo-card-label { color: var(--amber); }
   .demo-dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
     display: inline-block;
   }
-  .demo-dot-blue { background: #5b9cf5; }
-  .demo-dot-amber { background: #e5a44e; }
+  .demo-dot-blue { background: var(--blue); }
+  .demo-dot-amber { background: var(--amber); }
   .demo-card-rec {
     background: var(--ok);
     color: var(--bg);
@@ -255,8 +255,8 @@ import Base from '../layouts/Base.astro';
     letter-spacing: -0.01em;
     color: #fff;
   }
-  .demo-open-blue { background: #5b9cf5; }
-  .demo-open-amber { background: #e5a44e; }
+  .demo-open-blue { background: var(--blue); }
+  .demo-open-amber { background: var(--amber); }
   .demo-qr {
     text-align: center;
     margin: 16px 0;
@@ -303,8 +303,8 @@ import Base from '../layouts/Base.astro';
     color: var(--t1);
   }
   .demo-app.detected {
-    border-color: #5b9cf5;
-    background: #5b9cf510;
+    border-color: var(--blue);
+    background: var(--blue-bg);
   }
   .demo-app span {
     font-size: 0.68rem;
@@ -343,15 +343,15 @@ import Base from '../layouts/Base.astro';
     margin-top: 1px;
   }
   .demo-warn {
-    background: #e8c85c10;
-    border: 1px solid #e8c85c30;
+    background: var(--warn2);
+    border: 1px solid var(--amber-br);
     border-radius: var(--r2);
     padding: 16px;
     margin-top: 14px;
   }
   .demo-warn h3 {
     font-size: 0.82rem;
-    color: #e5a44e;
+    color: var(--amber);
     margin-bottom: 4px;
     font-weight: 600;
     font-family: var(--sans);
