@@ -22,7 +22,7 @@ def run(
     domain: str = "",
     email: str = "",
     sni: str = "",
-    xhttp: bool = False,
+    xhttp: bool = True,
     name: str = "",
     user: str = "root",
     yes: bool = False,
@@ -92,7 +92,7 @@ def run(
         if suggested_domain:
             err_console.print(f"  [dim]Detected: {suggested_domain}[/dim]")
 
-        domain = prompt("Domain", default=suggested_domain or "skip")
+        domain = prompt("Domain (optional, leave blank for standalone)", default=suggested_domain or "")
         if domain in ("skip", ""):
             domain = ""
 
@@ -107,6 +107,9 @@ def run(
         else:
             err_console.print("  Domain:  [dim](none)[/dim]")
             err_console.print("  Mode:    Standalone (Reality only)")
+        sni_display = sni or DEFAULT_SNI
+        err_console.print(f"  SNI:     {sni_display}")
+        err_console.print(f"  XHTTP:   {'enabled' if xhttp else 'disabled'}")
         err_console.print()
         line()
 

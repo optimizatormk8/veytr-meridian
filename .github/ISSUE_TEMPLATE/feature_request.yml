@@ -23,6 +23,7 @@ body:
       options:
         - CLI (meridian)
         - Provisioning engine
+        - Client management
         - Connection info page
         - Website (meridian.msu.rocks)
         - Documentation

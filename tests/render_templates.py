@@ -144,6 +144,7 @@ for tpl_dir, tpl_name in TEMPLATES:
         env.filters["lower"] = lambda x: str(x).lower()
         env.filters["upper"] = lambda x: str(x).upper()
         env.filters["to_json"] = lambda x: str(x)
+        env.filters["capitalize"] = lambda x: str(x).capitalize()
         # Register Jinja2 tests
         env.tests["defined"] = lambda x: not isinstance(x, Undefined)
         env.tests["undefined"] = lambda x: isinstance(x, Undefined)

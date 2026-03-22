@@ -9,8 +9,8 @@ Website: https://meridian.msu.rocks
 
 - **VLESS+Reality** (Xray-core) — proxy protocol that impersonates a legitimate TLS website. Censors probing the server see a real certificate (e.g., from microsoft.com). Only clients with the correct private key can connect.
 - **3x-ui** — web panel for managing Xray, deployed as a Docker container. Meridian controls it entirely via REST API.
-- **HAProxy** — TCP-level SNI router (domain mode only). Routes traffic on port 443 by SNI hostname without terminating TLS.
-- **Caddy** — reverse proxy with automatic Let's Encrypt TLS (domain mode only). Serves the connection info page and proxies WSS traffic.
+- **HAProxy** — TCP-level SNI router on port 443 in all modes. Routes traffic by SNI hostname without terminating TLS.
+- **Caddy** — reverse proxy with automatic TLS in all modes. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection info pages, reverse-proxies the 3x-ui panel, and (in domain mode) proxies WSS traffic.
 - **Docker** — runs 3x-ui (which contains Xray). All proxy traffic flows through the Docker container.
 - **Pure-Python provisioner** — `src/meridian/provision/` executes deployment steps via SSH. Each step gets `(conn: ServerConnection, ctx: ProvisionContext)` and returns a `StepResult`.
 - **uTLS** — impersonates Chrome's TLS Client Hello fingerprint, making connections indistinguishable from real browser traffic.
@@ -19,30 +19,35 @@ Website: https://meridian.msu.rocks
 
 ### Standalone (no domain)
 
-Simplest mode. Xray listens directly on port 443.
+HAProxy on port 443 routes by SNI. Caddy gets a Let's Encrypt IP certificate (ACME `shortlived` profile, 6-day validity) for hosting connection pages and the panel.
 
 ```
-User → Server:443 (VLESS+Reality) → Internet
+User → Server:443 (HAProxy)
+         ├─ SNI matches reality_sni → Xray:10443 (Reality)
+         └─ SNI matches server IP   → Caddy:8443 (TLS, IP cert)
+                                        ├─ /<info_page_path> → connection page
+                                        └─ /<web_base_path> → 3x-ui panel
 ```
 
-- 3x-ui panel accessible via SSH tunnel only (binds to localhost)
-- Connection info saved as local HTML file with QR codes
+- 3x-ui panel accessible via HTTPS at a secret path (reverse-proxied by Caddy)
+- Connection info page hosted on the server with shareable URLs
 
 ### Domain Mode
 
-Adds CDN fallback and a hosted connection page. HAProxy on port 443 routes by SNI:
+Adds CDN fallback via Cloudflare. HAProxy on port 443 routes by SNI:
 
 ```
 User → Server:443 (HAProxy)
          ├─ SNI matches reality_sni → Xray:10443 (Reality)
          └─ SNI matches domain     → Caddy:8443 (TLS)
-                                        ├─ /connection → info page
+                                        ├─ /<info_page_path> → connection page
+                                        ├─ /<web_base_path> → 3x-ui panel
                                         └─ /ws-path   → Xray WSS (CDN fallback)
 ```
 
-- Caddy handles TLS automatically via Let's Encrypt
+- Caddy handles TLS automatically via Let's Encrypt (domain certificate)
 - VLESS+WSS routed through Cloudflare CDN as IP-blocking fallback
-- Connection info page hosted on the server at `https://domain/connection`
+- Connection info page hosted on the server at `https://domain/<info_page_path>/<uuid>/`
 
 ## CLI Commands
 
@@ -51,23 +56,23 @@ meridian setup [IP] [flags]     Deploy proxy server
   --domain DOMAIN               Enable domain mode with CDN fallback
   --email EMAIL                 Email for TLS certificates (optional)
   --sni HOST                    Reality SNI target (default: www.microsoft.com)
-  --xhttp                       Add XHTTP transport (enhanced behavioral stealth)
+  --xhttp / --no-xhttp          XHTTP transport (default: enabled)
   --name NAME                   Name for the first client
   --user USER                   SSH user (default: root)
   --yes                         Skip confirmation prompts
 
-meridian client add|list|remove NAME    Manage client access keys
+meridian client add|list|remove NAME    Manage client access keys (--server NAME)
 meridian server add|list|remove         Manage known servers
-meridian check [IP] [--ai]              Pre-flight server validation + ASN check
-meridian scan [IP]                      Find optimal SNI targets on server's network
-meridian ping [IP]                      Test proxy reachability from client device
-meridian diagnostics [IP] [--ai]        Collect system info for debugging
-meridian uninstall [IP]                 Remove proxy from server
+meridian check [IP] [--ai] [--server NAME]      Pre-flight server validation + ASN check
+meridian scan [IP] [--server NAME]               Find optimal SNI targets on server's network
+meridian ping [IP] [--server NAME]               Test proxy reachability from client device
+meridian diagnostics [IP] [--ai] [--server NAME] Collect system info for debugging
+meridian uninstall [IP] [--server NAME]          Remove proxy from server
 meridian self-update                    Update CLI to latest version
 meridian version                        Show version
 ```
 
-Global flag: `--server NAME` targets a specific named server.
+Global flag: `--server NAME` targets a specific named server (works with most commands).
 
 ## Credential & State Management
 
@@ -82,19 +87,22 @@ Global flag: `--server NAME` targets a specific named server.
 | Path | Purpose |
 |------|---------|
 | `/etc/meridian/proxy.yml` | Saved credentials (panel login, keys, UUIDs, client list) |
-| `/etc/caddy/conf.d/meridian.caddy` | Caddy config (domain mode) |
-| `/etc/haproxy/haproxy.cfg` | HAProxy SNI routing config (domain mode) |
+| `/etc/caddy/conf.d/meridian.caddy` | Caddy config (all modes) |
+| `/etc/haproxy/haproxy.cfg` | HAProxy SNI routing config (all modes) |
 | Docker container `3x-ui` | Xray + 3x-ui panel (all modes) |
 
 ## Port Assignments
 
 | Port | Service | Mode |
 |------|---------|------|
-| 443 | Xray (Reality) | Standalone |
-| 443 | HAProxy (SNI router) | Domain |
-| 10443 | Xray (Reality, internal) | Domain |
-| 8443 | Caddy (TLS, internal) | Domain |
+| 443 | HAProxy (SNI router) | All modes |
+| 80 | Caddy (ACME challenges) | All modes |
+| 10443 | Xray (Reality, internal) | All modes |
+| 8443 | Caddy (TLS, internal) | All modes |
+| XHTTP port* | Xray (XHTTP, direct) | When XHTTP enabled |
 | 2053 | 3x-ui panel (localhost) | All modes |
+
+*XHTTP port is deterministic: `30000 + hash(ip) % 10000`
 
 ## Client Apps
 
@@ -116,27 +124,41 @@ Users connect with these apps after scanning the QR code or importing the VLESS 
 Internet
   │
   ▼
-┌──────────────────────────────┐
-│ Server                       │
-│                              │
-│  Port 443                    │
-│  ┌────────────────────────┐  │
-│  │ Docker: 3x-ui          │  │
-│  │  └─ Xray (Reality TCP) │  │
-│  └────────────────────────┘  │
-│                              │
-│  Port XHTTP (random)        │
-│  ┌────────────────────────┐  │
-│  │  └─ Xray (Reality XHTTP)│ │
-│  └────────────────────────┘  │
-│                              │
-│  Port 2053 (localhost)       │
-│  └─ 3x-ui Web Panel         │
-│    (SSH tunnel only)         │
-└──────────────────────────────┘
+┌──────────────────────────────────────┐
+│ Server                               │
+│                                      │
+│  Port 443: HAProxy (SNI router)      │
+│  ┌──────────────────────────────┐    │
+│  │ SNI = reality_sni            │    │
+│  │  → Port 10443: Xray (Reality)│    │
+│  │                              │    │
+│  │ SNI = server IP              │    │
+│  │  → Port 8443: Caddy (TLS)   │    │
+│  │     ├─ /info-path → page    │    │
+│  │     └─ /panel-path → 3x-ui  │    │
+│  └──────────────────────────────┘    │
+│                                      │
+│  Port 80: Caddy (ACME challenges)    │
+│                                      │
+│  Port XHTTP (random)                 │
+│  ┌────────────────────────────┐      │
+│  │  └─ Xray (Reality XHTTP)  │      │
+│  └────────────────────────────┘      │
+│                                      │
+│  Docker: 3x-ui                       │
+│  ├─ Reality inbound (port 10443)     │
+│  └─ XHTTP inbound (random port)     │
+│                                      │
+│  Caddy (systemd)                     │
+│  └─ IP cert via Let's Encrypt        │
+│     (ACME shortlived, 6-day)         │
+│                                      │
+│  HAProxy (systemd)                   │
+│  └─ TCP-level SNI, no TLS terminate  │
+└──────────────────────────────────────┘
 ```
 
-Note: XHTTP uses a separate random port because 3x-ui rejects duplicate ports — two inbounds cannot share port 443. The XHTTP port is deterministic (seeded by hostname) so re-runs produce the same value.
+Note: In standalone mode, Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported. XHTTP uses a separate deterministic port (`30000 + hash(ip) % 10000`) because 3x-ui rejects duplicate ports.
 
 ### Domain Mode
 
@@ -154,10 +176,12 @@ Internet
 │  │                              │    │
 │  │ SNI = domain                 │    │
 │  │  → Port 8443: Caddy (TLS)   │    │
-│  │     ├─ /connection → info    │    │
+│  │     ├─ /info-path → page    │    │
 │  │     ├─ /panel-path → 3x-ui  │    │
 │  │     └─ /ws-path → Xray WSS  │    │
 │  └──────────────────────────────┘    │
+│                                      │
+│  Port 80: Caddy (ACME challenges)    │
 │                                      │
 │  Docker: 3x-ui                       │
 │  ├─ Reality inbound (port 10443)     │
@@ -203,10 +227,34 @@ Meridian manages 3x-ui entirely via its REST API:
 Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (never the main Caddyfile). The main Caddyfile gets a single line added: `import /etc/caddy/conf.d/*.caddy`. This allows Meridian to coexist with user's own Caddy configuration.
 
 Caddy handles:
-- Auto-TLS certificate for the domain
-- Reverse proxy for WSS traffic to Xray
+- Auto-TLS certificate (domain cert or Let's Encrypt IP cert via ACME `shortlived` profile)
 - Reverse proxy for the 3x-ui panel (at a random web base path)
-- Connection info page serving
+- Connection info page serving (hosted pages with shareable URLs)
+- Reverse proxy for WSS traffic to Xray (domain mode only)
+
+## Provisioning Step Pipeline
+
+Steps execute sequentially via `build_setup_steps()`. Each step gets `(conn, ctx)` and returns a `StepResult`.
+
+| # | Step | Module | Purpose |
+|---|------|--------|---------|
+| 1 | `InstallPackages` | `common.py` | Install required OS packages |
+| 2 | `EnableAutoUpgrades` | `common.py` | Configure unattended-upgrades |
+| 3 | `SetTimezone` | `common.py` | Set server timezone to UTC |
+| 4 | `HardenSSH` | `common.py` | Disable password auth, harden SSH config |
+| 5 | `ConfigureBBR` | `common.py` | Enable TCP BBR congestion control |
+| 6 | `ConfigureFirewall` | `common.py` | UFW deny-all + allow 22, 80, 443, XHTTP port |
+| 7 | `InstallDocker` | `docker.py` | Install Docker CE |
+| 8 | `Deploy3xui` | `docker.py` | Deploy 3x-ui Docker container |
+| 9 | `ConfigurePanel` | `panel.py` | Set panel credentials, web base path, settings |
+| 10 | `LoginToPanel` | `panel.py` | Authenticate to 3x-ui API |
+| 11 | `CreateRealityInbound` | `xray.py` | Create VLESS+Reality inbound on port 10443 |
+| 12 | `CreateXHTTPInbound` | `xray.py` | Create VLESS+Reality+XHTTP inbound (if enabled) |
+| 13 | `CreateWSSInbound` | `xray.py` | Create VLESS+WSS inbound (domain mode only) |
+| 14 | `VerifyXray` | `xray.py` | Verify Xray is running with correct config |
+| 15 | `InstallHAProxy` | `services.py` | Install and configure HAProxy SNI routing |
+| 16 | `InstallCaddy` | `services.py` | Install Caddy, configure TLS + reverse proxy |
+| 17 | `DeployConnectionPage` | `services.py` | Deploy hosted connection page with QR codes |
 
 ## Credential Lifecycle
 

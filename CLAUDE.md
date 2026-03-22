@@ -432,6 +432,40 @@ After completing a feature or fix, **always bump the version as part of the comm
 
 CI validates VERSION format (`^\d+\.\d+\.\d+$`) on every push.
 
+## Codified patterns (follow at scale)
+
+These patterns have been identified as the strongest architectural decisions in the codebase. Follow them consistently when extending Meridian.
+
+### 1. Protocol registry — single source of truth for transports
+Cross-cutting concerns (transports, inbound types, features) must have a single registry that downstream code iterates generically. Never hardcode protocol-specific branching in consumer code — add to the registry and let the consumer loop. Exemplified by `INBOUND_TYPES` dict + `PROTOCOLS` in `protocols.py`. Adding a new transport means: add `InboundType`, create `Protocol` subclass, append to `PROTOCOLS` — then URL building, client management, connection pages, and terminal output automatically support it.
+
+### 2. Credential lockout prevention — safety-critical ordering
+When a provisioning step changes remote secrets, persist the new secrets locally BEFORE issuing the remote change. Document this ordering with an explicit `# SAFETY` comment. Never optimize the ordering for speed. Exemplified by `ConfigurePanel` in `provision/panel.py`: saves credentials to disk, then changes the panel password.
+
+### 3. Versioned data formats with auto-migration
+Data format versions must include auto-migration from the previous version. Unknown fields must be preserved in `_extra` for forward compatibility. `save()` always writes the latest version. Use lazy-initialized properties for protocol configs. Exemplified by v1→v2 credential migration in `credentials.py`.
+
+### 4. Step pipeline — composable and independently testable
+Provisioning steps must be independent. Communicate via `ProvisionContext` — typed fields for stable config, dict-like access for inter-step state. Each step returns `StepResult(status, detail)` with clear semantics (`ok`/`changed`/`skipped`/`failed`). Every step class is independently testable with a mocked `ServerConnection`. Exemplified by `provision/steps.py` and `provision/__init__.py`.
+
+### 5. Shell injection defense — security-critical
+ALL values interpolated into shell command strings passed to `conn.run()` MUST use `shlex.quote()`. No exceptions. This is especially critical because `needs_sudo` escalates commands to root. Audit every interpolation in code review. Exemplified throughout `ssh.py`, `panel.py`, `provision/services.py`, and all command files.
+
+### 6. Server resolution cascade — predictable priority
+Server resolution follows a fixed priority cascade. All commands must use `resolve_server()` from `commands/resolve.py` — never implement ad-hoc server targeting. Priority: explicit IP > named server > local mode > single server auto-select > prompt > fail. Exemplified by `commands/resolve.py`.
+
+### 7. API quirk testing — regression prevention
+When wrapping an external API with known quirks, write tests that explicitly verify the quirk is handled correctly. Name the test after the quirk. Never assume the API is "standard" — test the actual behavior. Exemplified by `test_panel.py` (form-urlencoded login, JSON-string settings, UUID-based deletion).
+
+### 8. Fail-with-context — user-friendly errors
+Every `fail()` call must include a `hint_type` and, where applicable, specific action items. Types: `"user"` for input errors, `"system"` for infrastructure issues, `"bug"` for unexpected states. Always suggest the next troubleshooting tool in the chain: `meridian ping` → `meridian check` → `meridian diagnostics` → GitHub issues. Exemplified by `console.py` and `ssh.py`.
+
+### 9. Idempotent provisioning — safe re-runs
+Every provisioning step checks existing state before acting. Users must be able to re-run `meridian setup IP` safely after a partial failure. Steps return `ok` (already done) or `changed` (modified the system), never duplicate work. Exemplified by all `provision/` step classes.
+
+### 10. Single source of truth for each concern
+Every piece of information has exactly one canonical source. Downstream consumers derive from it, never duplicate it. Examples: `VERSION` file (version), `INBOUND_TYPES` dict (protocol types), `CLAUDE.md` (architecture docs), `docs/index.html` (app download links). When you see duplication, refactor to derive from the source of truth.
+
 ## Backlog & tech debt
 
 See `BACKLOG.md` for the full prioritized task list with completion status.

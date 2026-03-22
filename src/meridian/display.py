@@ -31,7 +31,22 @@ def print_terminal_output(
     # Derive client name.
     name = client_name or derive_client_name(protocol_urls)
 
-    # Print QR codes for each active protocol.
+    # Print summary header.
+    err_console.print()
+    err_console.print(f'  [bold green]\u2713[/bold green] [bold]Client "{name}" added[/bold]')
+    err_console.print()
+
+    # Shareable link first (most important for "share with family" use case).
+    if hosted_page_url:
+        err_console.print("  [bold]Share this link:[/bold]")
+        err_console.print(f"  [ok]{hosted_page_url}[/ok]")
+        err_console.print()
+        err_console.print(f"  Send this URL to {name} --")
+        err_console.print("  they open it, scan the QR code, and connect.")
+        err_console.print()
+        err_console.print("  " + "\u2500" * 50)
+
+    # QR code for the primary (first) protocol.
     for purl in protocol_urls:
         if not purl.url:
             continue
@@ -39,10 +54,21 @@ def print_terminal_output(
         if qr:
             err_console.print()
             print(qr, end="")
+        break  # only the primary protocol QR
 
-    # Print summary.
-    err_console.print()
-    err_console.print(f'  [bold green]\u2713[/bold green] [bold]Client "{name}" added[/bold]')
+    # Find saved files.
+    html_files = list(creds_dir.glob(f"*-{name}-connection-info.html"))
+    txt_files = list(creds_dir.glob(f"*-{name}-connection-info.txt"))
+
+    if html_files or txt_files:
+        err_console.print()
+        err_console.print("  [bold]Saved files:[/bold]")
+        if html_files:
+            err_console.print(f"  HTML page: [bold]{html_files[0]}[/bold]")
+        if txt_files:
+            err_console.print(f"  Text file: {txt_files[0]}")
+
+    # Connection URLs (raw VLESS URLs for power users).
     err_console.print()
     err_console.print("  [bold]Connection URLs:[/bold]")
 
@@ -64,25 +90,11 @@ def print_terminal_output(
             err_console.print(f"\n  [info]{purl.label}:[/info]")
             err_console.print(f"  {purl.url}")
 
-    # Find saved files.
-    html_files = list(creds_dir.glob(f"*-{name}-connection-info.html"))
-    txt_files = list(creds_dir.glob(f"*-{name}-connection-info.txt"))
-
-    if html_files or txt_files:
-        err_console.print("\n  [bold]Files Saved:[/bold]")
+    if not hosted_page_url:
+        err_console.print()
         if html_files:
-            err_console.print(f"  HTML page: [bold]{html_files[0]}[/bold]")
-        if txt_files:
-            err_console.print(f"  Text file: {txt_files[0]}")
-
-    if hosted_page_url:
-        err_console.print()
-        err_console.print(f"  [bold]Shareable link:[/bold] [ok]{hosted_page_url}[/ok]")
-        err_console.print()
-        err_console.print(f"  Send this URL to {name} --")
-        err_console.print("  they open it, scan the QR code, and connect.")
-    else:
-        err_console.print()
-        err_console.print(f"  Send the HTML file to {name} --")
+            err_console.print(f"  Send the HTML file to {name} --")
+        else:
+            err_console.print(f"  Share a connection URL with {name} --")
         err_console.print("  they open it, scan the QR code, and connect.")
     err_console.print()

@@ -724,7 +724,7 @@ class DeployConnectionPage:
         # Generate QR codes as base64 PNG
         q_reality = shlex.quote(reality_url)
         result = conn.run(
-            f"printf '%s' {q_reality} | qrencode -t PNG -o - -s 6 | base64 -w0",
+            f"printf '%s' {q_reality} | qrencode -t PNG -o - -s 6 | base64 | tr -d '\\n'",
             timeout=15,
         )
         reality_qr_b64 = result.stdout.strip() if result.returncode == 0 else ""
@@ -733,7 +733,7 @@ class DeployConnectionPage:
         if wss_url:
             q_wss = shlex.quote(wss_url)
             result = conn.run(
-                f"printf '%s' {q_wss} | qrencode -t PNG -o - -s 6 | base64 -w0",
+                f"printf '%s' {q_wss} | qrencode -t PNG -o - -s 6 | base64 | tr -d '\\n'",
                 timeout=15,
             )
             wss_qr_b64 = result.stdout.strip() if result.returncode == 0 else ""
@@ -749,7 +749,7 @@ class DeployConnectionPage:
             )
             q_xhttp = shlex.quote(xhttp_url)
             result = conn.run(
-                f"printf '%s' {q_xhttp} | qrencode -t PNG -o - -s 6 | base64 -w0",
+                f"printf '%s' {q_xhttp} | qrencode -t PNG -o - -s 6 | base64 | tr -d '\\n'",
                 timeout=15,
             )
             xhttp_qr_b64 = result.stdout.strip() if result.returncode == 0 else ""

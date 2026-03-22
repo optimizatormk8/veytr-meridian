@@ -10,6 +10,9 @@ from meridian.credentials import ServerCredentials
 from meridian.models import ProtocolURL
 from meridian.protocols import PROTOCOLS
 
+# Module-level flag to warn about missing qrencode only once per session.
+_qrencode_warned = False
+
 
 def build_protocol_urls(
     name: str,
@@ -78,6 +81,7 @@ def build_protocol_urls(
 
 def generate_qr_terminal(url: str) -> str:
     """Generate a QR code for terminal display using qrencode."""
+    global _qrencode_warned  # noqa: PLW0603
     try:
         result = subprocess.run(
             ["qrencode", "-t", "ANSIUTF8", url],
@@ -89,7 +93,14 @@ def generate_qr_terminal(url: str) -> str:
         if result.returncode == 0:
             return result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+        if not _qrencode_warned:
+            from meridian.console import warn
+
+            warn(
+                "qrencode not installed — QR codes will be missing. "
+                "Install: apt install qrencode (Linux) or brew install qrencode (macOS)"
+            )
+            _qrencode_warned = True
     return ""
 
 
@@ -98,6 +109,7 @@ def generate_qr_base64(url: str) -> str:
 
     Uses ``base64 | tr -d '\\n'`` for macOS compatibility (no -w0).
     """
+    global _qrencode_warned  # noqa: PLW0603
     try:
         result = subprocess.run(
             [
@@ -110,8 +122,16 @@ def generate_qr_base64(url: str) -> str:
             timeout=5,
             stdin=subprocess.DEVNULL,
         )
-        if result.returncode == 0:
+        if result.returncode == 0 and result.stdout:
             return result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
+    if not _qrencode_warned:
+        from meridian.console import warn
+
+        warn(
+            "qrencode not installed — QR codes will be missing. "
+            "Install: apt install qrencode (Linux) or brew install qrencode (macOS)"
+        )
+        _qrencode_warned = True
     return ""

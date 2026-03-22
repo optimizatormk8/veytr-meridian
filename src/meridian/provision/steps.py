@@ -106,9 +106,11 @@ class Provisioner:
         """Execute all steps, collecting results. Shows Rich spinner per step."""
         console = Console(stderr=True, highlight=False)
 
-        for step in self.steps:
+        total = len(self.steps)
+        for i, step in enumerate(self.steps):
             start = time.monotonic()
-            with Status(f"  [cyan]{step.name}[/cyan]", console=console, spinner="dots"):
+            prefix = f"[{i + 1}/{total}]"
+            with Status(f"  [cyan]{prefix} {step.name}[/cyan]", console=console, spinner="dots"):
                 result = step.run(conn, ctx)
             elapsed_ms = int((time.monotonic() - start) * 1000)
             result.duration_ms = elapsed_ms

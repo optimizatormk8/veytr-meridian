@@ -56,7 +56,7 @@ meridian client list                 # see all clients
 meridian client remove alice         # revoke access
 ```
 
-Each client gets an HTML page with QR codes and one-tap deep links. In domain mode, the page is also hosted on the server with [live usage stats](https://meridian.msu.rocks/demo).
+Each client gets a connection page hosted on the server with QR codes, one-tap deep links, and [live usage stats](https://meridian.msu.rocks/demo). Share the URL directly — no file transfer needed.
 
 ## How it works
 
@@ -80,25 +80,31 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 | Command | Description |
 |---------|-------------|
 | `meridian setup [IP]` | Deploy proxy server (interactive wizard if no IP) |
-| `meridian setup IP --xhttp` | Deploy with XHTTP transport (enhanced stealth) |
 | `meridian client add NAME` | Add a named client key |
 | `meridian client list` | List all clients |
 | `meridian client remove NAME` | Remove a client key |
 | `meridian server list` | List managed servers |
+| `meridian server add IP` | Add an existing server (fetches credentials via SSH) |
+| `meridian server remove NAME` | Remove a server from the registry |
 | `meridian check [IP]` | Pre-flight validation (ports, SNI, ASN, DNS) |
 | `meridian scan [IP]` | Find optimal SNI targets on server's network |
 | `meridian ping [IP]` | Test proxy reachability from this device |
 | `meridian diagnostics [IP]` | Collect info for bug reports |
 | `meridian uninstall [IP]` | Remove proxy from server |
 | `meridian self-update` | Update CLI |
+| `meridian version` | Show installed version |
+
+**Setup flags**: `--domain DOMAIN`, `--sni HOST`, `--xhttp/--no-xhttp` (default: enabled), `--email EMAIL`, `--name NAME`, `--user USER`, `--yes`
+
+**Global flag**: `--server NAME` — target a specific named server (works with most commands)
 
 ## Architecture
 
 <img src="docs/img/architecture.png" width="720" alt="Meridian architecture">
 
-**Standalone mode** — Xray on port 443. No domain needed.
+**Standalone mode** — HAProxy on port 443 routes Reality traffic to Xray. Caddy provides auto-TLS (Let's Encrypt IP certificate) for hosted connection pages and panel access. No domain needed.
 
-**Domain mode** — HAProxy routes by SNI: Reality traffic goes to Xray, everything else to Caddy (auto-TLS). Adds VLESS+WSS through Cloudflare CDN as a fallback.
+**Domain mode** — Same architecture, plus Caddy handles VLESS+WSS through Cloudflare CDN as a fallback when the server IP is blocked.
 
 ## Client apps
 
@@ -115,7 +121,7 @@ After setup, connect with any of these apps:
 
 **My IP got blocked** — The most common scenario in censored regions. Get a new VPS, run `meridian setup NEW_IP`, then re-add clients with `meridian client add`. If you're in domain mode, update the DNS A record to point at the new IP and re-run setup. If you're not using domain mode yet, consider switching (`--domain`) to get a CDN fallback through Cloudflare — when the IP is blocked, the WSS/CDN link still works.
 
-**Sharing with family** — After `meridian client add alice`, you get an HTML file. Send it by email, iMessage, or AirDrop. They open it on their phone, install the app (one tap), scan the QR code, and connect. In domain mode, the page is also hosted at a URL (`https://yourdomain/connection`) you can share as a link — no file transfer needed.
+**Sharing with family** — After `meridian client add alice`, you get a shareable URL hosted on the server. Send the link by email, iMessage, or any messenger. They open it on their phone, install the app (one tap), scan the QR code, and connect. No file transfer needed.
 
 **First-time VPS setup** — Rent a VPS from any provider (DigitalOcean, Hetzner, Vultr — $4–6/month). Choose Debian 12 or Ubuntu 22.04+. Make sure you have SSH key access (not just password). Then run `meridian setup YOUR_SERVER_IP`.
 

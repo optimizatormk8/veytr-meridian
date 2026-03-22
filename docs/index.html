@@ -21,7 +21,7 @@
 :root {
   --bg: #08080a; --s1: #111114; --s2: #19191e;
   --b1: #252530; --b2: #35354a;
-  --t1: #ececec; --t2: #9090a0; --t3: #505060;
+  --t1: #ececec; --t2: #9090a0; --t3: #7a7a90;
   --ac: #d4a24e; --ac2: #d4a24e20;
   --ok: #5ce88e; --ok2: #5ce88e18;
   --r: 8px;
@@ -133,19 +133,37 @@ details .inner p{margin-bottom:12px}
 [dir="rtl"] details summary::after{content:'↓'}
 [dir="rtl"] .lang-picker{right:auto;left:20px}
 
+/* focus */
+button:focus-visible,input:focus-visible,a:focus-visible,details summary:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+/* skip link */
+.skip-link{position:absolute;top:-100%;left:16px;background:var(--ac);color:var(--bg);padding:8px 16px;border-radius:var(--r);font-size:.9rem;font-weight:500;text-decoration:none;z-index:200;transition:top .06s}
+.skip-link:focus{top:16px}
+
 /* reveal */
 .rv{opacity:0;transform:translateY(10px);transition:opacity .08s,transform .08s}
 .rv.v{opacity:1;transform:translateY(0)}
+
+/* light mode */
+@media(prefers-color-scheme:light){:root{
+  --bg: #f5f5f7; --s1: #fff; --s2: #f0f0f3;
+  --b1: #d8d8e0; --b2: #c0c0cc;
+  --t1: #1a1a2e; --t2: #5a5a70; --t3: #7a7a90;
+  --ac: #b8892a; --ac2: #b8892a14;
+  --ok: #1a9d5a; --ok2: #1a9d5a14;
+}}
 </style>
 </head>
 <body>
 
+<a href="#setup" class="skip-link">Skip to content</a>
+
 <!-- Language picker -->
 <div class="lang-picker">
-  <button onclick="setLang('en')" class="active">EN</button>
-  <button onclick="setLang('ru')">RU</button>
-  <button onclick="setLang('fa')">فا</button>
-  <button onclick="setLang('zh')">中文</button>
+  <button onclick="setLang('en')" class="active" aria-label="English">EN</button>
+  <button onclick="setLang('ru')" aria-label="Русский">RU</button>
+  <button onclick="setLang('fa')" aria-label="فارسی">فا</button>
+  <button onclick="setLang('zh')" aria-label="中文">中文</button>
 </div>
 
 <!-- HERO -->
@@ -223,7 +241,7 @@ details .inner p{margin-bottom:12px}
           <span class="bh" data-i18n="field.sni.hint">Site that Reality impersonates. Default: www.microsoft.com. Run <code>meridian scan</code> or use <a href="https://github.com/XTLS/RealiTLScanner" style="color:var(--ac)">RealiTLScanner</a> to find optimal same-network targets. Avoid apple.com (detectable ASN).</span>
         </div>
         <div class="bf" id="row-xhttp">
-          <label class="bl" style="cursor:pointer"><input id="f-xhttp" type="checkbox" onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px"><span data-i18n="field.xhttp">XHTTP transport</span></label>
+          <label class="bl" style="cursor:pointer"><input id="f-xhttp" type="checkbox" checked onchange="buildCmd()" style="accent-color:var(--ac);margin-right:6px"><span data-i18n="field.xhttp">XHTTP transport</span></label>
           <span class="bh" data-i18n="field.xhttp.hint">Add XHTTP transport for enhanced post-handshake stealth. Requires v2rayNG 1.9+ or Hiddify.</span>
         </div>
         <div class="bf" id="row-yes">
@@ -326,8 +344,8 @@ details .inner p{margin-bottom:12px}
   <details open>
     <summary data-i18n="arch.standalone">Standalone mode (no domain)</summary>
     <div class="inner" data-i18n="arch.standalone.body">
-      <p><strong>Xray</strong> listens on port 443 with VLESS+Reality. Every connection looks like HTTPS to microsoft.com. When censors probe the server, they get Microsoft's real TLS certificate back. Only clients with your private key get through to the proxy.</p>
-      <p>The 3x-ui panel is bound to localhost — you access it via SSH tunnel. No cleartext HTTP is ever exposed.</p>
+      <p><strong>HAProxy</strong> sits on port 443 and routes traffic by TLS SNI. Reality connections (SNI = microsoft.com) route to <strong>Xray</strong>, while <strong>Caddy</strong> handles everything else — serving hosted connection pages with QR codes over HTTPS, using a Let's Encrypt IP certificate (auto-renewed every 6 days).</p>
+      <p>The 3x-ui panel is reverse-proxied by Caddy on a secret path — accessible via HTTPS, no SSH tunnel needed. Every connection looks like normal HTTPS. Only clients with your private key get through to the proxy.</p>
     </div>
   </details>
 
@@ -351,7 +369,7 @@ details .inner p{margin-bottom:12px}
   <h2 data-i18n="ref.title">Configuration &amp; operations</h2>
 
   <details>
-    <summary>Customization <span></span></summary>
+    <summary data-i18n="ref.customization">Customization <span></span></summary>
     <div class="inner">
       <p>All settings are passed as CLI flags to <code>meridian setup</code>:</p>
       <table class="tbl">
@@ -370,7 +388,7 @@ details .inner p{margin-bottom:12px}
   </details>
 
   <details>
-    <summary>Cloudflare CDN setup (domain mode) <span></span></summary>
+    <summary data-i18n="ref.cloudflare">Cloudflare CDN setup (domain mode) <span></span></summary>
     <div class="inner">
       <p><strong>Follow this order</strong> to avoid TLS certificate issues:</p>
       <p>1. Add domain in Cloudflare, create A record to server IP<br>
@@ -383,7 +401,7 @@ details .inner p{margin-bottom:12px}
   </details>
 
   <details>
-    <summary>Update &amp; maintenance <span></span></summary>
+    <summary data-i18n="ref.update">Update &amp; maintenance <span></span></summary>
     <div class="inner">
       <p>Update Xray and 3x-ui:</p>
       <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>ssh root@YOUR_SERVER
@@ -393,7 +411,7 @@ cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
   </details>
 
   <details>
-    <summary>Pre-flight check <span></span></summary>
+    <summary data-i18n="ref.preflight">Pre-flight check <span></span></summary>
     <div class="inner">
       <p>Not sure if your server is compatible? Run a pre-flight check first:</p>
       <div class="code"><button class="cp" onclick="copyEl(this)">Copy</button>meridian check 1.2.3.4</div>
@@ -443,9 +461,9 @@ cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
   </details>
 
   <details>
-    <summary>Security notes <span></span></summary>
+    <summary data-i18n="ref.security">Security notes <span></span></summary>
     <div class="inner">
-      <p>Credentials are stored at <code>/etc/meridian/</code> on the server (source of truth) and cached locally at <code>~/.meridian/credentials/</code>. The panel binds to localhost — access via SSH tunnel only. SSH password auth is disabled. UFW allows only ports 22 and 443.</p>
+      <p>Credentials are stored at <code>/etc/meridian/</code> on the server (source of truth) and cached locally at <code>~/.meridian/credentials/</code>. The panel is reverse-proxied by Caddy on a secret HTTPS path in all modes — no SSH tunnel required. SSH password auth is disabled. UFW allows only ports 22 and 443.</p>
       <p>The 3x-ui Docker image is pinned to a tested version. All secrets are redacted from terminal output.</p>
     </div>
   </details>
@@ -457,6 +475,7 @@ cd /opt/3x-ui && docker compose pull && docker compose up -d</div>
 <div class="w">
   <p style="margin-bottom:6px" data-i18n="footer">Open source. No tracking. No accounts. Evolving based on your feedback.</p>
   <a href="https://github.com/uburuntu/meridian" target="_blank">GitHub</a> · <a href="https://github.com/uburuntu/meridian/issues" target="_blank">Report Issue</a> · <a href="https://github.com/uburuntu/meridian/issues" target="_blank">Request Feature</a>
+  <p style="margin-top:10px;font-size:.7rem;color:var(--t3)">v3.5.0</p>
 </div>
 </footer>
 
@@ -550,7 +569,7 @@ function buildCmd(){
   if(user&&user!=='root')args.push('--user '+user);
   if(cfg.show.indexOf('domain')>=0&&domOn&&dom)args.push('--domain '+dom);
   if(cfg.show.indexOf('sni')>=0&&sniOn&&sni&&sni!=='www.microsoft.com')args.push('--sni '+sni);
-  if(cfg.show.indexOf('xhttp')>=0&&xhttp)args.push('--xhttp');
+  if(cfg.show.indexOf('xhttp')>=0&&!xhttp)args.push('--no-xhttp');
   if(cfg.show.indexOf('yes')>=0&&yes)args.push('--yes');
   var cmd='meridian '+cfg.cmd;
   if(args.length)cmd+=' '+args.join(' ');
@@ -597,7 +616,7 @@ document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
       if(b.user&&b.user!=='root')document.getElementById('f-user').value=b.user;
       if(b.domOn){document.getElementById('f-domain-on').checked=true;if(b.dom)document.getElementById('f-domain').value=b.dom}
       if(b.sniOn){document.getElementById('f-sni-on').checked=true;if(b.sni)document.getElementById('f-sni').value=b.sni}
-      if(b.xhttp)document.getElementById('f-xhttp').checked=true;
+      if(b.xhttp===false)document.getElementById('f-xhttp').checked=false;
       if(b.yes)document.getElementById('f-yes').checked=true;
       if(b.tab)setTab(b.tab);else buildCmd();
     }

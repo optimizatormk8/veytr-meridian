@@ -24,6 +24,7 @@ make ci
 make test              # Run Python tests (pytest)
 make lint              # Run ruff linter
 make format-check      # Check formatting
+make typecheck         # Run mypy type checker
 make templates         # Validate Jinja2 template rendering
 ```
 

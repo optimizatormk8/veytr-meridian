@@ -65,7 +65,7 @@ def setup_cmd(
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip prompts"),
     server: str = typer.Option("", "--server", help="Target server (name or IP) for re-runs"),
 ) -> None:
-    """Deploy proxy server."""
+    """Deploy a VLESS+Reality proxy server. Interactive wizard if no IP provided."""
     from meridian.commands.setup import run
 
     run(ip, domain, email, sni, xhttp, name, user, yes, server)
@@ -160,7 +160,7 @@ def check_cmd(
     ai: bool = typer.Option(False, "--ai", help="Copy AI-ready prompt to clipboard for ChatGPT/Claude"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
-    """Pre-flight server validation."""
+    """Validate server compatibility (SNI, ports, DNS, OS, disk, ASN) without installing."""
     from meridian.commands.check import run
 
     run(ip, domain, sni, user, ai, server)
@@ -185,7 +185,7 @@ def ping_cmd(
     sni: str = typer.Option("", "--sni", "-s", help="SNI target to test"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
-    """Test proxy reachability from client device."""
+    """Test proxy reachability from client device (no SSH required)."""
     from meridian.commands.ping import run
 
     run(ip, domain, sni, server)
@@ -204,7 +204,7 @@ def diagnostics_cmd(
     ai: bool = typer.Option(False, "--ai", help="Copy AI-ready prompt to clipboard for ChatGPT/Claude"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
-    """Collect system info for bug reports."""
+    """Collect system info for bug reports. Use --ai to copy prompt for ChatGPT/Claude."""
     from meridian.commands.diagnostics import run
 
     run(ip, sni, user, ai, server)

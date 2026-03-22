@@ -37,6 +37,7 @@ body:
       label: Which connection?
       options:
         - Primary (Reality)
+        - XHTTP
         - Backup (WSS/CDN)
         - Both fail
     validations:
