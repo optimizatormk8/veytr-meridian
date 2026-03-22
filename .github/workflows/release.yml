@@ -29,9 +29,11 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
 
       - name: Build Astro site
         run: |
@@ -53,7 +55,7 @@ jobs:
           mkdir -p website/dist/ai
           cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > website/dist/ai/reference.md
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: website/dist
 
@@ -173,7 +175,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
