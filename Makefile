@@ -49,7 +49,7 @@ e2e: ## Run E2E provisioner tests in Docker (Linux only, needs docker socket)
 
 ai-docs: ## Concatenate AI docs into package data
 	@mkdir -p src/meridian/data
-	cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > src/meridian/data/ai-reference.md
+	cat website/src/content/ai/context.md website/src/content/ai/architecture.md website/src/content/ai/troubleshooting.md > src/meridian/data/ai-reference.md
 
 build: ai-docs ## Build wheel and sdist
 	uv build

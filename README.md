@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/logo-512.png" width="80" alt="Meridian">
+  <img src="website/public/img/logo-512.png" width="80" alt="Meridian">
 </p>
 
 <h1 align="center">Meridian</h1>
@@ -14,7 +14,7 @@
 <p align="center">Deploy a censorship-resistant proxy server in one command.<br>Invisible to DPI, active probing, and TLS fingerprinting.</p>
 
 <p align="center">
-  <img src="docs/img/connection-page.png" width="720" alt="Connection page with QR codes">
+  <img src="website/public/img/connection-page.png" width="720" alt="Connection page with QR codes">
 </p>
 
 ## What is this
@@ -100,7 +100,7 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 
 ## Architecture
 
-<img src="docs/img/architecture.png" width="720" alt="Meridian architecture">
+<img src="website/public/img/architecture.png" width="720" alt="Meridian architecture">
 
 **Standalone mode** — HAProxy on port 443 routes Reality traffic to Xray. Caddy provides auto-TLS (Let's Encrypt IP certificate) for hosted connection pages, panel access, and XHTTP transport. No domain needed.
 

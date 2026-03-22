@@ -43,7 +43,7 @@ check "CHANGELOG has VERSION entry" bash -c '
 '
 
 check "AI docs up to date" bash -c '
-    expected=$(cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md)
+    expected=$(cat website/src/content/ai/context.md website/src/content/ai/architecture.md website/src/content/ai/troubleshooting.md)
     actual=$(cat src/meridian/data/ai-reference.md)
     [ "$expected" = "$actual" ]
 '

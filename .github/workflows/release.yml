@@ -54,7 +54,7 @@ jobs:
           cd ../..
           # Bundle AI docs
           mkdir -p website/dist/ai
-          cat docs/ai/context.md docs/ai/architecture.md docs/ai/troubleshooting.md > website/dist/ai/reference.md
+          cat website/src/content/ai/context.md website/src/content/ai/architecture.md website/src/content/ai/troubleshooting.md > website/dist/ai/reference.md
 
       - uses: actions/upload-pages-artifact@v4
         with:
