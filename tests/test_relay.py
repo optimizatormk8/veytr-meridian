@@ -398,10 +398,12 @@ class TestRenderingWithRelays:
         save_connection_html(protocol_urls, dest, "5.6.7.8", relay_entries=relay_entries)
 
         content = dest.read_text()
-        assert "Recommended" in content
+        # Relay section should be present
         assert "BACKUP" in content
         assert "1.2.3.4" in content
         assert "ru-moscow" in content
+        # Direct Primary card should NOT say "Recommended" when relays exist
+        assert "Recommended — fastest" not in content
 
     def test_save_connection_html_without_relays_unchanged(self, tmp_path: Path) -> None:
         """Without relays, HTML output should not contain relay sections."""

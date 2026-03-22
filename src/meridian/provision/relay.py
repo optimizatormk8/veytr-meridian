@@ -61,6 +61,21 @@ class RelayContext:
     user: str = "root"
     realm_version: str = REALM_VERSION
 
+    def __post_init__(self) -> None:
+        import ipaddress
+
+        # Validate IP addresses — prevents shell/config injection
+        for field_name, value in [("relay_ip", self.relay_ip), ("exit_ip", self.exit_ip)]:
+            try:
+                ipaddress.ip_address(value)
+            except ValueError:
+                raise ValueError(f"Invalid IP address for {field_name}: {value!r}") from None
+
+        # Validate port ranges
+        for field_name, port in [("exit_port", self.exit_port), ("listen_port", self.listen_port)]:
+            if not isinstance(port, int) or not (1 <= port <= 65535):
+                raise ValueError(f"Invalid port for {field_name}: {port!r} (must be 1-65535)")
+
 
 # ---------------------------------------------------------------------------
 # Relay provisioning steps
@@ -184,8 +199,9 @@ class InstallRealm:
         # Check if Realm is already installed at the right version
         check = conn.run("realm --version 2>/dev/null", timeout=10)
         if check.returncode == 0:
-            installed_version = check.stdout.strip()
-            if ctx.realm_version in installed_version:
+            # Parse version from output like "realm 2.9.3"
+            installed_version = check.stdout.strip().split()[-1] if check.stdout.strip() else ""
+            if installed_version == ctx.realm_version:
                 return StepResult(name=self.name, status="ok", detail=f"v{ctx.realm_version} already installed")
 
         # Detect architecture
@@ -202,9 +218,7 @@ class InstallRealm:
             return StepResult(name=self.name, status="failed", detail=f"unsupported arch: {arch}")
 
         # Download Realm binary
-        q_version = shlex.quote(ctx.realm_version)
-        q_target = shlex.quote(target)
-        url = f"{REALM_GITHUB_URL}/v{q_version}/realm-{q_target}.tar.gz"
+        url = f"{REALM_GITHUB_URL}/v{ctx.realm_version}/realm-{target}.tar.gz"
         q_url = shlex.quote(url)
 
         download = conn.run(
@@ -246,13 +260,13 @@ class ConfigureRealm:
     name = "Configure Realm relay"
 
     def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
-        q_exit_ip = shlex.quote(ctx.exit_ip)
+        # IPs are validated in RelayContext.__post_init__, safe for config interpolation
 
         # Write Realm config
         config_content = (
             "[network]\n"
             "no_tcp = false\n"
-            "use_udp = true\n"
+            "use_udp = false\n"
             "\n"
             "[[endpoints]]\n"
             f'listen = "0.0.0.0:{ctx.listen_port}"\n'
@@ -263,7 +277,8 @@ class ConfigureRealm:
 
         q_config = shlex.quote(config_content)
         write_config = conn.run(
-            f"printf '%s' {q_config} > {RELAY_CONFIG_PATH}",
+            f"printf '%s' {q_config} > {RELAY_CONFIG_PATH}.tmp && "
+            f"mv {RELAY_CONFIG_PATH}.tmp {RELAY_CONFIG_PATH}",
             timeout=10,
         )
         if write_config.returncode != 0:
@@ -282,14 +297,21 @@ class ConfigureRealm:
             f"listen_port: {ctx.listen_port}\n"
         )
         q_meta = shlex.quote(relay_meta)
-        conn.run(f"printf '%s' {q_meta} > /etc/meridian/relay.yml", timeout=10)
+        conn.run(
+            f"printf '%s' {q_meta} > /etc/meridian/relay.yml.tmp && "
+            "mv /etc/meridian/relay.yml.tmp /etc/meridian/relay.yml",
+            timeout=10,
+        )
         conn.run("chmod 600 /etc/meridian/relay.yml", timeout=5)
 
         # Write systemd service
         unit_content = _SYSTEMD_UNIT.format(config_path=RELAY_CONFIG_PATH)
         q_unit = shlex.quote(unit_content)
         service_path = f"/etc/systemd/system/{RELAY_SERVICE_NAME}.service"
-        write_service = conn.run(f"printf '%s' {q_unit} > {service_path}", timeout=10)
+        write_service = conn.run(
+            f"printf '%s' {q_unit} > {service_path}.tmp && mv {service_path}.tmp {service_path}",
+            timeout=10,
+        )
         if write_service.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -311,7 +333,7 @@ class ConfigureRealm:
         return StepResult(
             name=self.name,
             status="changed",
-            detail=f"forwarding :{ctx.listen_port} -> {q_exit_ip}:{ctx.exit_port}",
+            detail=f"forwarding :{ctx.listen_port} -> {ctx.exit_ip}:{ctx.exit_port}",
         )
 
 
@@ -330,9 +352,9 @@ class VerifyRelay:
             return StepResult(name=self.name, status="failed", detail=detail)
 
         # Test TCP connectivity from relay to exit
-        q_exit_ip = shlex.quote(ctx.exit_ip)
+        # IPs are validated in RelayContext.__post_init__
         tcp_test = conn.run(
-            f"bash -c 'echo > /dev/tcp/{q_exit_ip}/{ctx.exit_port}' 2>/dev/null",
+            f"bash -c 'echo > /dev/tcp/{ctx.exit_ip}/{ctx.exit_port}' 2>/dev/null",
             timeout=10,
         )
         if tcp_test.returncode != 0:

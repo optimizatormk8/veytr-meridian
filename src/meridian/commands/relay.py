@@ -77,6 +77,9 @@ def _find_exit_for_relay(relay_ip: str) -> tuple[ServerRegistry, ResolvedServer]
 
 def _save_relay_local(relay_ip: str, exit_ip: str, exit_port: int, listen_port: int) -> None:
     """Save relay metadata to ~/.meridian/credentials/<relay-ip>/relay.yml."""
+    import os
+    import tempfile
+
     relay_creds_dir = CREDS_BASE / relay_ip
     relay_creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     relay_meta = {
@@ -86,8 +89,20 @@ def _save_relay_local(relay_ip: str, exit_ip: str, exit_port: int, listen_port: 
         "listen_port": listen_port,
     }
     relay_file = relay_creds_dir / "relay.yml"
-    relay_file.write_text(yaml.dump(relay_meta, default_flow_style=False, sort_keys=False))
-    relay_file.chmod(0o600)
+    # Atomic write: tempfile + rename
+    fd, tmp = tempfile.mkstemp(dir=str(relay_creds_dir), suffix=".tmp")
+    try:
+        os.write(fd, yaml.dump(relay_meta, default_flow_style=False, sort_keys=False).encode())
+        os.close(fd)
+        fd = -1
+        os.chmod(tmp, 0o600)
+        os.rename(tmp, str(relay_file))
+    except BaseException:
+        if fd >= 0:
+            os.close(fd)
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def _regenerate_client_pages(
@@ -234,14 +249,17 @@ def run_deploy(
     relay_conn.check_ssh()
     ok("SSH connection to relay established")
 
-    # Test relay -> exit connectivity
+    # Test relay -> exit connectivity (exit always listens on 443)
+    import shlex
+
     info("Testing relay -> exit connectivity...")
+    q_exit_ip = shlex.quote(resolved_exit.ip)
     tcp_test = relay_conn.run(
-        f"bash -c 'echo > /dev/tcp/{resolved_exit.ip}/{listen_port}' 2>/dev/null",
+        f"bash -c 'echo > /dev/tcp/{q_exit_ip}/443' 2>/dev/null",
         timeout=10,
     )
     if tcp_test.returncode != 0:
-        warn(f"Relay cannot reach exit {resolved_exit.ip}:{listen_port} — will attempt deployment anyway")
+        warn(f"Relay cannot reach exit {resolved_exit.ip}:443 — will attempt deployment anyway")
     else:
         ok("Relay -> exit connectivity confirmed")
 
@@ -329,7 +347,7 @@ def run_deploy(
 
     err_console.print("  [bold]How clients connect now:[/bold]")
     err_console.print(
-        f"  [dim]Client -> {relay_ip}:443 (domestic) -> "
+        f"  [dim]Client -> {relay_ip}:{listen_port} (domestic) -> "
         f"{resolved_exit.ip}:443 (abroad) -> Internet[/dim]"
     )
     err_console.print(f"  [dim]Censors only see traffic to {relay_ip} — a domestic IP.[/dim]")
@@ -569,13 +587,9 @@ def run_check(
     except Exception:
         err_console.print("  [red bold]\u2717[/red bold] SSH to relay: failed")
         err_console.print(f"    [dim]Cannot connect to {relay_ip} via SSH[/dim]")
-        all_ok = False
-        # Can't do further checks without SSH
         err_console.print()
-        if all_ok:
-            ok("All checks passed")
-        else:
-            warn("Some checks failed")
+        warn("Cannot proceed without SSH — check SSH key and user")
+        err_console.print()
         return
 
     # 2. Realm service status
@@ -587,8 +601,11 @@ def run_check(
         all_ok = False
 
     # 3. Relay -> exit TCP connectivity
+    import shlex as _shlex
+
+    q_exit = _shlex.quote(resolved_exit.ip)
     tcp_test = relay_conn.run(
-        f"bash -c 'echo > /dev/tcp/{resolved_exit.ip}/443' 2>/dev/null",
+        f"bash -c 'echo > /dev/tcp/{q_exit}/443' 2>/dev/null",
         timeout=10,
     )
     if tcp_test.returncode == 0:

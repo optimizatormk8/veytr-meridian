@@ -190,8 +190,13 @@ body{
 {# -- Primary: Reality connection -- #}
 {# QR variable name differs: server-hosted uses reality_qr_b64, local uses reality_qr_b64_local #}
 <div class="card card-blue">
+{% if has_relays | default(false) | bool %}
+  <div class="card-label"><i></i> <span data-t="primary">Primary</span></div>
+  <p class="card-desc">Direct connection — use if relay is unavailable.</p>
+{% else %}
   <div class="card-label"><i></i> <span data-t="primary">Primary</span><span class="card-rec" data-t="primary.rec">Recommended</span></div>
   <p class="card-desc" data-t="primary.desc">Recommended — fastest and most reliable connection. Use this first.</p>
+{% endif %}
   <a href="{{ vless_reality_url }}" class="open-btn" data-t="open">Open in App</a>
 {% if is_server_hosted | default(false) | bool %}
   <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64.stdout }}" alt="QR code for connection" loading="lazy"></div>
