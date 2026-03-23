@@ -58,9 +58,14 @@ RUN mkdir -p /run/sshd /root/.ssh && \
     sed -i 's/^#*Port .*/Port 2222/' /etc/ssh/sshd_config && \
     sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
-    printf 'Host 127.0.0.1\n  Port 2222\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null\n  LogLevel ERROR\n' \
+    printf 'Host 127.0.0.1\n  Port 2222\n  LogLevel ERROR\n' \
       > /root/.ssh/config && \
-    chmod 600 /root/.ssh/config
+    chmod 600 /root/.ssh/config && \
+    awk '{print "127.0.0.1 " $1 " " $2}' /etc/ssh/ssh_host_ed25519_key.pub \
+      >> /root/.ssh/known_hosts && \
+    awk '{print "[127.0.0.1]:2222 " $1 " " $2}' /etc/ssh/ssh_host_ed25519_key.pub \
+      >> /root/.ssh/known_hosts && \
+    chmod 600 /root/.ssh/known_hosts
 
 # ---------------------------------------------------------------------------
 # Mock systemctl (no systemd in Docker)
@@ -82,4 +87,4 @@ COPY tests/e2e/run-e2e.sh /run-e2e.sh
 RUN chmod +x /run-e2e.sh
 
 WORKDIR /root
-CMD ["/bin/bash", "-c", "/usr/sbin/sshd -e 2>/tmp/sshd.log && sleep 1 && ssh -o BatchMode=yes 127.0.0.1 echo 'sshd ok' && /run-e2e.sh || (echo 'sshd startup failed:' && cat /tmp/sshd.log && exit 1)"]
+CMD ["/bin/bash", "-c", "/usr/sbin/sshd -e 2>/tmp/sshd.log && sleep 1 && ssh -o BatchMode=yes 127.0.0.1 echo 'sshd ok' && /run-e2e.sh || (echo 'E2E failed. sshd log:' && cat /tmp/sshd.log && exit 1)"]
