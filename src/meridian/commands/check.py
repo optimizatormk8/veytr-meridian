@@ -51,7 +51,7 @@ def run(
     if not sni_check:
         # Fallback: TCP connect
         sni_result2 = resolved.conn.run(
-            f"timeout 3 bash -c 'echo >/dev/tcp/{q_sni}/443' 2>&1 && echo OK",
+            f"nc -z -w 3 {q_sni} 443 2>&1 && echo OK",
             timeout=8,
         )
         sni_check = sni_result2.stdout.strip()

@@ -288,7 +288,7 @@ def run_deploy(
     info("Testing relay -> exit connectivity...")
     q_exit_ip = shlex.quote(resolved_exit.ip)
     tcp_test = relay_conn.run(
-        f"bash -c 'echo > /dev/tcp/{q_exit_ip}/443' 2>/dev/null",
+        f"nc -z -w 5 {q_exit_ip} 443 2>/dev/null",
         timeout=10,
     )
     if tcp_test.returncode != 0:
@@ -643,7 +643,7 @@ def run_check(
 
     q_exit = _shlex.quote(resolved_exit.ip)
     tcp_test = relay_conn.run(
-        f"bash -c 'echo > /dev/tcp/{q_exit}/443' 2>/dev/null",
+        f"nc -z -w 5 {q_exit} 443 2>/dev/null",
         timeout=10,
     )
     if tcp_test.returncode == 0:

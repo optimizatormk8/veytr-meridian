@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import typer
@@ -82,74 +81,39 @@ class TestServerConnectionRun:
 
 
 class TestTcpConnect:
-    def test_constructs_correct_bash_command(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            tcp_connect("example.com", 443)
-            call_args = mock_run.call_args
-            cmd = call_args[0][0]
-            assert cmd[0] == "bash"
-            assert cmd[1] == "-c"
-            # The command should use /dev/tcp with the host and port
-            assert "/dev/tcp/" in cmd[2]
-            assert "443" in cmd[2]
-
-    def test_host_is_shell_quoted(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            tcp_connect("evil;rm -rf /", 443)
-            call_args = mock_run.call_args
-            cmd = call_args[0][0]
-            bash_cmd = cmd[2]
-            # The host should be shlex-quoted, making the injection inert
-            quoted_host = shlex.quote("evil;rm -rf /")
-            assert quoted_host in bash_cmd
-
     def test_returns_true_on_success(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_sock = MagicMock()
+        with patch("socket.socket", return_value=mock_sock):
             assert tcp_connect("1.2.3.4", 443) is True
+            mock_sock.settimeout.assert_called_once_with(5)
+            mock_sock.connect.assert_called_once_with(("1.2.3.4", 443))
+            mock_sock.close.assert_called_once()
 
-    def test_returns_false_on_failure(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=1, stdout="", stderr="Connection refused"
-            )
+    def test_returns_false_on_connection_refused(self) -> None:
+        mock_sock = MagicMock()
+        mock_sock.connect.side_effect = ConnectionRefusedError
+        with patch("socket.socket", return_value=mock_sock):
             assert tcp_connect("1.2.3.4", 443) is False
 
     def test_returns_false_on_timeout(self) -> None:
-        with patch(
-            "meridian.ssh.subprocess.run",
-            side_effect=subprocess.TimeoutExpired(cmd="bash", timeout=5),
-        ):
+        import socket
+
+        mock_sock = MagicMock()
+        mock_sock.connect.side_effect = socket.timeout
+        with patch("socket.socket", return_value=mock_sock):
             assert tcp_connect("1.2.3.4", 443) is False
 
-    def test_returns_false_on_file_not_found(self) -> None:
-        with patch("meridian.ssh.subprocess.run", side_effect=FileNotFoundError):
+    def test_returns_false_on_os_error(self) -> None:
+        mock_sock = MagicMock()
+        mock_sock.connect.side_effect = OSError("Network unreachable")
+        with patch("socket.socket", return_value=mock_sock):
             assert tcp_connect("1.2.3.4", 443) is False
 
     def test_custom_timeout(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_sock = MagicMock()
+        with patch("socket.socket", return_value=mock_sock):
             tcp_connect("1.2.3.4", 80, timeout=10)
-            kwargs = mock_run.call_args[1]
-            assert kwargs["timeout"] == 10
-
-    def test_special_chars_in_host_quoted(self) -> None:
-        """Hosts with spaces or quotes should be safely quoted."""
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            tcp_connect("host with spaces", 443)
-            bash_cmd = mock_run.call_args[0][0][2]
-            quoted = shlex.quote("host with spaces")
-            assert quoted in bash_cmd
-
-    def test_stdin_devnull(self) -> None:
-        with patch("meridian.ssh.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            tcp_connect("1.2.3.4", 443)
-            kwargs = mock_run.call_args[1]
-            assert kwargs["stdin"] == subprocess.DEVNULL
+            mock_sock.settimeout.assert_called_once_with(10)
 
 
 class TestCheckSSH:

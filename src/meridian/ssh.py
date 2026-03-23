@@ -351,18 +351,14 @@ def _is_on_server(ip: str) -> bool:
 
 
 def tcp_connect(host: str, port: int, timeout: int = 5) -> bool:
-    """Test TCP connectivity to host:port using bash /dev/tcp."""
-    import shlex
+    """Test TCP connectivity to host:port using a Python socket."""
+    import socket as _socket
 
     try:
-        q_host = shlex.quote(host)
-        result = subprocess.run(
-            ["bash", "-c", f"echo >/dev/tcp/{q_host}/{port}"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        sock.connect((host, port))
+        sock.close()
+        return True
+    except (OSError, _socket.timeout):
         return False
