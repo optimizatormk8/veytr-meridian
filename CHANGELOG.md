@@ -4,6 +4,11 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.7.1] - 2026-03-23
+
+### Fixed
+- **HAProxy port mismatch** — HAProxy hardcoded Reality backend port 10443 instead of using the actual IP-derived port, causing VPN to connect but produce no internet traffic
+
 ## [3.7.0] - 2026-03-22
 
 ### Added — Website (getmeridian.org)
