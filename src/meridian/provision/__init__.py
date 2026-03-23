@@ -102,7 +102,12 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
             InstallHAProxy,
         )
 
-        steps.append(InstallHAProxy(reality_sni=ctx.sni))
+        steps.append(
+            InstallHAProxy(
+                reality_sni=ctx.sni,
+                haproxy_reality_backend_port=ctx.reality_port,
+            )
+        )
 
         if ctx.domain_mode:
             steps.append(InstallCaddy(domain=ctx.domain))
