@@ -4,6 +4,33 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.8.0] - 2026-03-24
+
+### Security
+- **XSS in inline onclick handlers** — replaced all `onclick="shareUrl('...')"` patterns with `data-url` attributes + delegated event listener. URLs no longer interpolated into inline JS strings
+- **Content-Security-Policy** — added CSP header to Caddy connection page block (`default-src 'self'; img-src 'self' data:`)
+- **Remove VPN identifiers from client-facing pages** — share titles no longer say "VPN", footer "Powered by Meridian" and GitHub link removed, manifest name changed to "Setup"
+- **Service worker cache anonymity** — cache key changed from `meridian-pwa-v1` to `pwa-v1`
+
+### Added
+- **RTL CSS support for Farsi** — all directional properties converted to CSS logical properties (`margin-inline-start/end`, `text-align: start/end`, `border-inline-start`)
+- **i18n: 15+ previously hardcoded strings now translated** — toast "Copied", stats "Active now/ago", page title, relay "via {name}", error messages, noscript fallback (RU/FA/ZH)
+- **config.json error handling** — retry button + 10-second loading timeout with translated messages
+- **Keyboard accessibility** — `tabindex`, `role="button"`, Enter/Space handlers on clickable URL divs; `role="alert"` + `aria-live` on toast
+- **40 new tests** — upload pipeline, Caddy XHTTP block, `handle_path` structure, config.json schema, `_PWA_APPS`↔`apps.json` sync, Unicode client names, `_render_stats_script`
+
+### Fixed
+- **Stats files unreadable by Caddy** — cron script wrote files as root with `0o600`; changed to `0o644` (directory is already access-controlled)
+- **Service worker `networkFirst` returned `undefined`** — now returns 503 Response on full cache+network miss
+- **Service worker stale assets** — replaced `cacheFirst` with stale-while-revalidate pattern (serve cached, refresh in background)
+- **Silent template failures** — `render.py` bare `except` now logs warning instead of silently returning empty string
+- **`upload_client_files` could exceed ARG_MAX** — switched from `printf '%s'` to base64 transport matching `upload_pwa_assets`
+- **`mkdir -p` return codes unchecked** — both upload functions now check and return False on failure
+- **Caddy config duplication** — extracted shared connection-page block into `_render_connection_page_block()` helper
+- **Farsi question mark** — ASCII `?` → Persian `؟` (U+061F)
+- **Deep links** — Android uses `vless://` scheme instead of Hiddify-specific `intent://`; iOS no longer silently overwrites clipboard
+- **Focus outline** — `summary:focus{outline:none}` → `:focus:not(:focus-visible)` to preserve keyboard focus ring
+
 ## [3.7.4] - 2026-03-24
 
 ### Fixed
