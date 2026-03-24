@@ -4,9 +4,10 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [3.7.3] - 2026-03-24
+## [3.7.4] - 2026-03-24
 
 ### Fixed
+- **Caddy PWA cache headers** — `handle` + `uri strip_prefix` caused path matchers to evaluate before prefix stripping, so `@pwa_assets path /pwa/*` never matched; switched to `handle_path` which strips at the handle level
 - **Mypy type errors in dev.py** — fix bytes/str variable shadowing and SimpleHTTPRequestHandler init typing
 - **Ruff formatting** — fix import order in dev.py, formatting in services.py
 
