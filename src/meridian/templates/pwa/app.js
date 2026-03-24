@@ -1,4 +1,4 @@
-/* Meridian PWA — Connection Setup */
+/* PWA — Connection Setup */
 (function() {
 'use strict';
 
@@ -41,10 +41,21 @@ var T = {
     'install.offline': 'Доступ к подключению офлайн',
     'backup.direct': 'ЗАПАСНОЙ (ПРЯМОЙ)',
     'relay.desc': 'Подключайтесь через реле для лучшей надёжности в вашем регионе.',
+    'relay.via': 'через {name}',
     'direct.desc': 'Прямое подключение — используйте, если реле недоступно.',
     'more.options': 'Другие варианты подключения',
     'show.qr': 'Показать QR-код',
     'share.page': 'Поделиться этой страницей',
+    copied: 'Скопировано',
+    'page_title': 'Настройка подключения',
+    'stats.now': 'Активно сейчас',
+    'stats.min_ago': 'Активно {n}м назад',
+    'stats.hr_ago': 'Активно {n}ч назад',
+    'stats.day_ago': 'Активно {n}д назад',
+    'error.title': 'Настройка подключения',
+    'error.msg': 'Не удалось загрузить конфигурацию. Попробуйте перезагрузить страницу.',
+    'error.retry': 'Повторить',
+    'error.slow': 'Загрузка занимает больше времени, чем обычно\u2026',
   },
   fa: {
     title: 'تنظیم اتصال',
@@ -53,24 +64,24 @@ var T = {
     'trust.named': '{name} این اتصال را برای شما تنظیم کرده',
     primary: 'اصلی', backup: 'پشتیبان',
     'primary.rec': 'پیشنهادی',
-    'primary.desc': 'پیشنهادی — سریع‌ترین و پایدارترین اتصال. ابتدا این را امتحان کنید.',
-    'backup.desc': 'جایگزین نهایی — از طریق CDN. فقط اگر هر دو گزینه بالا کار نکرد استفاده کنید.',
-    'xhttp.desc': 'جایگزین — اگر اصلی کار نمی‌کند استفاده کنید. شناسایی آن دشوارتر است.',
+    'primary.desc': 'پیشنهادی \u2014 سریع\u200Cترین و پایدارترین اتصال. ابتدا این را امتحان کنید.',
+    'backup.desc': 'جایگزین نهایی \u2014 از طریق CDN. فقط اگر هر دو گزینه بالا کار نکرد استفاده کنید.',
+    'xhttp.desc': 'جایگزین \u2014 اگر اصلی کار نمی\u200Cکند استفاده کنید. شناسایی آن دشوارتر است.',
     open: 'باز کردن در برنامه',
-    share: 'اشتراک‌گذاری',
+    share: 'اشتراک\u200Cگذاری',
     'copy.link': 'کپی لینک',
     'show.raw': 'نمایش لینک',
     'copy.hint': 'برای کپی ضربه بزنید',
-    apps: 'برنامه‌ها',
-    'apps.desc': 'یکی را نصب کنید، سپس «باز کردن در برنامه» را بزنید یا کد QR را اسکن کنید.',
-    setup: 'راه‌اندازی سریع',
+    apps: 'برنامه\u200Cها',
+    'apps.desc': 'یکی را نصب کنید، سپس \u00ABباز کردن در برنامه\u00BB را بزنید یا کد QR را اسکن کنید.',
+    setup: 'راه\u200Cاندازی سریع',
     step1: 'یک برنامه کلاینت از لیست بالا نصب کنید',
-    step2: '«باز کردن در برنامه» را بزنید — اتصال به‌طور خودکار وارد می‌شود',
+    step2: '\u00ABباز کردن در برنامه\u00BB را بزنید \u2014 اتصال به\u200Cطور خودکار وارد می\u200Cشود',
     step3: 'یا کد QR را از دستگاه دیگری اسکن کنید',
     step4: 'اتصال را در برنامه فعال کنید',
-    clock: 'همگام‌سازی ساعت',
-    'clock.desc': 'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > «تنظیم خودکار» بروید.',
-    ping: 'متصل نمی‌شوید?',
+    clock: 'همگام\u200Cسازی ساعت',
+    'clock.desc': 'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > \u00ABتنظیم خودکار\u00BB بروید.',
+    ping: '\u0645\u062A\u0635\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u06CC\u062F\u061F',
     'ping.desc': 'بررسی کنید آیا سرور از دستگاه شما قابل دسترسی است:',
     'ping.link': 'اجرای تست پینگ',
     stats: 'مصرف', 'stats.upload': 'آپلود', 'stats.download': 'دانلود',
@@ -81,10 +92,21 @@ var T = {
     'install.offline': 'دسترسی آفلاین به اتصال',
     'backup.direct': 'پشتیبان (مستقیم)',
     'relay.desc': 'برای بهترین پایداری در منطقه خود از طریق رله متصل شوید.',
-    'direct.desc': 'اتصال مستقیم — اگر رله در دسترس نیست استفاده کنید.',
-    'more.options': 'گزینه‌های دیگر',
+    'relay.via': 'از طریق {name}',
+    'direct.desc': 'اتصال مستقیم \u2014 اگر رله در دسترس نیست استفاده کنید.',
+    'more.options': 'گزینه\u200Cهای دیگر',
     'show.qr': 'نمایش کد QR',
-    'share.page': 'اشتراک‌گذاری این صفحه',
+    'share.page': 'اشتراک\u200Cگذاری این صفحه',
+    copied: '\u06A9\u067E\u06CC \u0634\u062F',
+    'page_title': 'تنظیم اتصال',
+    'stats.now': '\u0641\u0639\u0627\u0644 \u0627\u06A9\u0646\u0648\u0646',
+    'stats.min_ago': '\u0641\u0639\u0627\u0644 {n} \u062F\u0642\u06CC\u0642\u0647 \u067E\u06CC\u0634',
+    'stats.hr_ago': '\u0641\u0639\u0627\u0644 {n} \u0633\u0627\u0639\u062A \u067E\u06CC\u0634',
+    'stats.day_ago': '\u0641\u0639\u0627\u0644 {n} \u0631\u0648\u0632 \u067E\u06CC\u0634',
+    'error.title': 'تنظیم اتصال',
+    'error.msg': '\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u067E\u06CC\u06A9\u0631\u0628\u0646\u062F\u06CC \u0627\u0646\u062C\u0627\u0645 \u0646\u0634\u062F. \u0644\u0637\u0641\u0627\u064B \u0635\u0641\u062D\u0647 \u0631\u0627 \u062F\u0648\u0628\u0627\u0631\u0647 \u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u06A9\u0646\u06CC\u062F.',
+    'error.retry': '\u062A\u0644\u0627\u0634 \u0645\u062C\u062F\u062F',
+    'error.slow': '\u0628\u0627\u0631\u06AF\u0630\u0627\u0631\u06CC \u0628\u06CC\u0634 \u0627\u0632 \u062D\u062F \u0645\u0639\u0645\u0648\u0644 \u0637\u0648\u0644 \u0645\u06CC\u200C\u06A9\u0634\u062F\u2026',
   },
   zh: {
     title: '连接设置',
@@ -121,10 +143,21 @@ var T = {
     'install.offline': '离线访问连接',
     'backup.direct': '备用（直连）',
     'relay.desc': '通过中继连接以获得最佳可靠性。',
+    'relay.via': '经由 {name}',
     'direct.desc': '直接连接 — 中继不可用时使用。',
     'more.options': '更多连接选项',
     'show.qr': '显示二维码',
     'share.page': '分享此页面',
+    copied: '已复制',
+    'page_title': '连接设置',
+    'stats.now': '当前在线',
+    'stats.min_ago': '{n}分钟前活跃',
+    'stats.hr_ago': '{n}小时前活跃',
+    'stats.day_ago': '{n}天前活跃',
+    'error.title': '连接设置',
+    'error.msg': '无法加载配置。请重新加载页面。',
+    'error.retry': '重试',
+    'error.slow': '加载时间比预期更长\u2026',
   },
 };
 
@@ -144,14 +177,8 @@ function detectPlatform() {
 /* -----------------------------------------------------------------------
  * Deep link construction
  * ----------------------------------------------------------------------- */
-function buildOpenUrl(url, platform) {
-  if (platform === 'android') {
-    return 'intent://import/' + encodeURIComponent(url) +
-      '#Intent;scheme=hiddify;package=app.hiddify.com;' +
-      'S.browser_fallback_url=' + encodeURIComponent(
-        'https://play.google.com/store/apps/details?id=app.hiddify.com'
-      ) + ';end';
-  }
+function buildOpenUrl(url) {
+  /* Use vless:// scheme directly — most V2Ray apps register it */
   return url;
 }
 
@@ -160,7 +187,6 @@ function tryOpenIOS(index) {
   if (!el) return;
   var url = el.getAttribute('data-url');
   if (!url) return;
-  copyToClipboard(url);
   var start = Date.now();
   window.location.href = url;
   setTimeout(function() {
@@ -198,6 +224,13 @@ function fallbackCopy(text) {
 function showToast() {
   var t = document.getElementById('toast');
   if (!t) return;
+  /* Update toast text to current language */
+  var span = t.querySelector('[data-t="copied"]');
+  if (span) {
+    var dict = currentLang && T[currentLang];
+    if (dict && dict.copied) span.textContent = dict.copied;
+    else span.textContent = 'Copied';
+  }
   t.classList.add('show');
   setTimeout(function() { t.classList.remove('show'); }, 1200);
 }
@@ -253,6 +286,23 @@ function dismissInstallBanner() {
 /* -----------------------------------------------------------------------
  * Stats loading
  * ----------------------------------------------------------------------- */
+function ago(ts) {
+  if (!ts) return '';
+  var s = Math.floor((Date.now() - ts) / 1000);
+  var dict = currentLang && T[currentLang];
+  if (s < 60) return (dict && dict['stats.now']) || 'Active now';
+  if (s < 3600) {
+    var m = Math.floor(s / 60);
+    return ((dict && dict['stats.min_ago']) || 'Active {n}m ago').replace('{n}', m);
+  }
+  if (s < 86400) {
+    var h = Math.floor(s / 3600);
+    return ((dict && dict['stats.hr_ago']) || 'Active {n}h ago').replace('{n}', h);
+  }
+  var d = Math.floor(s / 86400);
+  return ((dict && dict['stats.day_ago']) || 'Active {n}d ago').replace('{n}', d);
+}
+
 function loadStats(uuid) {
   if (!uuid) return;
   var base = location.pathname.replace(/\/[^/]*\/?$/, '');
@@ -267,14 +317,6 @@ function loadStats(uuid) {
         if (b >= 1048576) return (b / 1048576).toFixed(0) + ' MB';
         if (b >= 1024) return (b / 1024).toFixed(0) + ' KB';
         return b + ' B';
-      }
-      function ago(ts) {
-        if (!ts) return '';
-        var s = Math.floor((Date.now() - ts) / 1000);
-        if (s < 60) return 'Active now';
-        if (s < 3600) return 'Active ' + Math.floor(s / 60) + 'm ago';
-        if (s < 86400) return 'Active ' + Math.floor(s / 3600) + 'h ago';
-        return 'Active ' + Math.floor(s / 86400) + 'd ago';
       }
       document.getElementById('s-up').textContent = fmt(d.up);
       document.getElementById('s-down').textContent = fmt(d.down);
@@ -298,7 +340,7 @@ function getSubscriptionUrl() {
  * ----------------------------------------------------------------------- */
 function shareUrl(url) {
   if (navigator.share) {
-    navigator.share({ title: 'VPN Config', text: url }).catch(function() {});
+    navigator.share({ title: '', text: url }).catch(function() {});
   } else {
     copyToClipboard(url);
   }
@@ -306,7 +348,7 @@ function shareUrl(url) {
 
 function sharePageUrl() {
   if (navigator.share) {
-    navigator.share({ title: 'VPN Connection', url: location.href }).catch(function() {});
+    navigator.share({ title: '', url: location.href }).catch(function() {});
   } else {
     copyToClipboard(location.href);
   }
@@ -351,6 +393,15 @@ var ICON_COPY = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" 
 var ICON_QR = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4" rx="1"/><line x1="22" y1="14" x2="22" y2="14.01"/><line x1="22" y1="22" x2="22" y2="22.01"/><line x1="18" y1="22" x2="18" y2="22.01"/></svg>';
 
 /* -----------------------------------------------------------------------
+ * i18n helper for relay "via" label
+ * ----------------------------------------------------------------------- */
+function relayViaLabel(name) {
+  var dict = currentLang && T[currentLang];
+  var tpl = (dict && dict['relay.via']) || 'via {name}';
+  return tpl.replace('{name}', name);
+}
+
+/* -----------------------------------------------------------------------
  * Page rendering from config.json
  * ----------------------------------------------------------------------- */
 function renderPage(config) {
@@ -391,7 +442,7 @@ function renderPage(config) {
   html += '<div class="lang-bar">';
   var langs = [['en', '\uD83C\uDDEC\uD83C\uDDE7 EN'], ['ru', '\uD83C\uDDF7\uD83C\uDDFA RU'], ['fa', '\uD83C\uDDEE\uD83C\uDDF7 FA'], ['zh', '\uD83C\uDDE8\uD83C\uDDF3 ZH']];
   for (var li = 0; li < langs.length; li++) {
-    html += '<button class="lang-btn" data-lang="' + langs[li][0] + '" onclick="switchLang(\'' + langs[li][0] + '\')">' + langs[li][1] + '</button>';
+    html += '<button class="lang-btn" data-lang="' + langs[li][0] + '" data-action="lang">' + langs[li][1] + '</button>';
   }
   html += '</div>';
   html += '</div>';
@@ -399,8 +450,8 @@ function renderPage(config) {
   /* PWA install banner */
   html += '<div class="install-banner" id="install-banner">';
   html += '<div class="install-banner-text"><strong data-t="install.title">Install this app</strong><span data-t="install.offline">Access your connection offline</span></div>';
-  html += '<button class="install-btn" onclick="handleInstallClick()" data-t="install.btn">Install</button>';
-  html += '<button class="install-dismiss" onclick="dismissInstallBanner()">&times;</button>';
+  html += '<button class="install-btn" data-action="install" data-t="install.btn">Install</button>';
+  html += '<button class="install-dismiss" data-action="dismiss">&times;</button>';
   html += '</div>';
 
   /* Stats */
@@ -422,7 +473,7 @@ function renderPage(config) {
     var firstRelay = config.relays[0];
     if (firstRelay.urls.length > 0) {
       primaryCards += renderProtocolCard(firstRelay.urls[0], platform, {
-        extraLabel: 'via ' + escapeHtml(firstRelay.name || firstRelay.ip),
+        extraLabel: relayViaLabel(escapeHtml(firstRelay.name || firstRelay.ip)),
         isRelay: true,
         isPrimary: true,
         isHero: true,
@@ -434,7 +485,7 @@ function renderPage(config) {
       var startIdx = (ri === 0) ? 1 : 0;
       for (var rui = startIdx; rui < relay.urls.length; rui++) {
         secondaryCards += renderProtocolCard(relay.urls[rui], platform, {
-          extraLabel: 'via ' + escapeHtml(relay.name || relay.ip),
+          extraLabel: relayViaLabel(escapeHtml(relay.name || relay.ip)),
           isRelay: true,
         });
       }
@@ -494,7 +545,7 @@ function renderPage(config) {
   html += '<div style="font-size:.78rem;font-weight:600;margin-bottom:4px" data-t="sub.label">Subscription (auto-update)</div>';
   html += '<p class="card-desc" data-t="sub.desc">Add this URL as a subscription in your app for automatic updates.</p>';
   html += '<div class="sub-url">';
-  html += '<div class="sub-url-value" onclick="copyToClipboard(this.textContent)">' + escapeHtml(subUrl) + '</div>';
+  html += '<div class="sub-url-value" tabindex="0" role="button" data-action="copy-text">' + escapeHtml(subUrl) + '</div>';
   html += '</div>';
   html += '</div>';
 
@@ -518,15 +569,10 @@ function renderPage(config) {
   /* Footer */
   html += '<div class="foot">';
   if (navigator.share) {
-    html += '<button class="share-page-btn" onclick="sharePageUrl()" data-t="share.page">';
+    html += '<button class="share-page-btn" data-action="share-page" data-t="share.page">';
     html += '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
     html += 'Share this page</button>';
   }
-  html += '<div class="links">';
-  html += '<a href="https://getmeridian.org" target="_blank">Powered by Meridian</a>';
-  html += '<span class="sep">&middot;</span>';
-  html += '<a href="https://github.com/uburuntu/meridian" target="_blank">GitHub</a>';
-  html += '</div>';
   html += '</div>';
 
   app.innerHTML = html;
@@ -554,7 +600,7 @@ function renderProtocolCard(proto, platform, opts) {
   if (opts.isRelay) {
     html += '<span>&#9733; ' + escapeHtml(proto.label) + '</span>';
     if (opts.extraLabel) {
-      html += '<span class="card-rec">' + escapeHtml(opts.extraLabel) + '</span>';
+      html += '<span class="card-rec">' + opts.extraLabel + '</span>';
     }
   } else if (opts.isFirst && !opts.hasRelays) {
     html += '<span data-t="primary">' + escapeHtml(proto.label) + '</span>';
@@ -598,19 +644,19 @@ function renderProtocolCard(proto, platform, opts) {
     html += '<div class="card-actions">';
     if (platform === 'ios') {
       var idx = iosButtonIndex++;
-      html += '<a href="#" data-ios-idx="' + idx + '" data-url="' + escapeHtml(proto.url) + '" onclick="event.preventDefault();tryOpenIOS(' + idx + ')" class="open-btn" data-t="open">Open in App</a>';
+      html += '<a href="#" data-ios-idx="' + idx + '" data-url="' + escapeHtml(proto.url) + '" data-action="open-ios" class="open-btn" data-t="open">Open in App</a>';
     } else {
-      var openUrl = buildOpenUrl(proto.url, platform);
+      var openUrl = buildOpenUrl(proto.url);
       html += '<a href="' + escapeHtml(openUrl) + '" class="open-btn" data-t="open">Open in App</a>';
     }
     if (navigator.share) {
-      html += '<button class="share-btn" onclick="shareUrl(\'' + escapeHtml(proto.url).replace(/'/g, '') + '\')" data-t="share">Share</button>';
+      html += '<button class="share-btn" data-action="share" data-url="' + escapeHtml(proto.url) + '" data-t="share">Share</button>';
     }
     html += '</div>';
 
     /* Secondary actions: copy link */
     html += '<div class="card-tools">';
-    html += '<button class="copy-link-btn" onclick="copyToClipboard(\'' + escapeHtml(proto.url).replace(/'/g, '') + '\')">';
+    html += '<button class="copy-link-btn" data-action="copy" data-url="' + escapeHtml(proto.url) + '">';
     html += ICON_COPY;
     html += '<span data-t="copy.link">Copy link</span>';
     html += '</button>';
@@ -618,7 +664,7 @@ function renderProtocolCard(proto, platform, opts) {
 
     /* Show raw link */
     html += '<details class="url-section"><summary data-t="show.raw">Show raw link</summary>';
-    html += '<div class="url" onclick="copyToClipboard(this.getAttribute(\'data-url\'))" data-url="' + escapeHtml(proto.url) + '">';
+    html += '<div class="url" tabindex="0" role="button" data-action="copy" data-url="' + escapeHtml(proto.url) + '">';
     html += escapeHtml(proto.url);
     html += '<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span>';
     html += '</div>';
@@ -642,19 +688,19 @@ function renderProtocolCard(proto, platform, opts) {
     html += '<div class="card-actions">';
     if (platform === 'ios') {
       var idx2 = iosButtonIndex++;
-      html += '<a href="#" data-ios-idx="' + idx2 + '" data-url="' + escapeHtml(proto.url) + '" onclick="event.preventDefault();tryOpenIOS(' + idx2 + ')" class="open-btn" data-t="open">Open in App</a>';
+      html += '<a href="#" data-ios-idx="' + idx2 + '" data-url="' + escapeHtml(proto.url) + '" data-action="open-ios" class="open-btn" data-t="open">Open in App</a>';
     } else {
-      var openUrl2 = buildOpenUrl(proto.url, platform);
+      var openUrl2 = buildOpenUrl(proto.url);
       html += '<a href="' + escapeHtml(openUrl2) + '" class="open-btn" data-t="open">Open in App</a>';
     }
     if (navigator.share) {
-      html += '<button class="share-btn" onclick="shareUrl(\'' + escapeHtml(proto.url).replace(/'/g, '') + '\')" data-t="share">Share</button>';
+      html += '<button class="share-btn" data-action="share" data-url="' + escapeHtml(proto.url) + '" data-t="share">Share</button>';
     }
     html += '</div>';
 
     /* Secondary actions: copy link */
     html += '<div class="card-tools">';
-    html += '<button class="copy-link-btn" onclick="copyToClipboard(\'' + escapeHtml(proto.url).replace(/'/g, '') + '\')">';
+    html += '<button class="copy-link-btn" data-action="copy" data-url="' + escapeHtml(proto.url) + '">';
     html += ICON_COPY;
     html += '<span data-t="copy.link">Copy link</span>';
     html += '</button>';
@@ -662,7 +708,7 @@ function renderProtocolCard(proto, platform, opts) {
 
     /* Show raw link */
     html += '<details class="url-section"><summary data-t="show.raw">Show raw link</summary>';
-    html += '<div class="url" onclick="copyToClipboard(this.getAttribute(\'data-url\'))" data-url="' + escapeHtml(proto.url) + '">';
+    html += '<div class="url" tabindex="0" role="button" data-action="copy" data-url="' + escapeHtml(proto.url) + '">';
     html += escapeHtml(proto.url);
     html += '<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span>';
     html += '</div>';
@@ -741,9 +787,9 @@ function highlightActiveLang() {
 
 function applyI18n(clientName) {
   currentLang = detectLang();
-  if (!currentLang) { currentLang = 'en'; highlightActiveLang(); return; }
+  if (!currentLang) { currentLang = 'en'; highlightActiveLang(); updatePageMeta(clientName); return; }
   var dict = T[currentLang];
-  if (!dict) { highlightActiveLang(); return; }
+  if (!dict) { highlightActiveLang(); updatePageMeta(clientName); return; }
   document.querySelectorAll('[data-t]').forEach(function(el) {
     var k = el.dataset.t;
     var v = dict[k];
@@ -764,6 +810,21 @@ function applyI18n(clientName) {
     document.documentElement.dir = 'ltr';
   }
   highlightActiveLang();
+  updatePageMeta(clientName);
+}
+
+function updatePageMeta(clientName) {
+  /* Update <title> and <html lang> to match current language */
+  var dict = currentLang && T[currentLang];
+  var titleText = (dict && dict['page_title']) || 'Connection Setup';
+  if (isPersonalName(clientName)) {
+    titleText += ' \u2014 ' + capitalize(clientName);
+  }
+  document.title = titleText;
+
+  /* Map internal lang codes to BCP 47 */
+  var langMap = { en: 'en', ru: 'ru', fa: 'fa', zh: 'zh' };
+  document.documentElement.lang = langMap[currentLang] || 'en';
 }
 
 /* -----------------------------------------------------------------------
@@ -805,15 +866,55 @@ function requestPersistentStorage() {
 }
 
 /* -----------------------------------------------------------------------
- * Expose globals
+ * Event delegation — replaces all inline onclick handlers
+ * ----------------------------------------------------------------------- */
+document.addEventListener('click', function(e) {
+  var target = e.target.closest('[data-action]');
+  if (!target) return;
+  var action = target.getAttribute('data-action');
+
+  if (action === 'copy') {
+    var url = target.getAttribute('data-url');
+    if (url) copyToClipboard(url);
+  } else if (action === 'copy-text') {
+    copyToClipboard(target.textContent);
+  } else if (action === 'share') {
+    var shareUrlVal = target.getAttribute('data-url');
+    if (shareUrlVal) shareUrl(shareUrlVal);
+  } else if (action === 'share-page') {
+    sharePageUrl();
+  } else if (action === 'open-ios') {
+    e.preventDefault();
+    var iosIdx = target.getAttribute('data-ios-idx');
+    if (iosIdx !== null) tryOpenIOS(parseInt(iosIdx, 10));
+  } else if (action === 'lang') {
+    var lang = target.getAttribute('data-lang');
+    if (lang) switchLang(lang);
+  } else if (action === 'install') {
+    handleInstallClick();
+  } else if (action === 'dismiss') {
+    dismissInstallBanner();
+  } else if (action === 'retry') {
+    init();
+  }
+});
+
+/* Keyboard support for click-to-copy elements */
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var target = e.target.closest('[data-action]');
+  if (!target) return;
+  var action = target.getAttribute('data-action');
+  if (action === 'copy' || action === 'copy-text') {
+    e.preventDefault();
+    target.click();
+  }
+});
+
+/* -----------------------------------------------------------------------
+ * Expose globals (minimal — only for SW/PWA install APIs)
  * ----------------------------------------------------------------------- */
 window.copyToClipboard = copyToClipboard;
-window.handleInstallClick = handleInstallClick;
-window.dismissInstallBanner = dismissInstallBanner;
-window.tryOpenIOS = tryOpenIOS;
-window.shareUrl = shareUrl;
-window.sharePageUrl = sharePageUrl;
-window.switchLang = switchLang;
 
 /* -----------------------------------------------------------------------
  * Init
@@ -822,20 +923,40 @@ function init() {
   registerSW();
   requestPersistentStorage();
 
+  var app = document.getElementById('app');
+  var slowTimer = setTimeout(function() {
+    if (!app) return;
+    var existing = app.querySelector('.load-slow');
+    if (existing) return;
+    var dict = currentLang && T[currentLang];
+    var msg = (dict && dict['error.slow']) || 'Taking longer than expected\u2026';
+    var el = document.createElement('div');
+    el.className = 'load-slow';
+    el.style.cssText = 'text-align:center;color:var(--tx2);font-size:.82rem;padding:12px';
+    el.textContent = msg;
+    app.appendChild(el);
+  }, 10000);
+
   fetch('config.json')
     .then(function(r) {
       if (!r.ok) throw new Error('config.json fetch failed');
       return r.json();
     })
     .then(function(config) {
+      clearTimeout(slowTimer);
       window._meridianConfig = config;
       renderPage(config);
     })
     .catch(function() {
-      var app = document.getElementById('app');
+      clearTimeout(slowTimer);
       if (app) {
-        app.innerHTML = '<div class="hdr"><h1>Connection Setup</h1>' +
-          '<p style="color:var(--tx2)">Could not load configuration. Please reload the page.</p></div>';
+        var dict = currentLang && T[currentLang];
+        var errTitle = (dict && dict['error.title']) || 'Connection Setup';
+        var errMsg = (dict && dict['error.msg']) || 'Could not load configuration. Please reload the page.';
+        var errRetry = (dict && dict['error.retry']) || 'Retry';
+        app.innerHTML = '<div class="hdr"><h1>' + escapeHtml(errTitle) + '</h1>' +
+          '<p style="color:var(--tx2)">' + escapeHtml(errMsg) + '</p>' +
+          '<button class="open-btn" style="margin-top:12px" data-action="retry">' + escapeHtml(errRetry) + '</button></div>';
       }
     });
 }
