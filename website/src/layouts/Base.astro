@@ -62,10 +62,18 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
       import { detectLocale, setLang } from '../i18n/index';
       import { translations } from '../i18n/translations';
 
+      function updateDocsLinks(lang: string) {
+        if (lang === 'en') return;
+        document.querySelectorAll<HTMLAnchorElement>('a[href*="/docs/en/"]').forEach((a) => {
+          a.href = a.href.replace('/docs/en/', `/docs/${lang}/`);
+        });
+      }
+
       // Auto-detect and apply language on load
       const lang = detectLocale();
       if (lang !== 'en') {
         setLang(lang, translations);
+        updateDocsLinks(lang);
       } else {
         // Still update picker active state for English
         document.querySelectorAll('.lang-picker__btn').forEach((btn) => {
@@ -86,6 +94,7 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
           location.reload();
         } else {
           setLang(lang, translations);
+          updateDocsLinks(lang);
         }
       });
     </script>
