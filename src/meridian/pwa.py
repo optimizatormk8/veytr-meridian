@@ -68,18 +68,24 @@ def upload_client_files(
 ) -> bool:
     """Upload per-client PWA files to ``/var/www/private/{uuid}/``.
 
+    Uses base64 transport to safely handle large or special-character
+    content (same pattern as ``upload_pwa_assets``).
+
     Returns True on success, False if any upload fails.
     """
     q_uuid = shlex.quote(reality_uuid)
-    conn.run(
+    result = conn.run(
         f"mkdir -p /var/www/private/{q_uuid} && chown caddy:caddy /var/www/private/{q_uuid}",
         timeout=10,
     )
+    if result.returncode != 0:
+        return False
     for filename, content in files.items():
-        q_content = shlex.quote(content)
+        b64 = base64.b64encode(content.encode()).decode()
+        q_b64 = shlex.quote(b64)
         q_name = shlex.quote(filename)
         result = conn.run(
-            f"printf '%s' {q_content} > /var/www/private/{q_uuid}/{q_name} && "
+            f"printf '%s' {q_b64} | base64 -d > /var/www/private/{q_uuid}/{q_name} && "
             f"chown caddy:caddy /var/www/private/{q_uuid}/{q_name}",
             timeout=15,
         )
@@ -113,7 +119,9 @@ def upload_pwa_assets(conn: ServerConnection) -> bool:
     """
     assets = load_pwa_static_assets()
 
-    conn.run("mkdir -p /var/www/private/pwa && chown caddy:caddy /var/www/private/pwa", timeout=10)
+    result = conn.run("mkdir -p /var/www/private/pwa && chown caddy:caddy /var/www/private/pwa", timeout=10)
+    if result.returncode != 0:
+        return False
 
     for filename, content in assets.items():
         # All our assets are text/SVG, safe to use printf

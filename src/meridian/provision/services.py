@@ -88,6 +88,63 @@ def _render_haproxy_cfg(
 # ---------------------------------------------------------------------------
 
 
+def _render_connection_page_block(info_page_path: str) -> str:
+    """Render the shared connection-page Caddy block.
+
+    Used by both domain and IP config renderers to avoid duplication.
+    Includes file serving, PWA headers, cache control, CSP, and security headers.
+
+    Returns a multi-line string (no trailing newline) indented at 8 spaces
+    (matching the site-block body indentation in the Caddy config).
+    """
+    return textwrap.dedent(f"""\
+
+        # --- Connection Info Pages (PWA with per-client config) ---
+        # handle_path strips the prefix BEFORE directive evaluation,
+        # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
+        handle_path /{info_page_path}/* {{
+            root * /var/www/private
+            file_server
+
+            @manifest path *.webmanifest
+            header @manifest Content-Type "application/manifest+json"
+
+            @sw path */sw.js
+            header @sw Service-Worker-Allowed "/"
+
+            # Static PWA assets: cache 24h
+            @pwa_assets path /pwa/*
+            header @pwa_assets Cache-Control "public, max-age=86400"
+
+            # Dynamic per-client data: revalidate
+            @dynamic path */config.json */sub.txt */stats/*
+            header @dynamic Cache-Control "no-cache, must-revalidate"
+
+            # Everything else (HTML, manifest): no store
+            @nocache {{
+                not path /pwa/*
+                not path */config.json
+                not path */sub.txt
+                not path */stats/*
+            }}
+            header @nocache Cache-Control "no-store"
+
+            header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; connect-src 'self'"
+        }}
+
+        header -Server
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "DENY"
+        header Referrer-Policy "no-referrer"
+
+        log {{
+            output file /var/log/caddy/access.log {{
+                roll_size 10mb
+                roll_keep 3
+            }}
+        }}""")
+
+
 def _render_caddy_config(
     domain: str,
     caddy_internal_port: int,
@@ -124,6 +181,8 @@ def _render_caddy_config(
             }}
         """).rstrip()
 
+    connection_block = _render_connection_page_block(info_page_path)
+
     return textwrap.dedent(f"""\
         # Meridian Proxy Configuration
         # Managed by Meridian -- this file is overwritten on each run.
@@ -148,49 +207,7 @@ def _render_caddy_config(
             handle /{panel_web_base_path}/* {{
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
-
-            # --- Connection Info Pages (PWA with per-client config) ---
-            # handle_path strips the prefix BEFORE directive evaluation,
-            # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
-            handle_path /{info_page_path}/* {{
-                root * /var/www/private
-                file_server
-
-                @manifest path *.webmanifest
-                header @manifest Content-Type "application/manifest+json"
-
-                @sw path */sw.js
-                header @sw Service-Worker-Allowed "/"
-
-                # Static PWA assets: cache 24h
-                @pwa_assets path /pwa/*
-                header @pwa_assets Cache-Control "public, max-age=86400"
-
-                # Dynamic per-client data: revalidate
-                @dynamic path */config.json */sub.txt */stats/*
-                header @dynamic Cache-Control "no-cache, must-revalidate"
-
-                # Everything else (HTML, manifest): no store
-                @nocache {{
-                    not path /pwa/*
-                    not path */config.json
-                    not path */sub.txt
-                    not path */stats/*
-                }}
-                header @nocache Cache-Control "no-store"
-            }}
-
-            header -Server
-            header X-Content-Type-Options "nosniff"
-            header X-Frame-Options "DENY"
-            header Referrer-Policy "no-referrer"
-
-            log {{
-                output file /var/log/caddy/access.log {{
-                    roll_size 10mb
-                    roll_keep 3
-                }}
-            }}
+    """).rstrip() + textwrap.indent(connection_block, "    ") + textwrap.dedent(f"""
         }}
 
         http://{domain} {{
@@ -232,6 +249,8 @@ def _render_caddy_ip_config(
             }}
         """).rstrip()
 
+    connection_block = _render_connection_page_block(info_page_path)
+
     return textwrap.dedent(f"""\
         # Meridian Proxy Configuration (IP Certificate Mode)
         # Managed by Meridian -- this file is overwritten on each run.
@@ -252,49 +271,7 @@ def _render_caddy_ip_config(
             handle /{panel_web_base_path}/* {{
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
-
-            # --- Connection Info Pages (PWA with per-client config) ---
-            # handle_path strips the prefix BEFORE directive evaluation,
-            # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
-            handle_path /{info_page_path}/* {{
-                root * /var/www/private
-                file_server
-
-                @manifest path *.webmanifest
-                header @manifest Content-Type "application/manifest+json"
-
-                @sw path */sw.js
-                header @sw Service-Worker-Allowed "/"
-
-                # Static PWA assets: cache 24h
-                @pwa_assets path /pwa/*
-                header @pwa_assets Cache-Control "public, max-age=86400"
-
-                # Dynamic per-client data: revalidate
-                @dynamic path */config.json */sub.txt */stats/*
-                header @dynamic Cache-Control "no-cache, must-revalidate"
-
-                # Everything else (HTML, manifest): no store
-                @nocache {{
-                    not path /pwa/*
-                    not path */config.json
-                    not path */sub.txt
-                    not path */stats/*
-                }}
-                header @nocache Cache-Control "no-store"
-            }}
-
-            header -Server
-            header X-Content-Type-Options "nosniff"
-            header X-Frame-Options "DENY"
-            header Referrer-Policy "no-referrer"
-
-            log {{
-                output file /var/log/caddy/access.log {{
-                    roll_size 10mb
-                    roll_keep 3
-                }}
-            }}
+    """).rstrip() + textwrap.indent(connection_block, "    ") + textwrap.dedent(f"""
         }}
 
         http://{server_ip} {{
@@ -427,7 +404,7 @@ def _render_stats_script(panel_internal_port: int) -> str:
                 path = os.path.join(STATS_DIR, f"{{uuid}}.json")
                 with open(path, 'w') as f:
                     json.dump(stats, f)
-                os.chmod(path, 0o600)
+                os.chmod(path, 0o644)
 
             for fname in os.listdir(STATS_DIR):
                 if fname.endswith('.json'):

@@ -5,12 +5,15 @@ from __future__ import annotations
 import base64
 import html as html_mod
 import json
+import logging
 import types
 from datetime import datetime, timezone
 from pathlib import Path
 
 from meridian.models import ProtocolURL, RelayURLSet, derive_client_name
 from meridian.urls import generate_qr_base64
+
+logger = logging.getLogger(__name__)
 
 
 def save_connection_text(
@@ -367,7 +370,8 @@ def _render_pwa_template(
         from importlib.resources import files
 
         template_text = (files("meridian") / "templates" / "pwa" / filename).read_text(encoding="utf-8")
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to load PWA template %s: %s", filename, exc)
         return ""
 
     try:
@@ -387,7 +391,8 @@ def _render_pwa_template(
 
         tmpl = env.from_string(template_text)
         return tmpl.render(**variables)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to render PWA template %s: %s", filename, exc)
         return ""
 
 
@@ -406,7 +411,8 @@ def _load_template_text() -> str | None:
 
         template_path = files("meridian") / "templates" / "connection-info.html.j2"
         return template_path.read_text(encoding="utf-8")
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to load connection-info template: %s", exc)
         return None
 
 
