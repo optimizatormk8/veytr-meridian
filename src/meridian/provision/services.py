@@ -149,13 +149,34 @@ def _render_caddy_config(
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
 
-            # --- Connection Info Pages (per-client QR codes and instructions) ---
+            # --- Connection Info Pages (PWA with per-client config) ---
             handle /{info_page_path}/* {{
                 uri strip_prefix /{info_page_path}
                 root * /var/www/private
                 file_server
-                header Cache-Control "no-store"
-                header Access-Control-Allow-Origin *
+
+                @manifest path *.webmanifest
+                header @manifest Content-Type "application/manifest+json"
+
+                @sw path */sw.js
+                header @sw Service-Worker-Allowed "/"
+
+                # Static PWA assets: cache 24h
+                @pwa_assets path /pwa/*
+                header @pwa_assets Cache-Control "public, max-age=86400"
+
+                # Dynamic per-client data: revalidate
+                @dynamic path */config.json */sub.txt */stats/*
+                header @dynamic Cache-Control "no-cache, must-revalidate"
+
+                # Everything else (HTML, manifest): no store
+                @nocache {{
+                    not path /pwa/*
+                    not path */config.json
+                    not path */sub.txt
+                    not path */stats/*
+                }}
+                header @nocache Cache-Control "no-store"
             }}
 
             header -Server
@@ -231,13 +252,34 @@ def _render_caddy_ip_config(
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
 
-            # --- Connection Info Pages (per-client QR codes and instructions) ---
+            # --- Connection Info Pages (PWA with per-client config) ---
             handle /{info_page_path}/* {{
                 uri strip_prefix /{info_page_path}
                 root * /var/www/private
                 file_server
-                header Cache-Control "no-store"
-                header Access-Control-Allow-Origin *
+
+                @manifest path *.webmanifest
+                header @manifest Content-Type "application/manifest+json"
+
+                @sw path */sw.js
+                header @sw Service-Worker-Allowed "/"
+
+                # Static PWA assets: cache 24h
+                @pwa_assets path /pwa/*
+                header @pwa_assets Cache-Control "public, max-age=86400"
+
+                # Dynamic per-client data: revalidate
+                @dynamic path */config.json */sub.txt */stats/*
+                header @dynamic Cache-Control "no-cache, must-revalidate"
+
+                # Everything else (HTML, manifest): no store
+                @nocache {{
+                    not path /pwa/*
+                    not path */config.json
+                    not path */sub.txt
+                    not path */stats/*
+                }}
+                header @nocache Cache-Control "no-store"
             }}
 
             header -Server
@@ -277,7 +319,7 @@ def _render_stats_script(panel_internal_port: int) -> str:
         that appears in their VLESS connection URL. Only someone with the URL can
         find their stats file. Runs via cron every 5 minutes.
         \"\"\"
-        import json, urllib.request, http.cookiejar, os, time, sys
+        import json, urllib.request, urllib.parse, http.cookiejar, os, time, sys
 
         CREDS = '/etc/meridian/proxy.yml'
         STATS_DIR = '/var/www/private/stats'
@@ -313,7 +355,10 @@ def _render_stats_script(panel_internal_port: int) -> str:
 
             cj = http.cookiejar.CookieJar()
             opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-            login_data = f"username={{creds['panel_username']}}&password={{creds['panel_password']}}".encode()
+            login_data = "username={{0}}&password={{1}}".format(
+                urllib.parse.quote(creds.get('panel_username', ''), safe=''),
+                urllib.parse.quote(creds.get('panel_password', ''), safe=''),
+            ).encode()
             try:
                 opener.open(urllib.request.Request(f"{{base}}/login", data=login_data, method='POST'))
             except Exception:
@@ -380,7 +425,7 @@ def _render_stats_script(panel_internal_port: int) -> str:
                 path = os.path.join(STATS_DIR, f"{{uuid}}.json")
                 with open(path, 'w') as f:
                     json.dump(stats, f)
-                os.chmod(path, 0o644)
+                os.chmod(path, 0o600)
 
             for fname in os.listdir(STATS_DIR):
                 if fname.endswith('.json'):
@@ -695,6 +740,45 @@ class InstallCaddy:
 
 
 # ---------------------------------------------------------------------------
+# DeployPWAAssets
+# ---------------------------------------------------------------------------
+
+
+class DeployPWAAssets:
+    """Deploy shared PWA static assets to /var/www/private/pwa/.
+
+    These assets (JS, CSS, service worker, icon) are identical for all
+    clients and deployed once.  Per-client files (config.json, manifest,
+    index.html, sub.txt) are deployed by DeployConnectionPage.
+    """
+
+    name = "Deploy PWA assets"
+
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
+        from meridian.pwa import upload_pwa_assets
+
+        try:
+            ok = upload_pwa_assets(conn)
+        except Exception as exc:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail=f"Failed to load PWA assets: {exc}",
+            )
+        if not ok:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail="Failed to upload shared PWA assets",
+            )
+        return StepResult(
+            name=self.name,
+            status="changed",
+            detail="Shared PWA assets deployed to /var/www/private/pwa/",
+        )
+
+
+# ---------------------------------------------------------------------------
 # DeployConnectionPage
 # ---------------------------------------------------------------------------
 
@@ -847,31 +931,21 @@ class DeployConnectionPage:
         if wss_url:
             page_urls.append(_PU(key="wss", label="CDN Backup", url=wss_url, qr_b64=wss_qr_b64))
 
-        # Render and upload connection info HTML for default client
-        html = _render_connection_page(
+        # Generate and upload PWA per-client files
+        from meridian.pwa import generate_client_files, upload_client_files
+
+        client_files = generate_client_files(
             page_urls,
             server_ip=self.server_ip,
             domain=domain,
             client_name=first_client_name,
         )
 
-        q_uuid = shlex.quote(reality_uuid)
-        conn.run(
-            f"mkdir -p /var/www/private/{q_uuid} && chown caddy:caddy /var/www/private/{q_uuid}",
-            timeout=10,
-        )
-
-        q_html = shlex.quote(html)
-        result = conn.run(
-            f"printf '%s' {q_html} > /var/www/private/{q_uuid}/index.html && "
-            f"chown caddy:caddy /var/www/private/{q_uuid}/index.html",
-            timeout=15,
-        )
-        if result.returncode != 0:
+        if not upload_client_files(conn, reality_uuid, client_files):
             return StepResult(
                 name=self.name,
-                status="changed",
-                detail="Stats deployed but HTML upload failed",
+                status="failed",
+                detail="Stats deployed but PWA file upload failed",
             )
 
         page_url = f"https://{self.server_ip}/{info_page_path}/{reality_uuid}/"
@@ -887,30 +961,6 @@ class DeployConnectionPage:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _render_connection_page(
-    protocol_urls: list,
-    server_ip: str,
-    domain: str,
-    client_name: str,
-) -> str:
-    """Render the connection info HTML with is_server_hosted=True.
-
-    Uses the bundled Jinja2 template when available, falls back to
-    render.py's minimal HTML generator.
-
-    Args:
-        protocol_urls: list[ProtocolURL] with qr_b64 populated.
-    """
-    from meridian.render import render_hosted_html
-
-    return render_hosted_html(
-        protocol_urls,
-        server_ip=server_ip,
-        domain=domain,
-        client_name=client_name,
-    )
 
 
 def _check_domain_dns(conn: ServerConnection, domain: str, server_ip: str) -> str | None:

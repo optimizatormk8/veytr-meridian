@@ -265,7 +265,10 @@ class TestVerifyHostKey:
                 return m
             return original_open(path, *args, **kwargs)
 
-        with patch("meridian.ssh.subprocess.run", side_effect=mock_run), patch("builtins.open", side_effect=patched_open):
+        with (
+            patch("meridian.ssh.subprocess.run", side_effect=mock_run),
+            patch("builtins.open", side_effect=patched_open),
+        ):
             _verify_host_key("1.2.3.4")
 
         known_hosts = ssh_dir / "known_hosts"
@@ -295,7 +298,10 @@ class TestVerifyHostKey:
                 raise OSError("No TTY")
             return original_open(path, *args, **kwargs)
 
-        with patch("meridian.ssh.subprocess.run", side_effect=mock_run), patch("builtins.open", side_effect=patched_open):
+        with (
+            patch("meridian.ssh.subprocess.run", side_effect=mock_run),
+            patch("builtins.open", side_effect=patched_open),
+        ):
             with pytest.raises(typer.Exit) as exc_info:
                 _verify_host_key("1.2.3.4")
             assert exc_info.value.exit_code == 1
@@ -329,7 +335,10 @@ class TestVerifyHostKey:
                 return m
             return original_open(path, *args, **kwargs)
 
-        with patch("meridian.ssh.subprocess.run", side_effect=mock_run), patch("builtins.open", side_effect=patched_open):
+        with (
+            patch("meridian.ssh.subprocess.run", side_effect=mock_run),
+            patch("builtins.open", side_effect=patched_open),
+        ):
             result = _verify_host_key("1.2.3.4")
 
         assert result is False

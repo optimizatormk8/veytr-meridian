@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shlex
+
 from meridian.provision.steps import ProvisionContext, StepResult
 from meridian.ssh import ServerConnection
 
@@ -228,8 +230,10 @@ class ConfigureBBR:
         # Persist to sysctl.conf
         for key, value in _BBR_SETTINGS.items():
             # Remove existing entries and append new ones
+            q_key = shlex.quote(key)
+            q_value = shlex.quote(value)
             conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=10)
-            conn.run(f"echo '{key} = {value}' >> /etc/sysctl.conf", timeout=10)
+            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=10)
 
         return StepResult(name=self.name, status="changed")
 

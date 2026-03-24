@@ -167,6 +167,8 @@ class ServerCredentials:
                 out[k] = v
 
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # Enforce dir permissions even if directory already existed (mkdir ignores mode with exist_ok)
+        path.parent.chmod(0o700)
         # Atomic write: tempfile in same directory, then rename
         fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
         try:

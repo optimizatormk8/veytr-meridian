@@ -138,8 +138,10 @@ class ConfigureRelayBBR:
                 )
 
         for key, value in _BBR_SETTINGS.items():
+            q_key = shlex.quote(key)
+            q_value = shlex.quote(value)
             conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=10)
-            conn.run(f"echo '{key} = {value}' >> /etc/sysctl.conf", timeout=10)
+            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=10)
 
         return StepResult(name=self.name, status="changed")
 
@@ -283,7 +285,7 @@ class ConfigureRealm:
                 status="failed",
                 detail=f"failed to write config: {write_config.stderr.strip()[:200]}",
             )
-        conn.run(f"chmod 644 {RELAY_CONFIG_PATH}", timeout=5)
+        conn.run(f"chmod 600 {RELAY_CONFIG_PATH}", timeout=5)
 
         # Write relay metadata
         relay_meta = (
