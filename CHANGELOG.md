@@ -4,6 +4,34 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.7.2] - 2026-03-24
+
+### Added
+- **`meridian deploy local`** — run directly on the server without SSH. Accepts `local` or `locally` wherever an IP is expected (`deploy`, `check`, `client add`, etc.)
+- **Interactive wizard local detection** — auto-detects root on VPS and offers local deployment, skipping IP/SSH prompts
+- **Service health watchdog** — 5-minute cron checks Xray, Caddy, HAProxy and restarts crashed services (logged via syslog)
+- **Disk space pre-check** — provisioner fails early if <2GB free, before pulling Docker images
+- **Systemd restart policies** — HAProxy and Caddy get `Restart=on-failure` drop-in overrides; relay gets `StartLimitBurst=5`
+- **Realm SHA256 verification** — binary checksum verified after download (pinned digests in `config.py`)
+- **Provisioner test suite** — 64+ new tests across provisioner steps, relay, and pipeline
+
+### Fixed
+- **Host key verification** — write only the verified key type to `known_hosts` (was writing all scanned types); refuse to auto-accept in non-interactive mode
+- **Cookie file race window** — panel login cookie created with `umask 077` in subshell (was world-readable until separate chmod)
+- **Realm config permissions** — `realm.toml` set to `chmod 600` (was 644, contained exit IP in plaintext)
+- **Stats files permissions** — per-client JSON stats set to `chmod 600` (was 644, revealed traffic patterns)
+- **CORS on private pages** — removed `Access-Control-Allow-Origin: *` from connection page Caddy config
+- **Credential dir permissions** — explicitly enforce `chmod 0o700` after mkdir (was ignored on existing dirs)
+- **Shell injection in sysctl** — BBR persistence uses `shlex.quote()` + `printf` instead of unquoted `echo`
+- **Stats script auth** — panel password URL-encoded in generated cron script
+- **Stats cron logging** — output piped to `logger -t meridian-stats` (was silent on failure)
+- **Teardown cleanup** — removes health watchdog cron, systemd restart overrides, and runs `daemon-reload`
+- **E2E test infrastructure** — pre-populate `known_hosts` for port-2222 sshd, fix misleading error message
+- **Mypy** — fix `_check_ports` type annotation (`object` → `ServerConnection`), add `StepStatus` literal type
+
+### Changed
+- `detect_public_ip()` moved from `setup.py` to `resolve.py` (shared across wizard and server resolution)
+
 ## [3.7.1] - 2026-03-23
 
 ### Fixed

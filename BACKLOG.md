@@ -255,29 +255,8 @@ Version history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Done
 
-- [x] ~~Re-deploy context loading~~
-- [x] ~~WSS inbound port=0~~
-- [x] ~~Non-atomic credential writes~~
-- [x] ~~Panel login cookie ordering~~
-- [x] ~~SSH host key verification (TOFU prompt)~~
-- [x] ~~Docker image digest pinning~~
-- [x] ~~RealiTLScanner checksum verification~~
-- [x] ~~`confirm()` defaults to yes without TTY~~
-- [x] ~~Public IP detection consolidation~~
-- [x] ~~Host key: write only verified key type~~
-- [x] ~~Host key: refuse in non-interactive mode~~
-- [x] ~~Cookie file race window (umask 077)~~
-- [x] ~~Realm binary SHA256 checksum verification~~
-- [x] ~~Realm config chmod 600~~
-- [x] ~~Stats files chmod 600~~
-- [x] ~~CORS removal from private pages~~
-- [x] ~~Credential dir chmod enforcement~~
-- [x] ~~Sysctl shlex.quote()~~
-- [x] ~~Stats script URL-encoding~~
-- [x] ~~StepResult.status type safety (Literal)~~
-- [x] ~~HAProxy/Caddy systemd Restart=on-failure~~
-- [x] ~~Relay systemd StartLimitBurst~~
-- [x] ~~Service health watchdog cron~~
-- [x] ~~Stats cron syslog logging~~
-- [x] ~~Disk space pre-check step~~
-- [x] ~~Teardown cleanup (health-check.sh, systemd overrides)~~
+Items shipped in releases. See [CHANGELOG.md](CHANGELOG.md) for details.
+
+**3.7.2** — local mode, security hardening, reliability (19 items)
+**3.7.1** — HAProxy port fix
+**3.7.0** — website, provisioner hardening (9 items)
