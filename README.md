@@ -25,6 +25,18 @@ Whether you're the "tech friend" setting up VPN for people you care about, a pow
 
 See [SECURITY.md](SECURITY.md) for the threat model and what Meridian protects against (and what it doesn't).
 
+## Why Meridian?
+
+| | Meridian | Raw 3x-ui | Marzban | Hiddify Manager |
+|---|---|---|---|---|
+| Install | One command | Manual Docker + config | Docker + CLI | Script + web UI |
+| Client handoff | QR + hosted page | Manual URL sharing | Panel-only | Panel-only |
+| Architecture | HAProxy+Caddy+Xray (hardened) | Xray only | Xray+Nginx | Xray+Nginx |
+| Relay support | Built-in L4 relay | Manual | No | Manual |
+| Rebuild workflow | `deploy NEW_IP` | Start over | Reconfigure | Reconfigure |
+
+Meridian is an **orchestrator** — it configures Docker, Xray, HAProxy, Caddy, firewall, BBR, and TLS certificates automatically. You focus on deploying and sharing access, not debugging configs.
+
 ## Install
 
 Works on **macOS and Linux**. Windows users: use WSL.
@@ -74,39 +86,6 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 | **TLS fingerprinting** | uTLS impersonates Chrome's exact Client Hello, matching billions of real devices. |
 | **IP blocking** | Domain mode routes through Cloudflare CDN as a fallback — no direct IP exposure. |
 
-## What you need
-
-- A VPS (Debian/Ubuntu) with root SSH key access — $3–5/month from any provider
-- Recommended: Finland, Netherlands, Sweden, Germany (low latency, not flagged)
-- Optional: a domain pointed to the server (for CDN fallback via Cloudflare)
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `meridian deploy [IP\|local]` | Deploy proxy server (interactive wizard if no IP) |
-| `meridian client add NAME` | Add a named client key |
-| `meridian client list` | List all clients |
-| `meridian client remove NAME` | Remove a client key |
-| `meridian server list` | List managed servers |
-| `meridian server add IP` | Add an existing server (fetches credentials via SSH) |
-| `meridian server remove NAME` | Remove a server from the registry |
-| `meridian relay deploy RELAY_IP` | Deploy a relay node (TCP forwarder) |
-| `meridian relay list` | List relay nodes |
-| `meridian relay remove RELAY_IP` | Remove a relay node |
-| `meridian relay check RELAY_IP` | Check relay health |
-| `meridian preflight [IP]` | Pre-flight validation (ports, SNI, ASN, DNS) |
-| `meridian scan [IP]` | Find optimal SNI targets on server's network |
-| `meridian test [IP]` | Test proxy reachability from this device |
-| `meridian doctor [IP]` | Collect info for bug reports (alias: `rage`) |
-| `meridian teardown [IP]` | Remove proxy from server |
-| `meridian update` | Update CLI |
-| `meridian --version` | Show installed version |
-
-**Setup flags**: `--domain DOMAIN`, `--sni HOST`, `--no-xhttp` (XHTTP enabled by default), `--email EMAIL`, `--name NAME`, `--user USER`, `--yes`
-
-**Global flag**: `--server NAME` — target a specific named server (works with most commands)
-
 ## Architecture
 
 ```mermaid
@@ -126,6 +105,27 @@ flowchart TD
 **Domain mode** — Same architecture, plus Caddy handles VLESS+WSS through Cloudflare CDN as a fallback when the server IP is blocked.
 
 **Relay mode** — A lightweight TCP forwarder (Realm) on a domestic server forwards port 443 to the exit server abroad. All protocols work through the relay with end-to-end encryption.
+
+## What you need
+
+- A VPS (Debian/Ubuntu) with root SSH key access — $3–5/month from any provider
+- Recommended: Finland, Netherlands, Sweden, Germany (low latency, not flagged)
+- Optional: a domain pointed to the server (for CDN fallback via Cloudflare)
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `meridian deploy [IP\|local]` | Deploy proxy server (interactive wizard if no IP) |
+| `meridian client add NAME` | Add a named client key |
+| `meridian client list` | List all clients |
+| `meridian client remove NAME` | Remove a client key |
+| `meridian relay deploy RELAY_IP` | Deploy a relay node (TCP forwarder) |
+| `meridian test [IP]` | Test proxy reachability from this device |
+| `meridian doctor [IP]` | Collect info for bug reports (alias: `rage`) |
+| `meridian teardown [IP]` | Remove proxy from server |
+
+See the [full CLI reference](https://getmeridian.org/docs/en/cli-reference/) for all commands and flags.
 
 ## Client apps
 
