@@ -106,3 +106,24 @@ class TestRunPreviewOutput:
         dirs1 = {d.name for d in dir1.iterdir() if d.is_dir() and d.name not in ("pwa", "stats")}
         dirs2 = {d.name for d in dir2.iterdir() if d.is_dir() and d.name not in ("pwa", "stats")}
         assert dirs1 == dirs2
+
+    def test_output_writes_redirect_index(self, tmp_path: Path) -> None:
+        """Static output mode writes a redirect index.html at the root."""
+        output_dir = tmp_path / "preview"
+        run_preview(output=str(output_dir), no_open=True)
+
+        root_html = (output_dir / "index.html").read_text()
+        assert 'http-equiv="refresh"' in root_html
+        # Should redirect to the client UUID directory
+        client_dirs = [d for d in output_dir.iterdir() if d.is_dir() and d.name not in ("pwa", "stats")]
+        assert client_dirs[0].name in root_html
+
+    def test_output_disables_service_worker(self, tmp_path: Path) -> None:
+        """Static output mode replaces SW with a no-op."""
+        output_dir = tmp_path / "preview"
+        run_preview(output=str(output_dir), no_open=True)
+
+        sw_content = (output_dir / "pwa" / "sw.js").read_text()
+        assert "SW disabled" in sw_content
+        # Should NOT contain the real SW cache logic
+        assert "CACHE_VERSION" not in sw_content

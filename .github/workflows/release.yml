@@ -42,6 +42,12 @@ jobs:
           npx playwright install --with-deps chromium
           npm run build
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Generate PWA demo page
+        run: uv run meridian dev preview --output website/dist/demo
+
       - name: Add deploy artifacts
         run: |
           # Copy CLI files into Astro dist

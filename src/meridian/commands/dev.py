@@ -97,6 +97,7 @@ def _write_preview_files(
     client_name: str,
     *,
     watch: bool = False,
+    disable_sw: bool = False,
 ) -> None:
     """Generate and write all preview files to the output directory."""
     protocol_urls = _build_demo_urls(server_ip=server_ip)
@@ -109,12 +110,14 @@ def _write_preview_files(
 
     static_assets = load_pwa_static_assets()
 
+    neuter_sw = watch or disable_sw
+
     # Write shared PWA assets
     pwa_dir = output_dir / "pwa"
     pwa_dir.mkdir(exist_ok=True)
     for name, content in static_assets.items():
-        if watch and name == "sw.js":
-            # In watch mode, neuter the SW so it doesn't cache stale files
+        if neuter_sw and name == "sw.js":
+            # Disable SW to prevent caching stale files / polluting browsers
             (pwa_dir / name).write_text(_NOOP_SW)
         else:
             (pwa_dir / name).write_bytes(content)
@@ -130,9 +133,31 @@ def _write_preview_files(
 
     _write_mock_stats(output_dir, client_uuid)
 
+    # Write redirect index.html at root for static hosting
+    if disable_sw:
+        (output_dir / "index.html").write_text(
+            _REDIRECT_HTML.format(uuid=client_uuid)
+        )
 
-# No-op service worker for watch mode (prevents caching stale files)
-_NOOP_SW = "/* watch mode: SW disabled */\nself.addEventListener('install',()=>self.skipWaiting());\n"
+
+# No-op service worker — used in watch mode and static output to prevent
+# caching stale files or polluting visitors' browsers.
+_NOOP_SW = "/* SW disabled */\nself.addEventListener('install',()=>self.skipWaiting());\n"
+
+# Redirect page for static output — placed at root of output directory
+# so that /demo/ redirects instantly to /demo/{uuid}/.
+_REDIRECT_HTML = """\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="0;url=./{uuid}/">
+<script>location.replace('./{uuid}/')</script>
+<title>Meridian Demo</title>
+</head>
+<body></body>
+</html>
+"""
 
 # Inline live-reload script — polls /__reload endpoint
 _LIVE_RELOAD_SCRIPT = """<script>
@@ -182,7 +207,11 @@ def run_preview(
         cleanup = True
 
     try:
-        _write_preview_files(output_dir, client_uuid, server_ip, client_name, watch=watch)
+        is_static = bool(output) and not watch
+        _write_preview_files(
+            output_dir, client_uuid, server_ip, client_name,
+            watch=watch, disable_sw=is_static,
+        )
 
         info(f"PWA files written to {output_dir}")
 

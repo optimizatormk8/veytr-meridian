@@ -210,3 +210,18 @@ jobs:
 
       - name: Build Astro site
         run: cd website && npm ci && npx playwright install --with-deps chromium && npm run build
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Validate PWA demo generation
+        run: |
+          uv run meridian dev preview --output website/dist/demo
+          # Verify expected files exist
+          test -f website/dist/demo/index.html
+          test -f website/dist/demo/pwa/app.js
+          test -f website/dist/demo/pwa/styles.css
+          test -f website/dist/demo/pwa/icon.svg
+          test -f website/dist/demo/pwa/sw.js
+          # Verify SW is no-op (disabled for static hosting)
+          grep -q "SW disabled" website/dist/demo/pwa/sw.js
