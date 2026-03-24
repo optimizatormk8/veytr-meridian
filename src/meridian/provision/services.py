@@ -150,8 +150,9 @@ def _render_caddy_config(
             }}
 
             # --- Connection Info Pages (PWA with per-client config) ---
-            handle /{info_page_path}/* {{
-                uri strip_prefix /{info_page_path}
+            # handle_path strips the prefix BEFORE directive evaluation,
+            # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
+            handle_path /{info_page_path}/* {{
                 root * /var/www/private
                 file_server
 
@@ -253,8 +254,9 @@ def _render_caddy_ip_config(
             }}
 
             # --- Connection Info Pages (PWA with per-client config) ---
-            handle /{info_page_path}/* {{
-                uri strip_prefix /{info_page_path}
+            # handle_path strips the prefix BEFORE directive evaluation,
+            # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
+            handle_path /{info_page_path}/* {{
                 root * /var/www/private
                 file_server
 
