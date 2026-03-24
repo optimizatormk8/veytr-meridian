@@ -169,7 +169,7 @@ fi
 # =============================================================================
 INSTALLED_VERSION=""
 if command -v meridian &>/dev/null; then
-  INSTALLED_VERSION=$(meridian version 2>/dev/null | awk '{print $2}' || true)
+  INSTALLED_VERSION=$(meridian --version 2>/dev/null | awk '{print $2}' || true)
 fi
 
 printf "\n"
@@ -182,13 +182,13 @@ if [[ "$PATH_ADDED" == "1" ]]; then
   printf "  ${D}Then:${R}\n\n"
 fi
 printf "  ${B}Quick start:${R}\n"
-printf "     ${C}meridian setup${R}              ${D}# deploy proxy (interactive wizard)${R}\n"
-printf "     ${C}meridian setup 1.2.3.4${R}      ${D}# deploy to specific server${R}\n\n"
+printf "     ${C}meridian deploy${R}              ${D}# deploy proxy (interactive wizard)${R}\n"
+printf "     ${C}meridian deploy 1.2.3.4${R}      ${D}# deploy to specific server${R}\n\n"
 printf "  ${B}Before deploying:${R}\n"
-printf "     ${C}meridian check 1.2.3.4${R}      ${D}# validate server (ports, OS, DNS)${R}\n"
-printf "     ${C}meridian scan 1.2.3.4${R}       ${D}# find best SNI target nearby${R}\n\n"
+printf "     ${C}meridian preflight 1.2.3.4${R}   ${D}# validate server (ports, OS, DNS)${R}\n"
+printf "     ${C}meridian scan 1.2.3.4${R}        ${D}# find best SNI target nearby${R}\n\n"
 printf "  ${B}After deploying:${R}\n"
-printf "     ${C}meridian ping 1.2.3.4${R}       ${D}# test connection from your device${R}\n"
+printf "     ${C}meridian test 1.2.3.4${R}        ${D}# test connection from your device${R}\n"
 printf "     ${C}meridian client add alice${R}    ${D}# share access with others${R}\n"
 printf "     ${C}meridian client list${R}         ${D}# view all clients${R}\n\n"
 printf "  ${D}All commands: meridian --help${R}\n"
