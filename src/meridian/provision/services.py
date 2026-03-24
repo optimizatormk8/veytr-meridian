@@ -129,7 +129,7 @@ def _render_connection_page_block(info_page_path: str) -> str:
             }}
             header @nocache Cache-Control "no-store"
 
-            header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; connect-src 'self'"
+            header Content-Security-Policy "default-src 'self'; img-src 'self' data:; connect-src 'self'"
         }}
 
         header -Server
@@ -183,7 +183,8 @@ def _render_caddy_config(
 
     connection_block = _render_connection_page_block(info_page_path)
 
-    return textwrap.dedent(f"""\
+    return (
+        textwrap.dedent(f"""\
         # Meridian Proxy Configuration
         # Managed by Meridian -- this file is overwritten on each run.
         # Your own Caddy config in /etc/caddy/Caddyfile is NOT touched.
@@ -207,13 +208,16 @@ def _render_caddy_config(
             handle /{panel_web_base_path}/* {{
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
-    """).rstrip() + textwrap.indent(connection_block, "    ") + textwrap.dedent(f"""
+    """).rstrip()
+        + textwrap.indent(connection_block, "    ")
+        + textwrap.dedent(f"""
         }}
 
         http://{domain} {{
             redir https://{domain}{{uri}} permanent
         }}
     """)
+    )
 
 
 def _render_caddy_ip_config(
@@ -251,7 +255,8 @@ def _render_caddy_ip_config(
 
     connection_block = _render_connection_page_block(info_page_path)
 
-    return textwrap.dedent(f"""\
+    return (
+        textwrap.dedent(f"""\
         # Meridian Proxy Configuration (IP Certificate Mode)
         # Managed by Meridian -- this file is overwritten on each run.
         # Your own Caddy config in /etc/caddy/Caddyfile is NOT touched.
@@ -271,13 +276,16 @@ def _render_caddy_ip_config(
             handle /{panel_web_base_path}/* {{
                 reverse_proxy 127.0.0.1:{panel_internal_port}
             }}
-    """).rstrip() + textwrap.indent(connection_block, "    ") + textwrap.dedent(f"""
+    """).rstrip()
+        + textwrap.indent(connection_block, "    ")
+        + textwrap.dedent(f"""
         }}
 
         http://{server_ip} {{
             redir https://{server_ip}{{uri}} permanent
         }}
     """)
+    )
 
 
 # ---------------------------------------------------------------------------
