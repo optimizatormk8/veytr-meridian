@@ -46,18 +46,17 @@ class PanelClient:
         encoded_user = urlquote(username, safe="")
         encoded_pass = urlquote(password, safe="")
         form_data = f"username={encoded_user}&password={encoded_pass}"
+        # Use subshell with umask 077 so cookie file is created with 600 from the start
+        # (no race window where it's world-readable before chmod)
         cmd = (
-            f"mkdir -p $HOME/.meridian && chmod 700 $HOME/.meridian && "
+            f"(umask 077 && mkdir -p $HOME/.meridian && "
             f"curl -s -c {self._cookie_path}"
             f" -d {shlex.quote(form_data)}"
-            f" {shlex.quote(self.base_url + '/login')}"
+            f" {shlex.quote(self.base_url + '/login')})"
         )
         result = self.conn.run(cmd, timeout=15, sudo=False)
         if result.returncode != 0:
             raise PanelError(f"Login request failed: {result.stderr.strip()}")
-
-        # Secure cookie file permissions after successful curl (don't leave world-readable)
-        self.conn.run(f"chmod 600 {self._cookie_path} 2>/dev/null", timeout=5, sudo=False)
 
         raw = result.stdout.strip()
         if not raw:

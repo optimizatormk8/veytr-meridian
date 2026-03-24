@@ -42,7 +42,7 @@ class TestLogin:
         panel = _make_panel(conn)
         panel.login("admin", "secret")
 
-        # First call is the curl login, second is chmod for cookie permissions
+        # Single call with umask+curl (no separate chmod)
         login_call = conn.run.call_args_list[0][0][0]
         assert "curl -s -c" in login_call
         assert "username=" in login_call
@@ -50,9 +50,10 @@ class TestLogin:
         assert "/login" in login_call
         # Verify form-urlencoded (not JSON content-type)
         assert "Content-Type: application/json" not in login_call
-        # Verify cookie permissions are secured
-        chmod_call = conn.run.call_args_list[1][0][0]
-        assert "chmod 600" in chmod_call
+        # Verify cookie permissions secured via umask in subshell
+        assert "umask 077" in login_call
+        # Only one conn.run call (no separate chmod)
+        assert len(conn.run.call_args_list) == 1
 
     def test_login_with_special_characters(self) -> None:
         conn = _make_conn(stdout='{"success": true}')
