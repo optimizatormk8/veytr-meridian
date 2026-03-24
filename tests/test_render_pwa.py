@@ -350,7 +350,7 @@ class TestUnicodeClientNames:
 
     def test_manifest_chinese(self) -> None:
         result = render_manifest(client_name="\u5c0f\u660e")
-        parsed = json.loads(result)
+        json.loads(result)  # validate valid JSON
         # Chinese name should appear in the manifest name
         assert "\u5c0f\u660e" in result
 
