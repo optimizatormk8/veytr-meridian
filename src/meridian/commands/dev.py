@@ -135,9 +135,7 @@ def _write_preview_files(
 
     # Write redirect index.html at root for static hosting
     if disable_sw:
-        (output_dir / "index.html").write_text(
-            _REDIRECT_HTML.format(uuid=client_uuid)
-        )
+        (output_dir / "index.html").write_text(_REDIRECT_HTML.format(uuid=client_uuid))
 
 
 # No-op service worker — used in watch mode and static output to prevent
@@ -209,8 +207,12 @@ def run_preview(
     try:
         is_static = bool(output) and not watch
         _write_preview_files(
-            output_dir, client_uuid, server_ip, client_name,
-            watch=watch, disable_sw=is_static,
+            output_dir,
+            client_uuid,
+            server_ip,
+            client_name,
+            watch=watch,
+            disable_sw=is_static,
         )
 
         info(f"PWA files written to {output_dir}")
