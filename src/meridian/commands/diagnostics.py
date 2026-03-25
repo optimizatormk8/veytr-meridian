@@ -44,10 +44,17 @@ def run(
     # --- Local Machine ---
     local_os = platform.platform()
 
+    # Check deployed version
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    creds = ServerCredentials.load(proxy_file) if proxy_file.exists() else None
+    deployed_with = (creds.server.deployed_with if creds else "") or "unknown"
+
+    local_info = f"OS: {local_os}\nMeridian: {__version__}\nServer deployed with: {deployed_with}"
+
     sections.append(
         (
             "Local Machine",
-            f"OS: {local_os}\nMeridian: {__version__}",
+            local_info,
         )
     )
 

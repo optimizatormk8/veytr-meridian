@@ -245,6 +245,36 @@ class TestMergeClientsFile:
         assert len(creds.clients) == 0
 
 
+class TestDeployedWith:
+    def test_deployed_with_default_empty(self) -> None:
+        creds = ServerCredentials()
+        assert creds.server.deployed_with == ""
+
+    def test_deployed_with_roundtrip(self, tmp_path: Path) -> None:
+        path = tmp_path / "proxy.yml"
+        creds = ServerCredentials()
+        creds.panel.username = "admin"
+        creds.panel.password = "pass"
+        creds.server.deployed_with = "3.5.0"
+        creds.save(path)
+
+        loaded = ServerCredentials.load(path)
+        assert loaded.server.deployed_with == "3.5.0"
+
+    def test_deployed_with_missing_in_yaml(self, tmp_path: Path) -> None:
+        """Legacy credentials without deployed_with should load with empty string."""
+        f = tmp_path / "proxy.yml"
+        f.write_text("version: 2\npanel:\n  username: admin\nserver:\n  ip: 1.2.3.4\n")
+        creds = ServerCredentials.load(f)
+        assert creds.server.deployed_with == ""
+
+    def test_deployed_with_in_v2_yaml(self, tmp_path: Path) -> None:
+        f = tmp_path / "proxy.yml"
+        f.write_text("version: 2\npanel:\n  username: admin\nserver:\n  ip: 1.2.3.4\n  deployed_with: '4.0.1'\n")
+        creds = ServerCredentials.load(f)
+        assert creds.server.deployed_with == "4.0.1"
+
+
 class TestCredsPath:
     def test_creds_path(self, tmp_path: Path) -> None:
         result = creds_path(tmp_path, "1.2.3.4")

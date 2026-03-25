@@ -86,9 +86,19 @@ class ConfigurePanel:
         # Check if already configured
         creds = ctx.get("credentials")
         if creds is not None and ctx.get("panel_configured"):
-            # Update hosted_page flag even on re-runs (may have changed)
+            # Update mutable fields even on re-runs (may have changed)
+            changed = False
             if creds.server.hosted_page != ctx.hosted_page:
                 creds.server.hosted_page = ctx.hosted_page
+                changed = True
+
+            from meridian import __version__
+
+            if creds.server.deployed_with != __version__:
+                creds.server.deployed_with = __version__
+                changed = True
+
+            if changed:
                 creds.save(self.creds_path)
                 ctx["credentials"] = creds
             return StepResult(
@@ -121,6 +131,11 @@ class ConfigurePanel:
         # -- Build and save credentials BEFORE changing panel password --
         if creds is None:
             creds = ServerCredentials()
+
+        # Track which CLI version deployed this server
+        from meridian import __version__
+
+        creds.server.deployed_with = __version__
 
         creds.panel.username = panel_username
         creds.panel.password = panel_password

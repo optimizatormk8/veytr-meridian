@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import typer
 
-from meridian.commands.resolve import is_local_keyword, resolve_server
+from meridian.commands.resolve import (
+    _check_version_mismatch,
+    _warned_servers,
+    is_local_keyword,
+    resolve_server,
+)
 from meridian.config import CREDS_BASE, SERVER_CREDS_DIR
 from meridian.servers import ServerEntry, ServerRegistry
 
@@ -222,3 +228,59 @@ class TestResolvedServer:
         assert result.conn.ip == "1.2.3.4"
         assert result.conn.user == "ubuntu"
         assert result.conn.local_mode is False
+
+
+class TestVersionMismatchCheck:
+    """Version mismatch warning logic."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_warned(self) -> None:
+        """Reset the warned servers set before each test."""
+        _warned_servers.clear()
+
+    def test_no_warning_when_versions_match(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  deployed_with: '3.5.0'\n")
+        with patch("meridian.__version__", "3.5.2"):
+            _check_version_mismatch("1.2.3.4", proxy)
+        captured = capsys.readouterr()
+        assert "mismatch" not in captured.err.lower()
+
+    def test_warning_on_minor_mismatch(self, tmp_path: Path) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  deployed_with: '3.5.0'\n")
+        with patch("meridian.__version__", "3.6.0"):
+            _check_version_mismatch("1.2.3.4", proxy)
+        assert "1.2.3.4" in _warned_servers
+
+    def test_warning_on_major_mismatch(self, tmp_path: Path) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  deployed_with: '3.5.0'\n")
+        with patch("meridian.__version__", "4.0.0"):
+            _check_version_mismatch("1.2.3.4", proxy)
+        assert "1.2.3.4" in _warned_servers
+
+    def test_no_warning_when_deployed_with_empty(self, tmp_path: Path) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  ip: 1.2.3.4\n")
+        with patch("meridian.__version__", "4.0.0"):
+            _check_version_mismatch("1.2.3.4", proxy)
+        assert "1.2.3.4" not in _warned_servers
+
+    def test_warns_only_once_per_server(self, tmp_path: Path) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  deployed_with: '3.5.0'\n")
+        with patch("meridian.__version__", "4.0.0"):
+            _check_version_mismatch("1.2.3.4", proxy)
+            assert "1.2.3.4" in _warned_servers
+            # Second call should be a no-op (already warned)
+            _check_version_mismatch("1.2.3.4", proxy)
+        # Still just one entry
+        assert len(_warned_servers) == 1
+
+    def test_no_warning_on_patch_diff(self, tmp_path: Path) -> None:
+        proxy = tmp_path / "proxy.yml"
+        proxy.write_text("version: 2\nserver:\n  deployed_with: '3.5.0'\n")
+        with patch("meridian.__version__", "3.5.7"):
+            _check_version_mismatch("1.2.3.4", proxy)
+        assert "1.2.3.4" not in _warned_servers

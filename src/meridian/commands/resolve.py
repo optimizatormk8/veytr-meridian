@@ -7,12 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ipv4
-from meridian.console import err_console, fail, info
+from meridian.console import err_console, fail, info, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
 from meridian.ssh import ServerConnection
 
 LOCAL_KEYWORDS = ("local", "locally")
+
+# Servers that have already shown a version mismatch warning this session
+_warned_servers: set[str] = set()
 
 
 def is_local_keyword(value: str) -> bool:
@@ -217,8 +220,53 @@ def fetch_credentials(resolved: ResolvedServer) -> bool:
     proxy_file = resolved.creds_dir / "proxy.yml"
     try:
         if proxy_file.is_file():
+            _check_version_mismatch(resolved.ip, proxy_file)
             return True
     except (PermissionError, OSError):
         pass
     resolved.creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    return resolved.conn.fetch_credentials(resolved.creds_dir)
+    ok = resolved.conn.fetch_credentials(resolved.creds_dir)
+    if ok:
+        _check_version_mismatch(resolved.ip, proxy_file)
+    return ok
+
+
+def _check_version_mismatch(server_ip: str, proxy_file: Path) -> None:
+    """Warn once per session if the server was deployed with a different CLI version."""
+    if server_ip in _warned_servers:
+        return
+
+    creds = ServerCredentials.load(proxy_file)
+    deployed_with = creds.server.deployed_with
+    if not deployed_with:
+        return  # Legacy credentials — no version info
+
+    from meridian import __version__
+
+    try:
+        from packaging.version import Version
+
+        deployed = Version(deployed_with)
+        current = Version(__version__)
+    except Exception:
+        return  # Unparseable version — skip silently
+
+    if deployed.major == current.major and deployed.minor == current.minor:
+        return  # Patch differences are fine
+
+    _warned_servers.add(server_ip)
+    err_console.print()
+    warn("Version mismatch")
+    err_console.print(
+        f"    Server deployed with Meridian [bold]{deployed_with}[/bold] — you're running [bold]{__version__}[/bold]."
+    )
+    err_console.print()
+    err_console.print("    To update the server:")
+    err_console.print(
+        f"      [info]meridian deploy {server_ip}[/info]       Re-provisions configs (HAProxy, Caddy, services)"
+    )
+    err_console.print(f"      [info]meridian teardown {server_ip}[/info]    Full reset (then re-deploy from scratch)")
+    err_console.print()
+    err_console.print("    To match the server instead:")
+    err_console.print(f"      [info]uv tool install meridian-vpn=={deployed_with}[/info]")
+    err_console.print()
