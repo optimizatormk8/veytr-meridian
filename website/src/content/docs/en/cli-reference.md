@@ -22,6 +22,9 @@ meridian deploy [IP] [flags]
 | `--email EMAIL` | (none) | Email for TLS certificates |
 | `--xhttp / --no-xhttp` | enabled | XHTTP transport |
 | `--name NAME` | default | Name for the first client |
+| `--server-name NAME` | (none) | Display name on connection pages |
+| `--icon EMOJI_OR_URL` | (none) | Server icon — emoji or image URL |
+| `--color PALETTE` | ocean | Color palette (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH user |
 | `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall |
 | `--server NAME` | | Target a named server (for re-deploys) |

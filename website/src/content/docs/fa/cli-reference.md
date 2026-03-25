@@ -22,6 +22,9 @@ meridian deploy [IP] [flags]
 | `--email EMAIL` | (none) | ایمیل برای گواهینامه‌های TLS |
 | `--xhttp / --no-xhttp` | enabled | پروتکل انتقال XHTTP |
 | `--name NAME` | default | نام برای اولین کلاینت |
+| `--server-name NAME` | (none) | نام نمایشی در صفحات اتصال |
+| `--icon EMOJI_OR_URL` | (none) | آیکون سرور — emoji یا URL تصویر |
+| `--color PALETTE` | ocean | پالت رنگی (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | کاربر SSH |
 | `--yes` | | رد کردن تأیید‌های پیش |
 

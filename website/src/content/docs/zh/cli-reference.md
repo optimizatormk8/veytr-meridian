@@ -22,6 +22,9 @@ meridian deploy [IP] [flags]
 | `--email EMAIL` | (无) | TLS 证书的电子邮件 |
 | `--xhttp / --no-xhttp` | 启用 | XHTTP 传输 |
 | `--name NAME` | default | 第一个客户端的名称 |
+| `--server-name NAME` | (无) | 连接页面上的显示名称 |
+| `--icon EMOJI_OR_URL` | (无) | 服务器图标 — 表情或图像 URL |
+| `--color PALETTE` | ocean | 颜色调板(ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH 用户 |
 | `--yes` | | 跳过确认提示 |
 

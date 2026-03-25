@@ -22,6 +22,9 @@ meridian deploy [IP] [flags]
 | `--email EMAIL` | (нет) | Email для TLS сертификатов |
 | `--xhttp / --no-xhttp` | включен | Транспорт XHTTP |
 | `--name NAME` | default | Имя для первого клиента |
+| `--server-name NAME` | (нет) | Отображаемое имя на страницах подключения |
+| `--icon EMOJI_OR_URL` | (нет) | Значок сервера — эмодзи или URL изображения |
+| `--color PALETTE` | ocean | Цветовая палитра (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH пользователь |
 | `--yes` | | Пропустить подтверждающие диалоги |
 
