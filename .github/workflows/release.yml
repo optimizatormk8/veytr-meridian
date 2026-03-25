@@ -62,7 +62,10 @@ jobs:
           cd ../..
           # Bundle AI docs
           mkdir -p website/dist/ai
-          cat website/src/content/ai/context.md website/src/content/ai/architecture.md website/src/content/ai/troubleshooting.md > website/dist/ai/reference.md
+          for f in website/src/content/docs/en/cli-reference.md website/src/content/docs/en/architecture.md website/src/content/docs/en/troubleshooting.md website/src/content/docs/en/deploy.md; do
+            awk 'BEGIN{skip=0} /^---$/{skip++;next} skip<2{next} {print}' "$f"
+            echo ""
+          done > website/dist/ai/reference.md
 
       - uses: actions/upload-pages-artifact@v4
         with:

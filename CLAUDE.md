@@ -56,8 +56,7 @@ website/                   Astro static site (getmeridian.org)
   src/layouts/             Base.astro, Docs.astro
   src/styles/              fonts.css, tokens.css, global.css
   src/i18n/                Client-side i18n (translations.ts, index.ts)
-  src/content/docs/{en,ru,fa,zh}/  40 markdown doc pages
-  src/content/ai/          AI reference sources (context, architecture, troubleshooting)
+  src/content/docs/{en,ru,fa,zh}/  40 markdown doc pages (also source for AI reference)
   src/data/apps.json       App download links (single source of truth)
   public/fonts/            Self-hosted woff2 (Fraunces, Source Sans 3, JetBrains Mono)
   public/img/              Images, terminal SVG, logos
@@ -85,7 +84,7 @@ tests/                     pytest tests (292 tests)
 
 ### Website ↔ CLI
 - App download links: `website/src/data/apps.json` is SOT, CI validates against `connection-info.html.j2`
-- AI docs: `website/src/content/ai/` → `make ai-docs` → `src/meridian/data/ai-reference.md`
+- AI docs: human docs (en/) → `make ai-docs` → `src/meridian/data/ai-reference.md` (strips frontmatter, concatenates cli-reference + architecture + troubleshooting + deploy)
 - i18n: landing page uses client-side `data-t` + JS swap; docs are server-rendered per-locale files
 
 ## Local development
@@ -174,7 +173,7 @@ cd website && npm install && npm run build  # Astro + Pagefind
 ### Build conventions
 - Cross-platform: `base64 | tr -d '\n'` (not `base64 -w0`)
 - `curl|bash stdin trap`: commands reading stdin MUST have `</dev/null`
-- AI docs source: `website/src/content/ai/`. Edit sources, run `make ai-docs`
+- AI docs generated from human docs (en/). Edit website docs, run `make ai-docs`
 - Pre-push hook: `.githooks/pre-push` runs 11 checks. Install with `make hooks`
 - **Always use context7 MCP** before writing code depending on external libraries
 - **Translations**: use Haiku model agents (`model: "haiku"`) for fast i18n translations
@@ -195,17 +194,17 @@ Save the instruction to this CLAUDE.md file. Don't use auto-memory.
 
 | Information | Source of Truth | Propagated To |
 |---|---|---|
-| **CLI commands & flags** | ★ `cli.py` | README.md, website docs, `website/src/content/ai/context.md`, CLAUDE.md |
-| **Architecture** | ★ `CLAUDE.md` | `website/src/content/ai/architecture.md`, README.md |
+| **CLI commands & flags** | ★ `cli.py` | README.md, website docs, CLAUDE.md |
+| **Architecture** | ★ `CLAUDE.md` | website docs (architecture.md), README.md |
 | **App download links** | ★ `website/src/data/apps.json` | `connection-info.html.j2` (CI-validated), `render.py:_PWA_APPS`, `app.js:osMap` |
 | **Version** | ★ `VERSION` | importlib.metadata, website deploy, CHANGELOG.md |
-| **SNI recommendations** | ★ `CLAUDE.md` conventions | `website/src/content/ai/troubleshooting.md` |
+| **SNI recommendations** | ★ `CLAUDE.md` conventions | website docs (deploy.md, troubleshooting.md) |
 
-**New subcommand**: implement in `commands/`, register in `cli.py`, add test, update README.md, website docs, `website/src/content/ai/context.md`, CLAUDE.md, run `make ai-docs`.
+**New subcommand**: implement in `commands/`, register in `cli.py`, add test, update README.md, website docs, CLAUDE.md, run `make ai-docs`.
 
 **New relay**: add `RelayEntry` in `credentials.py`, relay provisioner step in `provision/relay.py`, update `build_relay_urls()` in `urls.py`, update rendering (render.py, display.py, template), update `commands/relay.py`, add tests.
 
-**New protocol**: add `InboundType` + `Protocol` subclass in `protocols.py`, add provisioner step, update `urls.py`, `render.py`, `display.py`, `connection-info.html.j2`, add tests, update ai docs, run `make ai-docs`.
+**New protocol**: add `InboundType` + `Protocol` subclass in `protocols.py`, add provisioner step, update `urls.py`, `render.py`, `display.py`, `connection-info.html.j2`, add tests, update website docs, run `make ai-docs`.
 
 ## CI/CD
 

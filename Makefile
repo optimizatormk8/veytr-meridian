@@ -47,9 +47,15 @@ e2e: ## Run E2E provisioner tests in Docker (Linux only, needs docker socket)
 
 ## —— Build & Publish ————————————————————————————————————
 
-ai-docs: ## Concatenate AI docs into package data
+ai-docs: ## Generate AI reference from human docs (strip frontmatter)
 	@mkdir -p src/meridian/data
-	cat website/src/content/ai/context.md website/src/content/ai/architecture.md website/src/content/ai/troubleshooting.md > src/meridian/data/ai-reference.md
+	@for f in website/src/content/docs/en/cli-reference.md \
+	          website/src/content/docs/en/architecture.md \
+	          website/src/content/docs/en/troubleshooting.md \
+	          website/src/content/docs/en/deploy.md; do \
+		awk 'BEGIN{skip=0} /^---$$/{skip++;next} skip<2{next} {print}' "$$f"; \
+		echo ""; \
+	done > src/meridian/data/ai-reference.md
 
 build: ai-docs ## Build wheel and sdist
 	uv build
