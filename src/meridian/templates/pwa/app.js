@@ -440,7 +440,7 @@ function renderPage(config) {
 
   /* Language selector */
   html += '<div class="lang-bar">';
-  var langs = [['en', '\uD83C\uDDEC\uD83C\uDDE7 EN'], ['ru', '\uD83C\uDDF7\uD83C\uDDFA RU'], ['fa', '\uD83C\uDDEE\uD83C\uDDF7 FA'], ['zh', '\uD83C\uDDE8\uD83C\uDDF3 ZH']];
+  var langs = [['en', 'English'], ['ru', 'Русский'], ['fa', 'فارسی'], ['zh', '中文']];
   for (var li = 0; li < langs.length; li++) {
     html += '<button class="lang-btn" data-lang="' + langs[li][0] + '" data-action="lang">' + langs[li][1] + '</button>';
   }
@@ -539,23 +539,19 @@ function renderPage(config) {
   html += '</div>';
   html += '</div>';
 
-  /* Subscription URL */
+  /* Subscription URL (behind toggle — advanced users only) */
   var subUrl = getSubscriptionUrl();
-  html += '<div class="card">';
-  html += '<div style="font-size:.78rem;font-weight:600;margin-bottom:4px" data-t="sub.label">Subscription (auto-update)</div>';
+  html += '<details class="more-options">';
+  html += '<summary data-t="sub.label">Subscription (auto-update)</summary>';
+  html += '<div class="card" style="margin-top:8px">';
   html += '<p class="card-desc" data-t="sub.desc">Add this URL as a subscription in your app for automatic updates.</p>';
   html += '<div class="sub-url">';
   html += '<div class="sub-url-value" tabindex="0" role="button" data-action="copy-text">' + escapeHtml(subUrl) + '</div>';
   html += '</div>';
   html += '</div>';
+  html += '</details>';
 
-  /* Clock warning (informational, only if NOT already shown at top) */
-  if (clockStatus === 'ok') {
-    html += '<div class="warn">';
-    html += '<h3 data-t="clock">Clock Sync Required</h3>';
-    html += '<p data-t="clock.desc">Your device clock must be accurate within 30 seconds. Go to Settings &gt; Date &amp; Time &gt; enable "Set Automatically".</p>';
-    html += '</div>';
-  }
+  /* Clock warning only shown at top when skew is detected (clockStatus === 'bad') */
 
   /* Ping test */
   var pingUrl = 'https://getmeridian.org/ping?ip=' + encodeURIComponent(config.server_ip);
