@@ -1,9 +1,19 @@
 ---
 title: معماری سیستم
-description: معماری سیستم، جریان ترافیک، و توپولوژی سرویس.
+description: معماری سیستم، جریان ترافیق، و توپولوژی سرویس.
 order: 7
 section: reference
 ---
+
+## پشته فناوری
+
+- **VLESS+Reality** (Xray-core) — پروتکل پروکسی که خود را به عنوان یک وب‌سایت TLS معتبر جا می‌زند. سانسورچی‌هایی که سرور را بررسی می‌کنند یک گواهی واقعی (مثلاً از microsoft.com) می‌بینند. فقط کلاینت‌هایی با کلید خصوصی صحیح می‌توانند متصل شوند.
+- **3x-ui** — پنل وب برای مدیریت Xray، به صورت کانتینر Docker مستقر شده. Meridian آن را کاملاً از طریق REST API مدیریت می‌کند.
+- **HAProxy** — روتر TCP سطح SNI روی پورت 443. ترافیک را بر اساس نام میزبان SNI بدون پایان دادن TLS مسیریابی می‌کند.
+- **Caddy** — پروکسی معکوس با TLS خودکار. در حالت مستقل، گواهی Let's Encrypt IP را از طریق پروفایل ACME `shortlived` (اعتبار 6 روزه) درخواست می‌کند. صفحات اتصال را ارائه می‌دهد، پنل را پروکسی معکوس می‌کند و ترافیق XHTTP/WSS را به Xray پروکسی می‌کند.
+- **Docker** — 3x-ui (که شامل Xray است) را اجرا می‌کند. تمام ترافیق پروکسی از طریق کانتینر عبور می‌کند.
+- **Provisioner پایتون خالص** — `src/meridian/provision/` مراحل استقرار را از طریق SSH اجرا می‌کند. هر مرحله `(conn, ctx)` دریافت و `StepResult` برمی‌گرداند.
+- **uTLS** — اثر انگشت TLS Client Hello کروم را تقلید می‌کند و اتصالات را از ترافیق واقعی مرورگر غیرقابل تشخیص می‌سازد.
 
 ## توپولوژی سرویس
 
@@ -63,6 +73,32 @@ Relay یک دستگاه ارسال TCP سطح ۴ است که ترافیک خام
 5. اگر کلاینت تأیید معتبر (مشتق شده از کلید x25519) را شامل شود، سرور تونل VLESS را برقرار می‌کند.
 6. **uTLS** Client Hello را بایت برای بایت یکسان با Chrome می‌سازد، شکست TLS fingerprinting را شکست می‌دهد.
 
+## ساختار کانتینر Docker
+
+کانتینر Docker `3x-ui` شامل:
+- **پنل وب 3x-ui** — REST API روی پورت 2053 (داخلی)
+- **باینری Xray** در `/app/bin/xray-linux-*` (مسیر وابسته به معماری)
+- **پایگاه داده** در `/etc/x-ui/x-ui.db` (SQLite، پیکربندی‌های ورودی و کلاینت‌ها را ذخیره می‌کند)
+- **پیکربندی Xray** توسط 3x-ui مدیریت می‌شود (فایل استاتیک نیست)
+
+Meridian 3x-ui را کاملاً از طریق REST API مدیریت می‌کند:
+- `POST /login` — احراز هویت (form-urlencoded، session cookie برمی‌گرداند)
+- `POST /panel/api/inbounds/add` — ایجاد VLESS inbound
+- `GET /panel/api/inbounds/list` — لیست inbounds (بررسی قبل از ایجاد)
+- `POST /panel/setting/update` — پیکربندی تنظیمات پنل
+- `POST /panel/setting/updateUser` — تغییر اعتبارنامه‌های پنل
+
+## الگوی پیکربندی Caddy
+
+Meridian در `/etc/caddy/conf.d/meridian.caddy` می‌نویسد (هرگز در Caddyfile اصلی). به Caddyfile اصلی یک خط اضافه می‌شود: `import /etc/caddy/conf.d/*.caddy`. این اجازه می‌دهد Meridian با پیکربندی خود کاربر همزیستی کند.
+
+Caddy مدیریت می‌کند:
+- گواهی TLS خودکار (گواهی دامنه یا Let's Encrypt IP از طریق پروفایل ACME `shortlived`)
+- پروکسی معکوس برای پنل 3x-ui (در مسیر تصادفی)
+- ارائه صفحات اتصال (صفحات میزبانی‌شده با URL‌های قابل اشتراک)
+- پروکسی معکوس برای ترافیق XHTTP به Xray (مسیریابی بر اساس مسیر، در تمام حالت‌ها وقتی XHTTP فعال است)
+- پروکسی معکوس برای ترافیق WSS به Xray (فقط حالت دامنه)
+
 ## اختصاص پورت
 
 | پورت | سرویس | حالت |
@@ -79,25 +115,27 @@ Relay یک دستگاه ارسال TCP سطح ۴ است که ترافیک خام
 
 ## خط لوله Provisioning
 
-| # | مرحله | هدف |
-|---|------|---------|
-| 1 | InstallPackages | بسته‌های OS |
-| 2 | EnableAutoUpgrades | ارتقاهای بدون نظارت |
-| 3 | SetTimezone | UTC |
-| 4 | HardenSSH | احراز هویت فقط کلید |
-| 5 | ConfigureBBR | کنترل ازدحام TCP |
-| 6 | ConfigureFirewall | UFW: 22 + 80 + 443 |
-| 7 | InstallDocker | Docker CE |
-| 8 | Deploy3xui | container 3x-ui |
-| 9 | ConfigurePanel | اعتبارات پنل |
-| 10 | LoginToPanel | احراز هویت API |
-| 11 | CreateRealityInbound | VLESS+Reality |
-| 12 | CreateXHTTPInbound | VLESS+XHTTP |
-| 13 | CreateWSSInbound | VLESS+WSS (domain) |
-| 14 | VerifyXray | بررسی سلامت |
-| 15 | InstallHAProxy | مسیریابی SNI |
-| 16 | InstallCaddy | TLS + reverse proxy |
-| 17 | DeployConnectionPage | QR codes + page |
+تابع `build_setup_steps()` مراحل را بر اساس پروتکل‌ها و تنظیمات انتخاب‌شده گردآوری می‌کند. هر مرحله از طریق SSH به سرور ارسال می‌شود و نتایج آن در `ProvisionContext` ذخیره می‌شود.
+
+| # | مرحله | هدف | ماژول |
+|---|------|---------|--------|
+| 1 | InstallPackages | بسته‌های OS | `provision/base.py` |
+| 2 | EnableAutoUpgrades | ارتقاهای بدون نظارت | `provision/base.py` |
+| 3 | SetTimezone | UTC | `provision/base.py` |
+| 4 | HardenSSH | احراز هویت فقط کلید | `provision/base.py` |
+| 5 | ConfigureBBR | کنترل ازدحام TCP | `provision/base.py` |
+| 6 | ConfigureFirewall | UFW: 22 + 80 + 443 | `provision/base.py` |
+| 7 | InstallDocker | Docker CE | `provision/docker.py` |
+| 8 | Deploy3xui | container 3x-ui | `provision/docker.py` |
+| 9 | ConfigurePanel | اعتبارات پنل | `provision/panel.py` |
+| 10 | LoginToPanel | احراز هویت API | `provision/panel.py` |
+| 11 | CreateRealityInbound | VLESS+Reality | `provision/inbound.py` |
+| 12 | CreateXHTTPInbound | VLESS+XHTTP | `provision/inbound.py` |
+| 13 | CreateWSSInbound | VLESS+WSS (domain) | `provision/inbound.py` |
+| 14 | VerifyXray | بررسی سلامت | `provision/services.py` |
+| 15 | InstallHAProxy | مسیریابی SNI | `provision/services.py` |
+| 16 | InstallCaddy | TLS + reverse proxy | `provision/services.py` |
+| 17 | DeployConnectionPage | QR codes + page | `provision/pwa.py` |
 
 ## چرخه حیات اعتبارات
 
@@ -108,3 +146,17 @@ Relay یک دستگاه ارسال TCP سطح ۴ است که ترافیک خام
 5. **بازاجرا**: از cache بارگذاری می‌شوند، دوباره تولید نمی‌شوند (idempotent)
 6. **ماشین‌های متعدد**: `meridian server add IP` از سرور از طریق SSH واکشی می‌کند
 7. **حذف**: از سرور و ماشین محلی حذف می‌شوند
+
+## مکان فایل‌ها
+
+### روی سرور
+- `/etc/meridian/proxy.yml` — اعتبارنامه‌ها و لیست کلاینت‌ها
+- `/etc/caddy/conf.d/meridian.caddy` — پیکربندی Caddy
+- `/etc/haproxy/haproxy.cfg` — پیکربندی HAProxy
+- کانتینر Docker `3x-ui` — Xray + پنل
+
+### روی ماشین محلی
+- `~/.meridian/credentials/<IP>/` — اعتبارنامه‌های کش‌شده برای هر سرور
+- `~/.meridian/servers` — رجیستری سرورها
+- `~/.meridian/cache/` — کش بررسی به‌روزرسانی
+- `~/.local/bin/meridian` — نقطه ورود CLI (نصب‌شده از طریق uv/pipx)
