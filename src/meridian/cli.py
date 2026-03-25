@@ -121,6 +121,18 @@ def client_add(
     run_add(name, user, server)
 
 
+@client_app.command("show")
+def client_show_cmd(
+    name: str = typer.Argument(..., help="Client name"),
+    server: str = typer.Option("", "--server", help="Target server (name or IP)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+) -> None:
+    """Show connection info for an existing client."""
+    from meridian.commands.client import run_show
+
+    run_show(name, user, server)
+
+
 @client_app.command("list")
 def client_list_cmd(
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),

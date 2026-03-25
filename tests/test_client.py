@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
-from meridian.commands.client import run_add, run_list, run_remove
+from meridian.commands.client import run_add, run_list, run_remove, run_show
 from meridian.panel import Inbound, PanelError
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,6 @@ class TestRunAdd:
             patch("meridian.commands.client._sync_credentials_to_server"),
             patch("meridian.commands.client.print_terminal_output"),
             patch("meridian.commands.client.save_connection_html"),
-            patch("meridian.commands.client.save_connection_text"),
         ):
             run_add("alice")
 
@@ -241,12 +240,60 @@ class TestRunAdd:
             patch("meridian.commands.client._sync_credentials_to_server"),
             patch("meridian.commands.client.print_terminal_output"),
             patch("meridian.commands.client.save_connection_html"),
-            patch("meridian.commands.client.save_connection_text"),
         ):
             run_add("carol")
 
         # Should be called twice: reality + wss
         assert mock_panel.add_client.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# run_show tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunShow:
+    def test_show_client_success(self, tmp_home: Path, creds_dir: Path) -> None:
+        """Happy path: show connection info for an existing client."""
+        _write_proxy_yml(creds_dir, extra_client="alice")
+
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials"),
+            patch("meridian.commands.client.print_terminal_output") as mock_print,
+        ):
+            run_show("alice")
+
+        # print_terminal_output should have been called with header_verb="connection info"
+        mock_print.assert_called_once()
+        call_kwargs = mock_print.call_args
+        assert call_kwargs.kwargs.get("header_verb") == "connection info"
+
+    def test_show_nonexistent_client_fails(self, tmp_home: Path, creds_dir: Path) -> None:
+        """Client not in credentials -- should fail."""
+        _write_proxy_yml(creds_dir)
+
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials"),
+        ):
+            with pytest.raises(typer.Exit) as exc:
+                run_show("ghost")
+        assert exc.value.exit_code == 1
+
+    def test_show_invalid_name_fails(self, tmp_home: Path) -> None:
+        """Invalid name should fail at validation."""
+        with pytest.raises(typer.Exit) as exc:
+            run_show("bad name!")
+        assert exc.value.exit_code == 1
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +495,6 @@ class TestValidateClientName:
             patch("meridian.commands.client._sync_credentials_to_server"),
             patch("meridian.commands.client.print_terminal_output"),
             patch("meridian.commands.client.save_connection_html"),
-            patch("meridian.commands.client.save_connection_text"),
         ):
             # valid names like "alice123", "my-client", "client_1" should pass validation
             run_add("alice123")

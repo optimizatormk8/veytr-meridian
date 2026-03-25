@@ -16,6 +16,7 @@ def print_terminal_output(
     client_name: str = "",
     hosted_page_url: str = "",
     relay_entries: list[RelayURLSet] | None = None,
+    header_verb: str = "added",
 ) -> None:
     """Print connection info with QR codes to the terminal.
 
@@ -28,6 +29,7 @@ def print_terminal_output(
         hosted_page_url: If set, show this URL as the shareable link.
         relay_entries: Optional relay URL sets. When present, relay URLs are
             shown first as "Recommended", direct URLs as "Backup".
+        header_verb: Action word for the header (e.g., "added", "connection info").
     """
     from meridian.console import err_console
 
@@ -36,7 +38,7 @@ def print_terminal_output(
 
     # Print summary header.
     err_console.print()
-    err_console.print(f'  [bold green]\u2713[/bold green] [bold]Client "{name}" added[/bold]')
+    err_console.print(f'  [bold green]\u2713[/bold green] [bold]Client "{name}" -- {header_verb}[/bold]')
     err_console.print()
 
     # Shareable link first (most important for "share with family" use case).
@@ -81,15 +83,11 @@ def print_terminal_output(
 
     # Find saved files.
     html_files = list(creds_dir.glob(f"*-{name}-connection-info.html"))
-    txt_files = list(creds_dir.glob(f"*-{name}-connection-info.txt"))
 
-    if html_files or txt_files:
+    if html_files:
         err_console.print()
         err_console.print("  [bold]Saved files:[/bold]")
-        if html_files:
-            err_console.print(f"  HTML page: [bold]{html_files[0]}[/bold]")
-        if txt_files:
-            err_console.print(f"  Text file: {txt_files[0]}")
+        err_console.print(f"  HTML page: [bold]{html_files[0]}[/bold]")
 
     # Connection URLs (raw VLESS URLs for power users).
     err_console.print()

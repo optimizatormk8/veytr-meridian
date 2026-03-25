@@ -422,49 +422,6 @@ class TestRelayCLI:
 
 
 class TestRenderingWithRelays:
-    def test_save_connection_text_with_relays(self, tmp_path: Path) -> None:
-        from meridian.render import save_connection_text
-
-        protocol_urls = [
-            ProtocolURL(key="reality", label="Primary", url="vless://uuid@5.6.7.8:443?security=reality#alice"),
-        ]
-        relay_entries = [
-            RelayURLSet(
-                relay_ip="1.2.3.4",
-                relay_name="ru-moscow",
-                urls=[
-                    ProtocolURL(
-                        key="reality",
-                        label="Primary (via relay)",
-                        url="vless://uuid@1.2.3.4:443?security=reality#alice-via-ru-moscow",
-                    )
-                ],
-            ),
-        ]
-
-        dest = tmp_path / "test.txt"
-        save_connection_text(protocol_urls, dest, "5.6.7.8", relay_entries=relay_entries)
-
-        content = dest.read_text()
-        assert "Recommended" in content
-        assert "via relay" in content
-        assert "1.2.3.4" in content
-        assert "Backup" in content
-
-    def test_save_connection_text_without_relays(self, tmp_path: Path) -> None:
-        from meridian.render import save_connection_text
-
-        protocol_urls = [
-            ProtocolURL(key="reality", label="Primary", url="vless://uuid@5.6.7.8:443?security=reality#alice"),
-        ]
-
-        dest = tmp_path / "test.txt"
-        save_connection_text(protocol_urls, dest, "5.6.7.8")
-
-        content = dest.read_text()
-        assert "via relay" not in content
-        assert "Backup: direct" not in content
-
     def test_save_connection_html_with_relays_fallback(self, tmp_path: Path) -> None:
         """Test HTML output with relay entries includes relay section."""
         from meridian.render import save_connection_html

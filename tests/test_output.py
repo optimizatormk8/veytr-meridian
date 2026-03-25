@@ -14,7 +14,7 @@ from meridian.credentials import (
     XHTTPConfig,
 )
 from meridian.models import ProtocolURL
-from meridian.render import save_connection_html, save_connection_text
+from meridian.render import save_connection_html
 from meridian.urls import build_protocol_urls, generate_qr_base64, generate_qr_terminal
 
 
@@ -134,49 +134,6 @@ class TestBuildProtocolURLs:
         urls = build_protocol_urls("alice", "uuid-1", "", creds)
         assert isinstance(urls, list)
         assert all(isinstance(u, ProtocolURL) for u in urls)
-
-
-class TestSaveConnectionText:
-    def test_creates_file(self, tmp_path: Path) -> None:
-        urls = [ProtocolURL(key="reality", label="Primary", url="vless://uuid@1.2.3.4:443?test")]
-        dest = tmp_path / "creds" / "1.2.3.4-alice-connection-info.txt"
-        save_connection_text(urls, dest, "1.2.3.4", client_name="alice")
-
-        assert dest.exists()
-        content = dest.read_text()
-        assert "alice" in content
-        assert "vless://uuid@1.2.3.4:443?test" in content
-        assert "1.2.3.4" in content
-
-    def test_includes_xhttp_when_present(self, tmp_path: Path) -> None:
-        urls = [
-            ProtocolURL(key="reality", label="Primary", url="vless://reality"),
-            ProtocolURL(key="xhttp", label="XHTTP", url="vless://xhttp"),
-        ]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4", client_name="alice")
-
-        content = dest.read_text()
-        assert "XHTTP" in content
-        assert "vless://xhttp" in content
-
-    def test_includes_wss_when_present(self, tmp_path: Path) -> None:
-        urls = [
-            ProtocolURL(key="reality", label="Primary", url="vless://reality"),
-            ProtocolURL(key="wss", label="CDN Backup", url="vless://wss"),
-        ]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4", client_name="alice")
-
-        content = dest.read_text()
-        assert "WSS" in content or "CDN" in content
-        assert "vless://wss" in content
-
-    def test_file_permissions(self, tmp_path: Path) -> None:
-        urls = [ProtocolURL(key="reality", label="Primary", url="vless://x")]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4")
-        assert oct(dest.stat().st_mode)[-3:] == "600"
 
 
 class TestBuildProtocolURLsEdgeCases:
@@ -356,44 +313,3 @@ class TestSaveConnectionHtml:
             save_connection_html(urls, dest, "1.2.3.4")
         content = dest.read_text()
         assert "getmeridian.org/ping" in content
-
-
-class TestSaveConnectionTextAllProtocols:
-    """Test text output with all combinations of protocols."""
-
-    def test_all_protocols(self, tmp_path: Path) -> None:
-        urls = [
-            ProtocolURL(key="reality", label="Primary", url="vless://reality-url"),
-            ProtocolURL(key="xhttp", label="XHTTP", url="vless://xhttp-url"),
-            ProtocolURL(key="wss", label="CDN Backup", url="vless://wss-url"),
-        ]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4", client_name="alice")
-        content = dest.read_text()
-        assert "vless://reality-url" in content
-        assert "vless://xhttp-url" in content
-        assert "vless://wss-url" in content
-        assert "XHTTP" in content
-        assert "CDN" in content or "WSS" in content
-        assert "Primary" in content or "Reality" in content
-
-    def test_text_includes_client_apps(self, tmp_path: Path) -> None:
-        urls = [ProtocolURL(key="reality", label="Primary", url="vless://x")]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4")
-        content = dest.read_text()
-        assert "v2rayNG" in content
-        assert "v2RayTun" in content or "Hiddify" in content
-
-    def test_text_includes_time_sync_warning(self, tmp_path: Path) -> None:
-        urls = [ProtocolURL(key="reality", label="Primary", url="vless://x")]
-        dest = tmp_path / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4")
-        content = dest.read_text()
-        assert "TIME SYNC" in content or "time" in content.lower()
-
-    def test_creates_parent_directories(self, tmp_path: Path) -> None:
-        urls = [ProtocolURL(key="reality", label="Primary", url="vless://x")]
-        dest = tmp_path / "deep" / "nested" / "dir" / "out.txt"
-        save_connection_text(urls, dest, "1.2.3.4")
-        assert dest.exists()

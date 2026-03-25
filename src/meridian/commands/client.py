@@ -20,7 +20,7 @@ from meridian.display import print_terminal_output
 from meridian.models import Inbound
 from meridian.panel import PanelClient, PanelError
 from meridian.protocols import PROTOCOLS, Protocol, get_protocol
-from meridian.render import save_connection_html, save_connection_text
+from meridian.render import save_connection_html
 from meridian.servers import ServerRegistry
 from meridian.ssh import SSH_OPTS
 from meridian.urls import build_all_relay_urls, build_protocol_urls
@@ -288,12 +288,6 @@ def run_add(
 
         server_ip = creds.server.ip or resolved.ip
         file_prefix = f"{resolved.ip}-{name}"
-        save_connection_text(
-            protocol_urls,
-            resolved.creds_dir / f"{file_prefix}-connection-info.txt",
-            server_ip,
-            relay_entries=relay_url_sets,
-        )
         save_connection_html(
             protocol_urls,
             resolved.creds_dir / f"{file_prefix}-connection-info.html",
@@ -328,6 +322,65 @@ def run_add(
 
         err_console.print(f"  [dim]Test reachability: meridian test {resolved.ip}[/dim]")
         err_console.print("  [dim]View all clients:  meridian client list[/dim]\n")
+
+
+# -- Client Show --
+
+
+def run_show(
+    name: str,
+    user: str = "root",
+    requested_server: str = "",
+) -> None:
+    """Display connection info for an existing client."""
+    _validate_client_name(name)
+
+    registry = ServerRegistry(SERVERS_FILE)
+    resolved = resolve_server(registry, requested_server=requested_server, user=user)
+    resolved = ensure_server_connection(resolved)
+    fetch_credentials(resolved)
+
+    creds = _load_creds(resolved.creds_dir)
+
+    # Find the client in credentials
+    client_entry = next((c for c in creds.clients if c.name == name), None)
+    if client_entry is None:
+        fail(
+            f"Client '{name}' not found in credentials",
+            hint="Check client name with: meridian client list",
+            hint_type="user",
+        )
+
+    # Build protocol URLs
+    protocol_urls = build_protocol_urls(
+        name=name,
+        reality_uuid=client_entry.reality_uuid,
+        wss_uuid=client_entry.wss_uuid,
+        creds=creds,
+    )
+
+    # Build relay URL sets (if exit has relays)
+    relay_url_sets = build_all_relay_urls(name, client_entry.reality_uuid, client_entry.wss_uuid, creds)
+
+    server_ip = creds.server.ip or resolved.ip
+
+    # Check for hosted page URL
+    hosted_page_url = ""
+    if creds.server.hosted_page and creds.panel.info_page_path and client_entry.reality_uuid:
+        hosted_page_url = f"https://{server_ip}/{creds.panel.info_page_path}/{client_entry.reality_uuid}/"
+
+    # Print terminal output
+    print_terminal_output(
+        protocol_urls,
+        resolved.creds_dir,
+        server_ip,
+        hosted_page_url=hosted_page_url,
+        relay_entries=relay_url_sets or None,
+        header_verb="connection info",
+    )
+
+    err_console.print(f"  [dim]Test reachability: meridian test {resolved.ip}[/dim]")
+    err_console.print("  [dim]View all clients:  meridian client list[/dim]\n")
 
 
 # -- Client List --
@@ -426,7 +479,6 @@ def run_remove(
         # Delete local output files
         for pattern in [
             f"*-{name}-connection-info.html",
-            f"*-{name}-connection-info.txt",
         ]:
             for f in resolved.creds_dir.glob(pattern):
                 f.unlink(missing_ok=True)

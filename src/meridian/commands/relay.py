@@ -134,7 +134,7 @@ def _regenerate_client_pages(
     creds: ServerCredentials,
 ) -> None:
     """Regenerate connection pages for all clients after relay topology change."""
-    from meridian.render import save_connection_html, save_connection_text
+    from meridian.render import save_connection_html
     from meridian.urls import build_all_relay_urls, build_protocol_urls, generate_qr_base64
 
     for client in creds.clients:
@@ -150,14 +150,7 @@ def _regenerate_client_pages(
         domain = creds.server.domain or ""
         file_prefix = f"{resolved_exit.ip}-{client.name}"
 
-        # Regenerate local files
-        save_connection_text(
-            protocol_urls,
-            resolved_exit.creds_dir / f"{file_prefix}-connection-info.txt",
-            server_ip,
-            client_name=client.name,
-            relay_entries=relay_url_sets,
-        )
+        # Regenerate local HTML file
         save_connection_html(
             protocol_urls,
             resolved_exit.creds_dir / f"{file_prefix}-connection-info.html",
