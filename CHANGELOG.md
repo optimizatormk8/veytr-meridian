@@ -4,6 +4,14 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.8.2] - 2026-03-25
+
+### Added
+- **Server branding** — personalize connection pages with `--server-name`, `--icon` (emoji or image URL), and `--color` (6 curated palettes: ocean, sunset, forest, lavender, rose, slate). Interactive wizard prompts for all three. Branding stored in credentials and rendered in PWA.
+
+### Fixed
+- **Connection pages unreachable in IP-only mode** — browsers don't send SNI for bare IP addresses (RFC 6066), so HAProxy dropped every connection before reaching Caddy. Added no-SNI routing rule. Also added Caddy `abort` catch-all so censors probing unknown paths see nothing.
+
 ## [3.8.1] - 2026-03-25
 
 ### Fixed
