@@ -2,11 +2,16 @@
 
 ## Vision
 
-Meridian makes censorship-resistant VPN accessible to everyone. A semi-technical "tech friend" rents a VPS, runs one command, and shares secure access with family via QR codes and guided connection pages.
+Meridian is the bridge between those who can deploy and those who need unrestricted internet. One person sets up a server; their whole circle — family, friends, colleagues — connects through it.
 
-**Audience:** tech friends (setup + share) · power users (fast rebuilds when IPs get blocked) · organizations (NGOs, journalists, activists)
+**The north star:** always offer the strongest available protocol with the most polished UX. Today that's VLESS+Reality. Tomorrow the protocol may change, but the promise stays: undetectable, one-command deploy, effortless client handoff.
 
-**Design principles:** protocol-agnostic harness (VLESS+Reality today, something else tomorrow) · guided wizard with smart defaults · guided handoff (server setup is ours, client setup is effortless) · rebuild-fast · aesthetics matter (every surface is UI — CLI, QR codes, connection pages, URLs, error messages)
+**Audience:** tech friends (deploy + share) · power users (fast rebuilds when IPs get blocked) · organizations (NGOs, journalists, activists)
+
+**Design principles:**
+- **Strongest protocol, always** — research and adopt whatever is most resistant to detection. Don't chase breadth (20 protocols); chase depth (the best one, perfectly deployed).
+- **Two-sided UX** — deployer experience (CLI wizard, smart defaults, rebuild-fast) AND end-user experience (PWA connection pages, QR codes, subscription auto-update, deep links) both matter equally.
+- **Aesthetics are trust** — every surface is UI. CLI output, terminal colors, connection pages, URLs, error messages. In censored regions, a polished page says "this is safe to use" more than any documentation.
 
 ## Architecture
 
