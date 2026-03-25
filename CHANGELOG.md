@@ -4,6 +4,21 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.8.1] - 2026-03-25
+
+### Fixed
+- **Blank demo page** — `jinja2` was only a dev dependency but needed at runtime for PWA template rendering. Moved to main dependencies. Added `qrencode` to CI for QR code generation
+- **PyPI README** — replaced relative image paths with absolute URLs, replaced Mermaid diagram (unsupported on PyPI) with architecture SVG image
+- **CI demo validation** — fixed `find` command that incorrectly excluded all `index.html` files
+
+### Changed
+- **Command Builder elevated on homepage** — moved from section 7 to section 4 (after "How it works") for better discoverability
+- **Trust bar updated** — 290+ → 480+ tests across all 4 locales
+- **SECURITY.md** — documented update check transparency (reads PyPI only, no telemetry)
+
+### Added
+- **Backlog items** — `meridian client export` for offline HTML sharing, live GitHub stars in trust bar
+
 ## [3.8.0] - 2026-03-24
 
 ### Security
