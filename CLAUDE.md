@@ -173,7 +173,7 @@ cd website && npm install && npm run build  # Astro + Pagefind
 ### Build conventions
 - Cross-platform: `base64 | tr -d '\n'` (not `base64 -w0`)
 - `curl|bash stdin trap`: commands reading stdin MUST have `</dev/null`
-- AI docs generated from human docs (en/). Edit website docs, run `make ai-docs`
+- AI docs generated from human docs (en/). Run `make ai-docs` locally; CI generates automatically
 - Pre-push hook: `.githooks/pre-push` runs 11 checks. Install with `make hooks`
 - **Always use context7 MCP** before writing code depending on external libraries
 - **Translations**: use Haiku model agents (`model: "haiku"`) for fast i18n translations

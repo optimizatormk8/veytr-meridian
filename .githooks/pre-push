@@ -42,15 +42,6 @@ check "CHANGELOG has VERSION entry" bash -c '
     grep -q "## \[$VERSION\]" CHANGELOG.md
 '
 
-check "AI docs up to date" bash -c '
-    expected=$(for f in website/src/content/docs/en/cli-reference.md website/src/content/docs/en/architecture.md website/src/content/docs/en/troubleshooting.md website/src/content/docs/en/deploy.md; do
-        awk "BEGIN{skip=0} /^---\$/{skip++;next} skip<2{next} {print}" "$f"
-        echo ""
-    done)
-    actual=$(cat src/meridian/data/ai-reference.md)
-    [ "$expected" = "$actual" ]
-'
-
 check "App links match (template ↔ apps.json)" python3 -c "
 import json, re, sys
 def extract_template(p):

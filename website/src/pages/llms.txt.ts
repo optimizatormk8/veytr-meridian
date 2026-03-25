@@ -3,7 +3,8 @@ import { getCollection } from 'astro:content';
 
 export const GET: APIRoute = async () => {
   const docs = await getCollection('docs');
-  const sorted = docs.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
+  const enDocs = docs.filter(doc => doc.id.startsWith('en/'));
+  const sorted = enDocs.sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99));
 
   const lines = [
     '# Meridian',

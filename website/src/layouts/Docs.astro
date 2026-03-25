@@ -64,6 +64,14 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
               {l.label}
             </a>
           ))}
+          {mdPath && (
+            <a href={mdPath} class="docs-locale-btn docs-md-btn" title="View as Markdown">MD</a>
+          )}
+        </div>
+      )}
+      {!availableLocales.length && mdPath && (
+        <div class="docs-locale-switcher">
+          <a href={mdPath} class="docs-locale-btn docs-md-btn" title="View as Markdown">MD</a>
         </div>
       )}
       <article class="docs-article" data-pagefind-body>
@@ -125,6 +133,12 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
     color: var(--ac);
     border-color: var(--ac);
     background: var(--ac2);
+  }
+  .docs-md-btn {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
   }
 
   /* Markdown content styles */
