@@ -1,7 +1,7 @@
 ---
 title: Справочник CLI
 description: Полный справочник всех команд и флагов Meridian CLI.
-order: 8
+order: 10
 section: reference
 ---
 

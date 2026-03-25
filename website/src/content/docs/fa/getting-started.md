@@ -81,5 +81,7 @@ meridian server remove finland     # حذف از رجیستری
 ## مراحل بعدی
 
 - [راهنمای استقرار](/docs/fa/deploy/) — راهنمای استقرار کامل با تمام گزینه‌ها
+- [گره‌های relay](/docs/fa/relay/) — مسیریابی از طریق IP داخلی برای تاب‌آوری در صورت مسدود شدن IP
 - [حالت دامنه](/docs/fa/domain-mode/) — افزودن fallback CDN از طریق Cloudflare
+- [IP مسدود شده است؟](/docs/fa/recovery/) — بازیابی گام به گام در صورت مسدود شدن سرور
 - [حل مشکلات](/docs/fa/troubleshooting/) — مشکلات معمول و راه‌حل‌ها

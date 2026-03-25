@@ -1,7 +1,7 @@
 ---
 title: مرجع CLI
 description: مرجع کامل برای تمام دستورات و پرچم‌های Meridian CLI.
-order: 8
+order: 10
 section: reference
 ---
 

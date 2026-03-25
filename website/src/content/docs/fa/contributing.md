@@ -1,7 +1,7 @@
 ---
 title: مشارکت
 description: تنظیم توسعه، راهنمای PR، و رویکرد تست.
-order: 10
+order: 12
 section: reference
 ---
 

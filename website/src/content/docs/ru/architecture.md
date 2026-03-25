@@ -1,7 +1,7 @@
 ---
 title: Архитектура
 description: Архитектура системы, поток трафика и топология сервисов.
-order: 7
+order: 9
 section: reference
 ---
 

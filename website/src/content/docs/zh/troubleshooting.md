@@ -1,7 +1,7 @@
 ---
 title: 故障排除
 description: 常见问题、解决方案和诊断工具。
-order: 6
+order: 8
 section: guides
 ---
 
@@ -110,10 +110,7 @@ section: guides
 
 **最常见的原因：** 服务器 IP 被阻止。这在被审查的地区很常见。
 
-**修复：**
-1. 运行 `meridian test IP` — 如果 TCP 失败，该 IP 可能被阻止
-2. 使用 WSS/CDN 链接（域名模式）
-3. 部署新服务器：获取新 IP 并重新运行 `meridian deploy`
+有关详细的恢复说明，请参阅 [IP 被阻止恢复指南](/docs/zh/recovery/)。
 
 其他原因：
 - 服务器重启且 Docker 未自动启动 → `docker start 3x-ui`
@@ -141,6 +138,10 @@ meridian doctor --ai
 ```
 meridian doctor
 ```
+
+## 中继节点不工作
+
+有关中继特定的问题，请参阅[中继指南 — 故障排除](/docs/zh/relay/#troubleshooting)部分。
 
 ## 解读 preflight 输出
 

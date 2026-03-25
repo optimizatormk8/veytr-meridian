@@ -1,7 +1,7 @@
 ---
 title: Участие в разработке
 description: Настройка разработки, рекомендации PR и подход к тестированию.
-order: 10
+order: 12
 section: reference
 ---
 

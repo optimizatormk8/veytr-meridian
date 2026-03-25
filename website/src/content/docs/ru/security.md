@@ -1,7 +1,7 @@
 ---
 title: Безопасность
 description: Дизайн безопасности, сообщение об уязвимостях и область охвата.
-order: 9
+order: 11
 section: reference
 ---
 

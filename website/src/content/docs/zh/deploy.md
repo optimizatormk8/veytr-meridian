@@ -71,3 +71,11 @@ meridian deploy 1.2.3.4 --user ubuntu
 ```
 
 非 root 用户会自动获得 `sudo`。用户必须有无密码 sudo 访问权限。
+
+## 添加中继节点
+
+部署出口服务器后，添加中继节点以在出口 IP 被阻止时增强抗阻挡能力。有关完整的设置说明，请参阅[中继指南](/docs/zh/relay/)。
+
+```bash
+meridian relay deploy RELAY_IP --exit YOUR_EXIT_IP
+```

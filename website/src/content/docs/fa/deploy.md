@@ -71,3 +71,11 @@ meridian deploy 1.2.3.4 --user ubuntu
 ```
 
 کاربران non-root `sudo` را به‌طور خودکار دریافت می‌کنند. کاربر باید دسترسی sudo بدون رمز عبور داشته باشد.
+
+## افزودن گره relay
+
+پس از استقرار سرور خروج، یک گره relay اضافه کنید تا تاب‌آوری زمانی‌که IP خروج مسدود می‌شود. برای دستورالعمل‌های کامل راه‌اندازی، [راهنمای relay](/docs/fa/relay/) را ببینید.
+
+```bash
+meridian relay deploy RELAY_IP --exit YOUR_EXIT_IP
+```

@@ -81,5 +81,7 @@ meridian server remove finland     # 从注册表中删除
 ## 后续步骤
 
 - [部署指南](/docs/zh/deploy/) — 完整的部署演练，包括所有选项
+- [中继节点](/docs/zh/relay/) — 通过国内 IP 路由以增强抗 IP 阻挡能力
 - [域名模式](/docs/zh/domain-mode/) — 通过 Cloudflare 添加 CDN 回退
+- [IP 被阻止了？](/docs/zh/recovery/) — IP 被阻止时的分步恢复指南
 - [故障排除](/docs/zh/troubleshooting/) — 常见问题和解决方案
