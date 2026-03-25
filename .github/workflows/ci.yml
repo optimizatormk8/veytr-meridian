@@ -226,5 +226,5 @@ jobs:
           test -f website/dist/demo/pwa/sw.js
           # Verify SW is no-op (disabled for static hosting)
           grep -q "SW disabled" website/dist/demo/pwa/sw.js
-          # Verify client index.html is non-empty (jinja2 rendered)
-          find website/dist/demo -path '*/index.html' ! -name 'index.html' -size +0c | grep -q .
+          # Verify client index.html is non-empty (jinja2 rendered correctly)
+          find website/dist/demo -mindepth 2 -name 'index.html' -size +0c | grep -q .
