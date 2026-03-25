@@ -59,6 +59,7 @@ meridian deploy [IP|local] [flags]     Deploy proxy server ('local' = on this se
   --email EMAIL                 Email for TLS certificates (optional)
   --sni HOST                    Reality SNI target (default: www.microsoft.com)
   --xhttp / --no-xhttp          XHTTP transport (default: enabled)
+  --harden / --no-harden        Server hardening: SSH key-only + firewall (default: enabled)
   --name NAME                   Name for the first client
   --user USER                   SSH user (default: root)
   --yes                         Skip confirmation prompts

@@ -23,6 +23,7 @@ meridian deploy [IP] [flags]
 | `--xhttp / --no-xhttp` | enabled | XHTTP transport |
 | `--name NAME` | default | Name for the first client |
 | `--user USER` | root | SSH user |
+| `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall |
 | `--yes` | | Skip confirmation prompts |
 
 ### meridian client

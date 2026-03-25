@@ -27,6 +27,8 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--xhttp / --no-xhttp` | enabled | XHTTP transport (through port 443 via Caddy) |
 | `--name NAME` | default | Name for the first client |
 | `--user USER` | root | SSH user (non-root gets sudo automatically) |
+| `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall (skip with `--no-harden` if other services run on the server) |
+| `--server NAME` | | Target a specific named server (for re-deploys) |
 | `--yes` | | Skip confirmation prompts |
 
 ## Choosing an SNI target
@@ -84,7 +86,7 @@ This skips SSH entirely and runs all commands locally. The `local` keyword works
 
 ```
 meridian client add alice local
-meridian check local
+meridian preflight local
 meridian scan local
 ```
 

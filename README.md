@@ -113,6 +113,14 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 | `meridian client list` | List all clients |
 | `meridian client remove NAME` | Remove a client key |
 | `meridian relay deploy RELAY_IP` | Deploy a relay node (TCP forwarder) |
+| `meridian relay list` | List relay nodes |
+| `meridian relay remove RELAY_IP` | Remove a relay node |
+| `meridian relay check RELAY_IP` | Check relay health |
+| `meridian server add [IP]` | Add a server to local registry |
+| `meridian server list` | List known servers |
+| `meridian server remove NAME` | Remove a server from registry |
+| `meridian preflight [IP]` | Pre-flight server validation (ports, SNI, OS, disk) |
+| `meridian scan [IP]` | Find optimal SNI targets on server's network |
 | `meridian test [IP]` | Test proxy reachability from this device |
 | `meridian doctor [IP]` | Collect info for bug reports (alias: `rage`) |
 | `meridian teardown [IP]` | Remove proxy from server |
