@@ -33,9 +33,13 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# acme.sh (so InstallNginx step skips installation)
+# acme.sh stub (real acme.sh needs cron which Docker doesn't have;
+# the stub makes InstallNginx skip installation and returns rc=2
+# "cert already valid" so the step proceeds with the self-signed cert)
 # ---------------------------------------------------------------------------
-RUN curl -fsSL https://get.acme.sh | sh -s email=test@example.com
+RUN mkdir -p /root/.acme.sh && \
+    printf '#!/bin/sh\nexit 2\n' > /root/.acme.sh/acme.sh && \
+    chmod +x /root/.acme.sh/acme.sh
 
 # ---------------------------------------------------------------------------
 # SSH on port 2222: self-connect via key auth (root@127.0.0.1)

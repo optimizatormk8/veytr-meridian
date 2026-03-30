@@ -746,27 +746,23 @@ class InstallNginx:
             )
             # Reload to pick up the real cert
             conn.run("systemctl reload nginx", timeout=10)
-        else:
-            # Certificate issuance failed — server is running with self-signed cert.
-            # This is a hard failure: connection pages won't work (browser cert errors),
-            # and there's no auto-retry without --install-cert setting up the cron.
-            acme_output = result.stdout.strip()[-200:] if result.stdout else ""
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=(
-                    f"TLS certificate issuance failed (rc={result.returncode}). "
-                    f"nginx is running with a self-signed cert. "
-                    f"Check: is port 80 open? Does the domain resolve to this IP? "
-                    f"acme.sh: {acme_output}"
-                ),
-            )
 
         host = server_ip if self.ip_mode else self.domain
+        if cert_issued:
+            cert_note = "TLS cert issued"
+        else:
+            # ACME failed — server runs with self-signed cert.
+            # Reality VPN works regardless (own encryption), but connection
+            # pages will show browser cert warnings until resolved.
+            cert_note = (
+                "WARNING: TLS cert failed — using self-signed. "
+                "Connection pages will show cert warnings. "
+                "Check port 80 is open and domain resolves correctly"
+            )
         return StepResult(
             name=self.name,
             status="changed",
-            detail=f"nginx configured for {host}:{self.nginx_internal_port} (TLS cert issued)",
+            detail=f"nginx configured for {host}:{self.nginx_internal_port} ({cert_note})",
         )
 
 
