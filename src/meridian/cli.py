@@ -109,7 +109,22 @@ def deploy_cmd(
     """
     from meridian.commands.setup import run
 
-    run(ip, domain, email, sni, xhttp, name, user, yes, harden, server, server_name=server_name, icon=icon, color=color, decoy=decoy)
+    run(
+        ip,
+        domain,
+        email,
+        sni,
+        xhttp,
+        name,
+        user,
+        yes,
+        harden,
+        server,
+        server_name=server_name,
+        icon=icon,
+        color=color,
+        decoy=decoy,
+    )
 
 
 # =============================================================================

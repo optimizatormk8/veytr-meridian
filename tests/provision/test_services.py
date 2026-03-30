@@ -528,7 +528,7 @@ class TestCaddyDecoy:
         )
         # header -Server should appear inside the handle_path block
         handle_path_start = cfg.index("handle_path /connect/*")
-        handle_path_block = cfg[handle_path_start:cfg.index("}", handle_path_start + 100) + 50]
+        handle_path_block = cfg[handle_path_start : cfg.index("}", handle_path_start + 100) + 50]
         assert "header -Server" in handle_path_block
 
 
