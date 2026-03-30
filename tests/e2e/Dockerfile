@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates gnupg sudo iptables ufw jq \
     socat unzip apt-transport-https \
     unattended-upgrades apt-listchanges \
-    nginx \
+    nginx libnginx-mod-stream \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------

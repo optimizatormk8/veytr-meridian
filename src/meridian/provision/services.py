@@ -557,6 +557,7 @@ class InstallNginx:
         if check.returncode != 0:
             # Try installing libnginx-mod-stream (separate package on some distros)
             conn.run(
+                "DEBIAN_FRONTEND=noninteractive apt-get update -qq && "
                 "DEBIAN_FRONTEND=noninteractive apt-get install -y libnginx-mod-stream",
                 timeout=60,
             )
