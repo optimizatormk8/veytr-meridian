@@ -208,6 +208,25 @@ class HardenSSH:
                 )
             changed = True
 
+        # Strip OS version from SSH banner (DebianBanner appends distro info)
+        check_banner = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=10)
+        if check_banner.returncode != 0:
+            result = conn.run(
+                "sed -i 's/^#\\?DebianBanner.*/DebianBanner no/' /etc/ssh/sshd_config",
+                timeout=10,
+            )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"failed to set DebianBanner: {result.stderr.strip()[:200]}",
+                )
+            # If sed matched nothing (no existing line), append it
+            verify = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=10)
+            if verify.returncode != 0:
+                conn.run("printf '\\nDebianBanner no\\n' >> /etc/ssh/sshd_config", timeout=10)
+            changed = True
+
         if not changed:
             return StepResult(name=self.name, status="ok", detail="already hardened")
 

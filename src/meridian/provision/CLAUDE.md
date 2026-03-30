@@ -31,3 +31,5 @@
 - **`return 444` + HTTP/2** — nginx 444 causes `PROTOCOL_ERROR` on HTTP/2 streams, which is more distinctive than a stock 403. Always use `return 403` for default locations.
 - **HTTP/2 on listen** — must add `http2` to the `listen` directive. Without it, ALPN only negotiates HTTP/1.1 — a fingerprinting vector since all modern servers support h2.
 - **Port 443 allowed list** — `docker.py` and `setup.py` both check port 443 occupancy. Both must include `haproxy`/`caddy` for upgrade-from-old-stack to work.
+- **Step constructor defaults must be falsy** — `reality_backend_port=10443` masked the `or ctx.reality_port` fallback. Use `0`/`""` defaults when `run()` has fallback resolution.
+- **Xray `listen` field** — omitting `listen` from 3x-ui API defaults to all interfaces. When nginx fronts Xray, set `"listen": "127.0.0.1"`.

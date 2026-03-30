@@ -467,7 +467,7 @@ class InstallNginx:
         self,
         domain: str,
         reality_sni: str = "",
-        reality_backend_port: int = 10443,
+        reality_backend_port: int = 0,
         nginx_internal_port: int = 8443,
         ws_path: str = "",
         wss_internal_port: int = 0,

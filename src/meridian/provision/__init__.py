@@ -82,7 +82,11 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
                 xhttp_enabled=ctx.xhttp_enabled,
             ),
             LoginToPanel(),
-            CreateRealityInbound(port=ctx.reality_port, first_client_name=first_client),
+            CreateRealityInbound(
+                port=ctx.reality_port,
+                first_client_name=first_client,
+                listen="127.0.0.1" if ctx.needs_web_server else "",
+            ),
         ]
     )
 
@@ -105,13 +109,14 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
         )
 
         if ctx.domain_mode:
-            steps.append(InstallNginx(domain=ctx.domain))
+            steps.append(InstallNginx(domain=ctx.domain, reality_backend_port=ctx.reality_port))
         else:
             steps.append(
                 InstallNginx(
                     domain="",
                     ip_mode=True,
                     server_ip=ctx.ip,
+                    reality_backend_port=ctx.reality_port,
                 )
             )
 

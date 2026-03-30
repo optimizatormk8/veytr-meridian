@@ -207,12 +207,14 @@ class CreateRealityInbound:
         client_limit_ip: int = 2,
         client_total_gb: int = 0,
         fingerprint: str = DEFAULT_FINGERPRINT,
+        listen: str = "",
     ) -> None:
         self.port = port
         self.first_client_name = first_client_name
         self.client_limit_ip = client_limit_ip
         self.client_total_gb = client_total_gb
         self.fingerprint = fingerprint
+        self.listen = listen
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         panel: PanelClient | None = ctx.get("panel")
@@ -240,6 +242,7 @@ class CreateRealityInbound:
         body: dict[str, Any] = {
             "remark": remark,
             "enable": True,
+            "listen": self.listen,
             "port": self.port,
             "protocol": "vless",
             "expiryTime": 0,
