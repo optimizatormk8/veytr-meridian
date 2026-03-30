@@ -28,6 +28,7 @@ meridian deploy [IP] [flags]
 | `--user USER` | root | SSH user |
 | `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall |
 | `--server NAME` | | Target a named server (for re-deploys) |
+| `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
 
 ### meridian client

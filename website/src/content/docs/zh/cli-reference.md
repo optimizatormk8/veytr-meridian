@@ -26,6 +26,7 @@ meridian deploy [IP] [flags]
 | `--icon EMOJI_OR_URL` | (无) | 服务器图标 — 表情或图像 URL |
 | `--color PALETTE` | ocean | 颜色调板(ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH 用户 |
+| `--decoy MODE` | none | 诱饵响应模式 (`none` / `403`) |
 | `--yes` | | 跳过确认提示 |
 
 ### meridian client

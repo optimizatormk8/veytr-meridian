@@ -26,6 +26,7 @@ meridian deploy [IP] [flags]
 | `--icon EMOJI_OR_URL` | (none) | آیکون سرور — emoji یا URL تصویر |
 | `--color PALETTE` | ocean | پالت رنگی (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | کاربر SSH |
+| `--decoy MODE` | none | پاسخ فریبنده برای مسیرهای ناشناخته (`none` / `403`) |
 | `--yes` | | رد کردن تأیید‌های پیش |
 
 ### meridian client

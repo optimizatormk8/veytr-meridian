@@ -26,6 +26,7 @@ meridian deploy [IP] [flags]
 | `--icon EMOJI_OR_URL` | (нет) | Значок сервера — эмодзи или URL изображения |
 | `--color PALETTE` | ocean | Цветовая палитра (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH пользователь |
+| `--decoy MODE` | none | Ответ-обманка для неизвестных путей (`none` / `403`) |
 | `--yes` | | Пропустить подтверждающие диалоги |
 
 ### meridian client
