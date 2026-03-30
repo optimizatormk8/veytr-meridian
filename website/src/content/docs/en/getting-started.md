@@ -5,6 +5,8 @@ order: 1
 section: guides
 ---
 
+One command sets up an undetectable proxy server with hardened defaults. This guide gets you from zero to a running deployment in about five minutes.
+
 ## Prerequisites
 
 You need:
@@ -47,6 +49,18 @@ meridian deploy local
 4. **Configures VLESS+Reality** on port 443 — impersonates a real TLS server
 5. **Enables XHTTP transport** — additional stealth layer, routed through Caddy
 6. **Outputs QR codes** and saves an HTML connection page
+
+## Where things live
+
+Meridian connects to the VPS via SSH (or runs directly on it with `deploy local`). After deploy, state is cached locally:
+
+| What | Where |
+|------|-------|
+| Credentials & keys | `~/.meridian/credentials/<IP>/` on your machine |
+| Server registry | `~/.meridian/servers` on your machine |
+| Proxy services | Docker, Xray, HAProxy, Caddy on the VPS |
+
+When you run `meridian client add alice`, Meridian looks up the server in your local registry, SSHes in, creates the client, and updates the local cache. With multiple servers, target a specific one with `--server NAME`.
 
 ## Connect
 

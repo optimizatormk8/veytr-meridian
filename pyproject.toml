@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "meridian-vpn"
 dynamic = ["version"]
-description = "Censorship-resistant VLESS+Reality proxy server management"
+description = "Deploy a censorship-resistant proxy server — hardened by default, shared via QR code"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

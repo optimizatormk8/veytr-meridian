@@ -2,14 +2,17 @@
 
 ## Vision
 
-Meridian is the bridge between those who can deploy and those who need unrestricted internet. One person sets up a server; their whole circle — family, friends, colleagues — connects through it.
+Deploy it right. Share it easily.
 
-**The north star:** always offer the strongest available protocol with the most polished UX. Today that's VLESS+Reality. Tomorrow the protocol may change, but the promise stays: undetectable, one-command deploy, effortless client handoff.
+A strong protocol means nothing if the deployment leaks — an open port, a TLS mismatch, a fingerprint that gives the server away. Meridian deploys the strongest available protocol AND configures every layer correctly: firewall, certificates, SNI routing, fingerprinting. Your server is indistinguishable from any other website. One command. Done right.
 
-**Audience:** tech friends (deploy + share) · power users (fast rebuilds when IPs get blocked) · organizations (NGOs, journalists, activists)
+**The north star:** always offer the strongest available protocol with an airtight deployment. Today that's VLESS+Reality. Tomorrow the protocol may change, but the promise stays: undetectable, zero-mistakes deploy, effortless client handoff.
+
+**Audience:** deployers (self-hosters who want correctness out of the box) + their users (people who scan a QR code and connect)
 
 **Design principles:**
-- **Strongest protocol, always** — research and adopt whatever is most resistant to detection. Don't chase breadth (20 protocols); chase depth (the best one, perfectly deployed).
+- **Strongest protocol, always** — research and adopt whatever is most resistant to detection. Don't chase breadth (20 protocols); chase depth (the best one, perfectly deployed). No open ports, no TLS leaks, no fingerprinting mistakes.
+- **It just works** — Meridian makes no stupid mistakes. Every deployment is hardened by default. The deployer doesn't need to understand firewall rules, TLS configuration, or SNI routing — Meridian handles it correctly every time.
 - **Two-sided UX** — deployer experience (CLI wizard, smart defaults, rebuild-fast) AND end-user experience (PWA connection pages, QR codes, subscription auto-update, deep links) both matter equally.
 - **Aesthetics are trust** — every surface is UI. CLI output, terminal colors, connection pages, URLs, error messages. In censored regions, a polished page says "this is safe to use" more than any documentation.
 

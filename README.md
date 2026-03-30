@@ -11,7 +11,7 @@
   <a href="https://github.com/uburuntu/meridian/stargazers"><img src="https://img.shields.io/github/stars/uburuntu/meridian" alt="GitHub stars"></a>
 </p>
 
-<p align="center">Deploy a censorship-resistant proxy server in one command.<br>Invisible to DPI, active probing, and TLS fingerprinting.</p>
+<p align="center">Deploy it right. Share it easily.<br>One command sets up an undetectable proxy — firewall, TLS, routing, all hardened by default.</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/uburuntu/meridian/main/website/public/img/deploy-terminal.svg" width="720" alt="Meridian deploy terminal output">
@@ -19,13 +19,17 @@
 
 ## What is this
 
-Meridian deploys a private, undetectable VPN server in minutes. Share secure internet access with family and friends — they scan a QR code and connect. When your IP gets blocked, spin up a new server and be back online in minutes. No technical knowledge required on the client side.
+Most proxy setups leak — an open port here, a TLS mismatch there, a fingerprint that gives the server away. Meridian locks every layer down automatically: firewall, certificates, SNI routing, fingerprinting. You deploy in one command. Your people connect via QR code. That's it.
+
+When your IP gets blocked, redeploy and be back in minutes.
 
 Whether you're the "tech friend" setting up VPN for people you care about, a power user managing multiple servers, or an NGO providing access in a censored region — Meridian handles the complexity so you can focus on staying connected.
 
 See [SECURITY.md](SECURITY.md) for the threat model and what Meridian protects against (and what it doesn't).
 
 ## Why Meridian?
+
+Meridian ships the strongest available protocol — today that's VLESS+Reality — and configures it so your server is indistinguishable from any other website. Nothing left open, nothing to give it away.
 
 | | Meridian | Raw 3x-ui | Marzban | Hiddify Manager |
 |---|---|---|---|---|
@@ -70,6 +74,27 @@ meridian client remove alice         # revoke access
 ```
 
 Each client gets a connection page hosted on the server with QR codes, one-tap deep links, and [live usage stats](https://getmeridian.org/demo). Share the URL directly — no file transfer needed.
+
+## How deployment works
+
+The typical workflow: run Meridian on **your machine** and it connects to the VPS via SSH. You can also run it directly on the VPS (`deploy local`).
+
+```
+Your machine                       VPS
+┌────────────────┐    SSH    ┌────────────────┐
+│  meridian CLI  │ ────────→ │  proxy server  │
+│  ~/.meridian/  │           │                │
+└────────────────┘           └────────────────┘
+```
+
+After `meridian deploy 1.2.3.4`, credentials are cached at `~/.meridian/` on your machine. Later commands (`client add`, `client list`, `test`) automatically use them — no need to re-specify the server.
+
+Managing multiple servers? Use names:
+
+```bash
+meridian deploy 1.2.3.4 --server-name finland
+meridian client add alice --server finland
+```
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/uburuntu/meridian/main/website/public/img/connection-page.png" width="360" alt="Connection page with QR codes">

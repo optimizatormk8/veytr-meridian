@@ -5,6 +5,8 @@ order: 3
 section: guides
 ---
 
+This guide covers every deployment option. If you're deploying for the first time, start with [Getting Started](/docs/en/getting-started/) — it walks through the basics in five minutes.
+
 ## Basic deployment
 
 ```
@@ -32,6 +34,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--user USER` | root | SSH user (non-root gets sudo automatically) |
 | `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall (skip with `--no-harden` if other services run on the server) |
 | `--server NAME` | | Target a specific named server (for re-deploys) |
+| `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
 
 ## Branding
