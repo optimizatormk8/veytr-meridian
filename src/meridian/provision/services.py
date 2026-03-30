@@ -139,18 +139,33 @@ def _render_connection_page_block(info_page_path: str, decoy: str = "") -> str:
         # Decoy: serve a stock nginx 403 page. The Server header is set
         # explicitly in the handle block; connection pages strip it via
         # header -Server inside handle_path to avoid leaking Caddy identity.
+        #
+        # To match real nginx behavior:
+        # - Content-Type must be text/html (Caddy respond defaults to text/plain)
+        # - No X-Frame-Options, X-Content-Type-Options, Referrer-Policy
+        #   (stock nginx 403 has none — their presence fingerprints a reverse proxy)
+        # - CONNECT method must return nginx Server header (Caddy handles it
+        #   before our default handler, leaking "Server: Caddy")
         default_handler = textwrap.dedent("""\
+
+            # Intercept CONNECT before Caddy's built-in handler leaks "Server: Caddy"
+            @connect method CONNECT
+            handle @connect {
+                header Server "nginx"
+                respond 405
+            }
 
             # Decoy: serve a stock nginx 403 page to probers.
             # Looks like a default nginx installation — common and boring.
             handle {
-                header Server "nginx/1.24.0"
+                header Server "nginx"
+                header Content-Type "text/html"
                 respond <<NGINX
             <html>
             <head><title>403 Forbidden</title></head>
             <body>
             <center><h1>403 Forbidden</h1></center>
-            <hr><center>nginx/1.24.0</center>
+            <hr><center>nginx</center>
             </body>
             </html>
             NGINX 403
@@ -158,6 +173,17 @@ def _render_connection_page_block(info_page_path: str, decoy: str = "") -> str:
         # Strip Caddy's Server header only for connection pages
         server_header_line = ""
         connection_page_server_header = "\n            header -Server"
+        # In decoy mode, security headers go INSIDE connection page handler only.
+        # Stock nginx 403 has none of these — site-level would fingerprint us.
+        security_headers = ""
+        connection_page_security_headers = "\n".join(
+            [
+                "",
+                '            header X-Content-Type-Options "nosniff"',
+                '            header X-Frame-Options "DENY"',
+                '            header Referrer-Policy "no-referrer"',
+            ]
+        )
     else:
         # Default: abort connections to unknown paths (anti-probing)
         default_handler = textwrap.dedent("""\
@@ -171,6 +197,13 @@ def _render_connection_page_block(info_page_path: str, decoy: str = "") -> str:
         # Strip Server header site-wide
         server_header_line = "\n        header -Server"
         connection_page_server_header = ""
+        # No decoy persona — security headers are fine at site level
+        security_headers = textwrap.dedent("""\
+        header X-Content-Type-Options "nosniff"
+        header X-Frame-Options "DENY"
+        header Referrer-Policy "no-referrer"
+""")
+        connection_page_security_headers = ""
 
     return textwrap.dedent(f"""\
 
@@ -206,13 +239,11 @@ def _render_connection_page_block(info_page_path: str, decoy: str = "") -> str:
             header @nocache Cache-Control "no-store"
 
             header Content-Security-Policy "default-src 'self'; img-src 'self' data:; connect-src 'self'"
+{connection_page_security_headers}
         }}
 {default_handler}
 {server_header_line}
-        header X-Content-Type-Options "nosniff"
-        header X-Frame-Options "DENY"
-        header Referrer-Policy "no-referrer"
-
+        {security_headers}
         log {{
             output file /var/log/caddy/access.log {{
                 roll_size 10mb
@@ -260,6 +291,8 @@ def _render_caddy_config(
 
     connection_block = _render_connection_page_block(info_page_path, decoy=decoy)
 
+    redirect_server_header = '    header Server "nginx"\n' if decoy == "403" else ""
+
     return (
         textwrap.dedent(f"""\
         # Meridian Proxy Configuration
@@ -291,7 +324,7 @@ def _render_caddy_config(
         }}
 
         http://{domain} {{
-            redir https://{domain}{{uri}} permanent
+        {redirect_server_header}    redir https://{domain}{{uri}} permanent
         }}
     """)
     )
@@ -333,6 +366,8 @@ def _render_caddy_ip_config(
 
     connection_block = _render_connection_page_block(info_page_path, decoy=decoy)
 
+    redirect_server_header = '    header Server "nginx"\n' if decoy == "403" else ""
+
     return (
         textwrap.dedent(f"""\
         # Meridian Proxy Configuration (IP Certificate Mode)
@@ -360,7 +395,7 @@ def _render_caddy_ip_config(
         }}
 
         http://{server_ip} {{
-            redir https://{server_ip}{{uri}} permanent
+        {redirect_server_header}    redir https://{server_ip}{{uri}} permanent
         }}
     """)
     )
@@ -792,26 +827,25 @@ class InstallCaddy:
                 detail=f"Failed to write Caddy config: {result.stderr.strip()}",
             )
 
-        # -- Ensure main Caddyfile imports conf.d --
-        import_line = "import /etc/caddy/conf.d/*.caddy"
-        q_import = shlex.quote(import_line)
-        conn.run(
-            f"grep -qxF {q_import} /etc/caddy/Caddyfile 2>/dev/null || echo {q_import} >> /etc/caddy/Caddyfile",
-            timeout=10,
-        )
-
-        # -- IP mode: add default_sni to main Caddyfile --
-        # TLS clients don't send SNI for IP addresses (RFC 6066), so Caddy
-        # needs default_sni to match incoming connections to the IP site block.
+        # -- Write main Caddyfile with global options + import --
+        # Build global options block from flags:
+        #   - default_sni for IP mode (RFC 6066: TLS clients omit SNI for IP addresses)
+        #   - protocols h1 h2 for decoy mode (disables HTTP/3, removes alt-svc header;
+        #     nginx doesn't advertise H3, so it blows the decoy cover)
+        global_opts = []
         if self.ip_mode:
-            q_sni = shlex.quote(server_ip)
-            # Write global options block with default_sni at top of Caddyfile
-            # (idempotent: check for existing default_sni first)
-            conn.run(
-                f"grep -q 'default_sni' /etc/caddy/Caddyfile 2>/dev/null || "
-                f"sed -i '1i\\{{\\n\\tdefault_sni {q_sni}\\n}}' /etc/caddy/Caddyfile",
-                timeout=10,
-            )
+            global_opts.append(f"\tdefault_sni {shlex.quote(server_ip)}")
+        if decoy:
+            global_opts.append("\tservers {\n\t\tprotocols h1 h2\n\t}")
+
+        import_line = "import /etc/caddy/conf.d/*.caddy"
+        if global_opts:
+            caddyfile_content = "{{\n{opts}\n}}\n\n{imp}\n".format(opts="\n".join(global_opts), imp=import_line)
+        else:
+            caddyfile_content = f"{import_line}\n"
+
+        q_caddyfile = shlex.quote(caddyfile_content)
+        conn.run(f"printf '%s' {q_caddyfile} > /etc/caddy/Caddyfile", timeout=10)
 
         # -- Ensure Caddy restarts on failure --
         conn.run(

@@ -485,7 +485,7 @@ class TestCaddyDecoy:
             decoy="403",
         )
         assert "403 Forbidden" in cfg
-        assert "nginx/1.24.0" in cfg
+        assert "nginx" in cfg
         assert "abort" not in cfg
 
     def test_domain_config_403_has_nginx_page(self):
@@ -501,7 +501,7 @@ class TestCaddyDecoy:
             decoy="403",
         )
         assert "403 Forbidden" in cfg
-        assert "nginx/1.24.0" in cfg
+        assert "nginx" in cfg
         assert "abort" not in cfg
 
     def test_403_sets_server_header_in_decoy_block(self):
@@ -514,7 +514,7 @@ class TestCaddyDecoy:
             info_page_path="connect",
             decoy="403",
         )
-        assert 'header Server "nginx/1.24.0"' in cfg
+        assert 'header Server "nginx"' in cfg
 
     def test_403_strips_server_in_connection_pages(self):
         """decoy=403 strips Server header inside connection page handle_path."""
@@ -530,6 +530,100 @@ class TestCaddyDecoy:
         handle_path_start = cfg.index("handle_path /connect/*")
         handle_path_block = cfg[handle_path_start : cfg.index("}", handle_path_start + 100) + 50]
         assert "header -Server" in handle_path_block
+
+    def test_403_sets_content_type_text_html(self):
+        """decoy=403 sets Content-Type to text/html (real nginx behavior, not Caddy's text/plain default)."""
+        cfg = _render_caddy_ip_config(
+            server_ip="198.51.100.1",
+            caddy_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        assert 'header Content-Type "text/html"' in cfg
+
+    def test_403_handles_connect_method(self):
+        """decoy=403 intercepts CONNECT method to prevent Caddy identity leak."""
+        cfg = _render_caddy_ip_config(
+            server_ip="198.51.100.1",
+            caddy_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        assert "@connect method CONNECT" in cfg
+        assert "handle @connect" in cfg
+
+    def test_403_no_security_headers_at_site_level(self):
+        """decoy=403 keeps security headers inside connection page handler only.
+
+        Stock nginx 403 has no X-Frame-Options or similar headers.
+        Their presence at site level fingerprints a reverse proxy.
+        """
+        cfg = _render_caddy_ip_config(
+            server_ip="198.51.100.1",
+            caddy_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        # Security headers should be inside handle_path block
+        handle_path_start = cfg.index("handle_path /connect/*")
+        # Find the decoy handler that follows
+        decoy_start = cfg.index("# Intercept CONNECT", handle_path_start)
+        inside_block = cfg[handle_path_start:decoy_start]
+        assert "X-Frame-Options" in inside_block
+
+        # Should NOT appear in the decoy handler section
+        decoy_section = cfg[decoy_start:]
+        assert "X-Frame-Options" not in decoy_section
+
+    def test_default_has_security_headers_at_site_level(self):
+        """Default mode (no decoy) keeps security headers at site level."""
+        cfg = _render_caddy_ip_config(
+            server_ip="198.51.100.1",
+            caddy_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "X-Frame-Options" in cfg
+        assert "X-Content-Type-Options" in cfg
+        assert "Referrer-Policy" in cfg
+
+    def test_403_redirect_has_nginx_server_header(self):
+        """decoy=403 HTTP redirect includes nginx Server header."""
+        cfg = _render_caddy_ip_config(
+            server_ip="198.51.100.1",
+            caddy_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        # Find the HTTP redirect block
+        redirect_start = cfg.index("http://198.51.100.1")
+        redirect_block = cfg[redirect_start:]
+        assert "nginx" in redirect_block
+
+    def test_domain_403_redirect_has_nginx_server_header(self):
+        """decoy=403 domain mode HTTP redirect includes nginx Server header."""
+        cfg = _render_caddy_config(
+            domain="example.com",
+            caddy_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        redirect_start = cfg.index("http://example.com")
+        redirect_block = cfg[redirect_start:]
+        assert "nginx" in redirect_block
 
 
 # ---------------------------------------------------------------------------

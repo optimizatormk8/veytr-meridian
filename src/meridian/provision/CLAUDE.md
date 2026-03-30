@@ -22,3 +22,5 @@
 - **JSON string quirk** — 3x-ui API requires `settings`/`streamSettings` as JSON *strings*, not objects. Tests verify this explicitly.
 - **HAProxy SNI catch-all** — unrecognized SNIs drop silently. Intentional anti-fingerprinting, surprising when debugging.
 - **Realm hash verification** — SHA256 mismatch = hard failure. This is supply chain defense, not a bug.
+- **CONNECT method leaks Caddy identity** — Go's HTTP/2 layer handles CONNECT before Caddy's handler chain. The `@connect method CONNECT` matcher never fires. Low practical severity (only sophisticated probers try CONNECT on random servers), but unfixable without Caddy upstream changes.
+- **nmap service fingerprinting** — nmap identifies Caddy via response timing/behavior patterns regardless of Server header. The `Server: nginx` header helps against simple header checks but not deep fingerprinting.
