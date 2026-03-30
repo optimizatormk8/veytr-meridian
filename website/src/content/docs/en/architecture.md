@@ -9,8 +9,7 @@ section: reference
 
 - **VLESS+Reality** (Xray-core) — proxy protocol that impersonates a legitimate TLS website. Censors probing the server see a real certificate (e.g., from microsoft.com). Only clients with the correct private key can connect.
 - **3x-ui** — web panel for managing Xray, deployed as a Docker container. Meridian controls it entirely via REST API.
-- **HAProxy** — TCP-level SNI router on port 443. Routes traffic by SNI hostname without terminating TLS.
-- **Caddy** — reverse proxy with automatic TLS. In standalone mode, requests a Let's Encrypt IP certificate via ACME `shortlived` profile (6-day validity). Serves connection pages, reverse-proxies the panel, and proxies XHTTP/WSS traffic to Xray.
+- **nginx** — single-process web server handling both SNI routing and TLS. The stream module listens on port 443 and routes traffic by SNI hostname without terminating TLS. The http module on port 8443 terminates TLS, serves connection pages, reverse-proxies the panel, and proxies XHTTP/WSS traffic to Xray. Certificates are managed by acme.sh (Let's Encrypt IP certificate via ACME `shortlived` profile in standalone mode, domain certificate in domain mode).
 - **Docker** — runs 3x-ui (which contains Xray). All proxy traffic flows through the container.
 - **Pure-Python provisioner** — `src/meridian/provision/` executes deployment steps via SSH. Each step gets `(conn, ctx)` and returns a `StepResult`.
 - **uTLS** — impersonates Chrome's TLS Client Hello fingerprint, making connections indistinguishable from real browser traffic.
@@ -21,34 +20,34 @@ section: reference
 
 ```mermaid
 flowchart TD
-    Internet((Internet)) -->|Port 443| HAProxy[HAProxy<br>SNI Router]
-    HAProxy -->|"SNI = reality_sni"| Xray["Xray Reality<br>:10443"]
-    HAProxy -->|"SNI = server IP"| Caddy["Caddy TLS<br>:8443"]
-    Caddy -->|/info-path| Page[Connection Page]
-    Caddy -->|/panel-path| Panel[3x-ui Panel]
-    Caddy -->|/xhttp-path| XrayXHTTP["Xray XHTTP<br>localhost"]
-    Internet -->|Port 80| CaddyACME["Caddy<br>ACME challenges"]
+    Internet((Internet)) -->|Port 443| Nginx[nginx stream<br>SNI Router]
+    Nginx -->|"SNI = reality_sni"| Xray["Xray Reality<br>:10443"]
+    Nginx -->|"SNI = server IP"| NginxHTTP["nginx http<br>:8443"]
+    NginxHTTP -->|/info-path| Page[Connection Page]
+    NginxHTTP -->|/panel-path| Panel[3x-ui Panel]
+    NginxHTTP -->|/xhttp-path| XrayXHTTP["Xray XHTTP<br>localhost"]
+    Internet -->|Port 80| NginxACME["nginx<br>ACME challenges"]
 ```
 
-HAProxy does **not** terminate TLS. It reads the SNI hostname from the TLS Client Hello and forwards the raw TCP stream to the appropriate backend.
+nginx stream **does not** terminate TLS. It reads the SNI hostname from the TLS Client Hello and forwards the raw TCP stream to the appropriate backend.
 
-Caddy requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported.
+acme.sh requests a Let's Encrypt IP certificate via the ACME `shortlived` profile (6-day validity, auto-renewed). Falls back to self-signed if IP cert issuance is not supported.
 
-XHTTP runs on a localhost-only port and is reverse-proxied by Caddy — no extra external port exposed.
+XHTTP runs on a localhost-only port and is reverse-proxied by nginx — no extra external port exposed.
 
 ### Domain mode
 
 ```mermaid
 flowchart TD
-    Internet((Internet)) -->|Port 443| HAProxy[HAProxy<br>SNI Router]
-    HAProxy -->|"SNI = reality_sni"| Xray["Xray Reality<br>:10443"]
-    HAProxy -->|"SNI = domain"| Caddy["Caddy TLS<br>:8443"]
-    Caddy -->|/info-path| Page[Connection Page]
-    Caddy -->|/panel-path| Panel[3x-ui Panel]
-    Caddy -->|/xhttp-path| XrayXHTTP["Xray XHTTP<br>localhost"]
-    Caddy -->|/ws-path| XrayWSS["Xray WSS<br>localhost"]
-    Internet -->|Port 80| CaddyACME["Caddy<br>ACME challenges"]
-    Internet -.->|"CDN (Cloudflare)"| Caddy
+    Internet((Internet)) -->|Port 443| Nginx[nginx stream<br>SNI Router]
+    Nginx -->|"SNI = reality_sni"| Xray["Xray Reality<br>:10443"]
+    Nginx -->|"SNI = domain"| NginxHTTP["nginx http<br>:8443"]
+    NginxHTTP -->|/info-path| Page[Connection Page]
+    NginxHTTP -->|/panel-path| Panel[3x-ui Panel]
+    NginxHTTP -->|/xhttp-path| XrayXHTTP["Xray XHTTP<br>localhost"]
+    NginxHTTP -->|/ws-path| XrayWSS["Xray WSS<br>localhost"]
+    Internet -->|Port 80| NginxACME["nginx<br>ACME challenges"]
+    Internet -.->|"CDN (Cloudflare)"| NginxHTTP
 ```
 
 Domain mode adds VLESS+WSS as a CDN fallback path. Traffic flows through Cloudflare's CDN via WebSocket, making the connection work even if the server's IP is blocked.
@@ -88,12 +87,13 @@ Meridian manages 3x-ui entirely via its REST API:
 - `POST /panel/setting/update` — configure panel settings
 - `POST /panel/setting/updateUser` — change panel credentials
 
-## Caddy configuration pattern
+## nginx configuration pattern
 
-Meridian writes to `/etc/caddy/conf.d/meridian.caddy` (never the main Caddyfile). The main Caddyfile gets a single line added: `import /etc/caddy/conf.d/*.caddy`. This allows Meridian to coexist with user's own Caddy configuration.
+Meridian writes to `/etc/nginx/conf.d/meridian-stream.conf` and `/etc/nginx/conf.d/meridian-http.conf` (never the main nginx.conf). This allows Meridian to coexist with user's own nginx configuration.
 
-Caddy handles:
-- Auto-TLS certificate (domain cert or Let's Encrypt IP cert via ACME `shortlived` profile)
+nginx handles:
+- SNI routing on port 443 (stream module, no TLS termination)
+- TLS termination on port 8443 (http module, certificates managed by acme.sh)
 - Reverse proxy for the 3x-ui panel (at a random web base path)
 - Connection info page serving (hosted pages with shareable URLs)
 - Reverse proxy for XHTTP traffic to Xray (path-based routing, all modes when XHTTP enabled)
@@ -103,15 +103,15 @@ Caddy handles:
 
 | Port | Service | Mode |
 |------|---------|------|
-| 443 | HAProxy (SNI router) | All |
-| 80 | Caddy (ACME challenges) | All |
+| 443 | nginx stream (SNI router) | All |
+| 80 | nginx (ACME challenges) | All |
 | 10443 | Xray Reality (internal) | All |
-| 8443 | Caddy TLS (internal) | All |
+| 8443 | nginx http (internal) | All |
 | localhost | Xray XHTTP | When XHTTP enabled |
 | localhost | Xray WSS | Domain mode |
 | 2053 | 3x-ui panel (internal) | All |
 
-XHTTP and WSS ports are localhost-only — Caddy reverse-proxies to them on port 443.
+XHTTP and WSS ports are localhost-only — nginx reverse-proxies to them on port 443.
 
 ## Provisioning pipeline
 
@@ -133,9 +133,8 @@ Steps execute sequentially via `build_setup_steps()`. Each step gets `(conn, ctx
 | 12 | CreateXHTTPInbound | `xray.py` | VLESS+XHTTP |
 | 13 | CreateWSSInbound | `xray.py` | VLESS+WSS (domain) |
 | 14 | VerifyXray | `xray.py` | Health check |
-| 15 | InstallHAProxy | `services.py` | SNI routing |
-| 16 | InstallCaddy | `services.py` | TLS + reverse proxy |
-| 17 | DeployConnectionPage | `services.py` | QR codes + page |
+| 15 | InstallNginx | `services.py` | SNI routing + TLS + reverse proxy |
+| 16 | DeployConnectionPage | `services.py` | QR codes + page |
 
 ## Credential lifecycle
 
@@ -151,8 +150,9 @@ Steps execute sequentially via `build_setup_steps()`. Each step gets `(conn, ctx
 
 ### On the server
 - `/etc/meridian/proxy.yml` — credentials and client list
-- `/etc/caddy/conf.d/meridian.caddy` — Caddy config
-- `/etc/haproxy/haproxy.cfg` — HAProxy config
+- `/etc/nginx/conf.d/meridian-stream.conf` — nginx stream config (SNI routing)
+- `/etc/nginx/conf.d/meridian-http.conf` — nginx http config (TLS, reverse proxy)
+- `/etc/ssl/meridian/` — TLS certificates (managed by acme.sh)
 - Docker container `3x-ui` — Xray + panel
 
 ### On the local machine

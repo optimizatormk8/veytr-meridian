@@ -81,7 +81,7 @@ def upload_client_files(
     """
     q_uuid = shlex.quote(reality_uuid)
     result = conn.run(
-        f"mkdir -p /var/www/private/{q_uuid} && chown caddy:caddy /var/www/private/{q_uuid}",
+        f"mkdir -p /var/www/private/{q_uuid} && chown www-data:www-data /var/www/private/{q_uuid}",
         timeout=10,
     )
     if result.returncode != 0:
@@ -92,7 +92,7 @@ def upload_client_files(
         q_name = shlex.quote(filename)
         result = conn.run(
             f"printf '%s' {q_b64} | base64 -d > /var/www/private/{q_uuid}/{q_name} && "
-            f"chown caddy:caddy /var/www/private/{q_uuid}/{q_name}",
+            f"chown www-data:www-data /var/www/private/{q_uuid}/{q_name}",
             timeout=15,
         )
         if result.returncode != 0:
@@ -125,7 +125,7 @@ def upload_pwa_assets(conn: ServerConnection) -> bool:
     """
     assets = load_pwa_static_assets()
 
-    result = conn.run("mkdir -p /var/www/private/pwa && chown caddy:caddy /var/www/private/pwa", timeout=10)
+    result = conn.run("mkdir -p /var/www/private/pwa && chown www-data:www-data /var/www/private/pwa", timeout=10)
     if result.returncode != 0:
         return False
 
@@ -136,7 +136,7 @@ def upload_pwa_assets(conn: ServerConnection) -> bool:
         q_name = shlex.quote(filename)
         result = conn.run(
             f"printf '%s' {q_b64} | base64 -d > /var/www/private/pwa/{q_name} && "
-            f"chown caddy:caddy /var/www/private/pwa/{q_name}",
+            f"chown www-data:www-data /var/www/private/pwa/{q_name}",
             timeout=15,
         )
         if result.returncode != 0:

@@ -82,7 +82,7 @@ class TestBuildProtocolURLs:
         assert "type=xhttp" in xhttp
         assert "path=%2Fmyxhttp" in xhttp
         assert "#alice-XHTTP" in xhttp
-        # XHTTP now uses TLS (via Caddy), not Reality
+        # XHTTP now uses TLS (via nginx), not Reality
         assert "security=tls" in xhttp
         # XHTTP must NOT have flow (empty)
         assert "flow=" not in xhttp

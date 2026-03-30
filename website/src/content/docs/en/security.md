@@ -18,11 +18,11 @@ We aim to respond within 48 hours and will credit reporters in the fix.
 ## Security design
 
 - **Credentials**: stored with `0600` permissions, secrets never passed through shell commands without `shlex.quote()`, redacted from `meridian doctor` output
-- **Panel access**: reverse-proxied by Caddy at a secret HTTPS path in all modes — no SSH tunnel required
+- **Panel access**: reverse-proxied by nginx at a secret HTTPS path in all modes — no SSH tunnel required
 - **SSH**: password authentication disabled by default
 - **Firewall**: UFW configured with deny-all-incoming, only ports 22, 80, and 443 opened
 - **Docker**: 3x-ui image pinned to a tested version
-- **TLS**: Caddy handles certificates automatically via Let's Encrypt
+- **TLS**: acme.sh handles certificates via Let's Encrypt, served by nginx
 
 ## Scope
 
@@ -30,5 +30,4 @@ Meridian configures proxy servers — it does **not** implement cryptographic pr
 
 - [Xray-core](https://github.com/XTLS/Xray-core) — VLESS+Reality protocol
 - [3x-ui](https://github.com/MHSanaei/3x-ui) — management panel
-- [Caddy](https://github.com/caddyserver/caddy) — TLS termination
-- [HAProxy](https://www.haproxy.org/) — SNI routing
+- [nginx](https://nginx.org/) — SNI routing and TLS termination

@@ -9,8 +9,8 @@ section: guides
 
 Режим домена расширяет автономную установку тремя компонентами:
 
-1. **HAProxy SNI маршрутизация** — маршрутизирует трафик домена к Caddy вместе с трафиком Reality к Xray
-2. **Caddy TLS** — автоматические сертификаты Let's Encrypt для вашего домена
+1. **nginx stream SNI маршрутизация** — маршрутизирует трафик домена к nginx http вместе с трафиком Reality к Xray
+2. **nginx TLS** — сертификаты управляются acme.sh (Let's Encrypt) для вашего домена
 3. **VLESS+WSS входящая точка** — резерв CDN через Cloudflare
 
 WSS соединение маршрутизируется через CDN Cloudflare, что позволяет ему работать даже если IP-адрес сервера заблокирован — диапазоны IP Cloudflare слишком широко используются чтобы их блокировать.
@@ -27,11 +27,11 @@ meridian deploy 1.2.3.4 --domain proxy.example.com
 
 1. Добавьте ваш домен в Cloudflare, создайте **A запись** указывающую на IP сервера
 2. Держите облачный значок **серым** ("DNS only") — не включайте проксирование пока
-3. Запустите `meridian deploy` — Caddy получит TLS сертификат автоматически
+3. Запустите `meridian deploy` — acme.sh получит TLS сертификат автоматически
 4. Переключитесь на **оранжевое облако** (Proxied)
 5. Настройте SSL/TLS → **Full (Strict)** и Network → **Enable WebSockets**
 
-> **Важно:** Caddy получает сертификаты через HTTP-01 challenge на порту 80. Если "Always Use HTTPS" Cloudflare активна, это нарушит challenge. Отключите его или добавьте page rule для `/.well-known/acme-challenge/*`.
+> **Важно:** acme.sh получает сертификаты через HTTP-01 challenge на порту 80. Если "Always Use HTTPS" Cloudflare активна, это нарушит challenge. Отключите его или добавьте page rule для `/.well-known/acme-challenge/*`.
 
 ## Ссылки подключения
 
@@ -40,7 +40,7 @@ meridian deploy 1.2.3.4 --domain proxy.example.com
 | Протокол | Приоритет | Маршрут |
 |----------|-----------|--------|
 | Reality | Первичный | Прямое подключение к IP сервера |
-| XHTTP | Альтернативный | Через Caddy на порту 443 |
+| XHTTP | Альтернативный | Через nginx на порту 443 |
 | WSS | Резервный | Через CDN Cloudflare |
 
 Пользователи должны сначала попробовать Reality (самый быстрый), затем XHTTP, и WSS только если оба не работают (IP заблокирован).

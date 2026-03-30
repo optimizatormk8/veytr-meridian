@@ -22,7 +22,6 @@
 
 - **3x-ui API**: login is form-urlencoded (not JSON). `settings`/`streamSettings` must be JSON **strings** (Go quirk). Remove clients by UUID, not email.
 - **Shell injection**: ALL `conn.run()` interpolated values MUST use `shlex.quote()`.
-- **XHTTP**: no `xtls-rprx-vision` flow (must be empty string). Requires Caddy TLS reverse proxy.
-- **HAProxy**: never use `check` on TLS backends (breaks Reality handshake).
+- **XHTTP**: no `xtls-rprx-vision` flow (must be empty string). Requires nginx TLS reverse proxy.
 - **Local mode**: IP detection via `curl ifconfig.me` fails in air-gapped networks. File check on `/etc/meridian/proxy.yml` is the fallback.
 - **Camouflage target**: never recommend apple.com (ASN mismatch with VPS providers).

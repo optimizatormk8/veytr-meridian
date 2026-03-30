@@ -519,7 +519,7 @@ def _run_provisioner(
             # Use saved panel port (not computed) for re-runs
             if creds.panel.port:
                 ctx.panel_port = creds.panel.port
-            # Load protocol paths so downstream steps (InstallCaddy) have them
+            # Load protocol paths so downstream steps (InstallNginx) have them
             # even when ConfigurePanel is skipped on re-deploy
             if creds.wss.ws_path:
                 ctx["ws_path"] = creds.wss.ws_path
@@ -619,7 +619,7 @@ def _check_ports(conn: ServerConnection, ip: str, yes: bool) -> None:
     Allows re-deploy over existing Meridian processes.
     Loops with retry prompt if a non-Meridian process holds a port.
     """
-    allowed = {"haproxy", "3x-ui", "xray", "caddy"}
+    allowed = {"nginx", "3x-ui", "xray", "haproxy", "caddy"}
 
     for port in (443, 80):
         while True:

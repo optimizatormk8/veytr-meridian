@@ -18,11 +18,11 @@ section: reference
 ## Дизайн безопасности
 
 - **Учётные данные**: хранятся с правами `0600`, секреты никогда не передаются через shell команды без `shlex.quote()`, удаляются из вывода `meridian doctor`
-- **Доступ к панели**: обратно проксируется Caddy на секретный HTTPS путь во всех режимах — SSH туннель не требуется
+- **Доступ к панели**: обратно проксируется nginx на секретный HTTPS путь во всех режимах — SSH туннель не требуется
 - **SSH**: пароль аутентификация отключена по умолчанию
 - **Firewall**: UFW настроен с deny-all-incoming, открыты только порты 22, 80 и 443
 - **Docker**: образ 3x-ui закреплён к протестированной версии
-- **TLS**: Caddy обрабатывает сертификаты автоматически через Let's Encrypt
+- **TLS**: acme.sh обрабатывает сертификаты через Let's Encrypt, обслуживаются nginx
 
 ## Область охвата
 
@@ -30,5 +30,4 @@ Meridian настраивает прокси-серверы — он **не** р
 
 - [Xray-core](https://github.com/XTLS/Xray-core) — протокол VLESS+Reality
 - [3x-ui](https://github.com/MHSanaei/3x-ui) — панель управления
-- [Caddy](https://github.com/caddyserver/caddy) — завершение TLS
-- [HAProxy](https://www.haproxy.org/) — SNI маршрутизация
+- [nginx](https://nginx.org/) — SNI маршрутизация и завершение TLS

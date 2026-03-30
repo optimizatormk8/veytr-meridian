@@ -4,7 +4,7 @@
 
 **Steps over monolithic script** — each step is a class with `run(conn, ctx) → StepResult` (ok/changed/skipped/failed). Composable, independently testable. Pipeline stops on first failure.
 
-**Order matters**: packages → Docker → panel config → Xray inbounds → HAProxy → Caddy → connection page. Each step depends on artifacts from earlier steps.
+**Order matters**: packages → Docker → panel config → Xray inbounds → nginx → connection page. Each step depends on artifacts from earlier steps.
 
 **Hybrid context** — `ProvisionContext` has typed fields for configuration (IP, domain, ports) and a dict for inter-step data (panel client, UUIDs). Typed fields are self-documenting; dict keeps steps loosely coupled.
 
@@ -16,11 +16,13 @@
 
 - **Credential lockout prevention** — save locally BEFORE changing remote password. If API fails, user has recovery data.
 - **`deployed_with` updated on re-deploy** — not just fresh deploys. Enables downstream version mismatch warnings.
+- **nginx = genuine identity** — the server IS nginx. No decoy headers, no fingerprinting leaks. `server_tokens off` is all that's needed.
 
 ## Pitfalls
 
 - **JSON string quirk** — 3x-ui API requires `settings`/`streamSettings` as JSON *strings*, not objects. Tests verify this explicitly.
-- **HAProxy SNI catch-all** — unrecognized SNIs drop silently. Intentional anti-fingerprinting, surprising when debugging.
+- **nginx SNI catch-all** — unrecognized SNIs route to blackhole upstream (port 1, nothing listening → RST). Intentional anti-fingerprinting, surprising when debugging.
 - **Realm hash verification** — SHA256 mismatch = hard failure. This is supply chain defense, not a bug.
-- **CONNECT method leaks Caddy identity** — Go's HTTP/2 layer handles CONNECT before Caddy's handler chain. The `@connect method CONNECT` matcher never fires. Low practical severity (only sophisticated probers try CONNECT on random servers), but unfixable without Caddy upstream changes.
-- **nmap service fingerprinting** — nmap identifies Caddy via response timing/behavior patterns regardless of Server header. The `Server: nginx` header helps against simple header checks but not deep fingerprinting.
+- **nginx `add_header` inheritance** — child `location` blocks with `add_header` suppress parent headers entirely. Use `map` directives for variable headers to avoid duplication.
+- **acme.sh bootstrap** — nginx needs a cert to start SSL, but acme.sh needs nginx on port 80. Solution: self-signed bootstrap cert, then issue real cert, then reload.
+- **nginx.conf stream block** — the default nginx.conf only has `http {}`. The stream block for SNI routing must be injected at the top level. Check idempotently before inserting.

@@ -18,7 +18,7 @@ A strong protocol means nothing if the deployment leaks — an open port, a TLS 
 
 ## Architecture
 
-Python CLI (`meridian-vpn` on PyPI). HAProxy (port 443, SNI routing) + Caddy (TLS, web serving, XHTTP reverse proxy) + Xray (VLESS+Reality). Domain mode adds WSS through Cloudflare CDN. Relay nodes are L4 TCP forwarders (Realm) for domestic entry points. Website at `getmeridian.org` built with Astro.
+Python CLI (`meridian-vpn` on PyPI). nginx (port 443 stream SNI routing + TLS termination + web serving + reverse proxy) + acme.sh (certificates) + Xray (VLESS+Reality). Domain mode adds WSS through Cloudflare CDN. Relay nodes are L4 TCP forwarders (Realm) for domestic entry points. Website at `getmeridian.org` built with Astro.
 
 ## Per-folder CLAUDE.md — the knowledge system
 

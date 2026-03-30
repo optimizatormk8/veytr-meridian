@@ -156,7 +156,7 @@ def run(
             ok(f"Domain is responding (HTTP {http_code})")
         elif http_code == "000":
             warn("Domain is not reachable")
-            err_console.print("       Check DNS settings and that Caddy is running on the server.")
+            err_console.print("       Check DNS settings and that nginx is running on the server.")
             issues += 1
         else:
             warn(f"Domain returned HTTP {http_code}")

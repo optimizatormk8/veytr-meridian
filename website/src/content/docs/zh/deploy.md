@@ -24,7 +24,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--sni HOST` | www.microsoft.com | Reality 伪装的站点 |
 | `--domain DOMAIN` | （无） | 启用带有 CDN 回退的域名模式 |
 | `--email EMAIL` | （无） | TLS 证书的电子邮件（可选） |
-| `--xhttp / --no-xhttp` | 启用 | XHTTP 传输（通过 Caddy 的端口 443） |
+| `--xhttp / --no-xhttp` | 启用 | XHTTP 传输（通过 nginx 的端口 443） |
 | `--name NAME` | default | 第一个客户端的名称 |
 | `--server-name NAME` | （无） | 连接页面上的显示名称（如 "Alice 的 VPN"） |
 | `--icon EMOJI_OR_URL` | （无） | 服务器图标 — 表情符号或图片 URL |

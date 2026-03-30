@@ -97,16 +97,10 @@ def _make_pipeline_conn() -> MockConnection:
     # Xray verify
     conn.when("pgrep", stdout="12345\n")
 
-    # HAProxy
-    conn.when("dpkg -l haproxy", stdout="ii  haproxy\n")
-    conn.when("haproxy -c", rc=0)
+    # nginx
+    conn.when("dpkg -l nginx", stdout="ii  nginx\n")
+    conn.when("nginx -t", rc=0)
     conn.when("systemctl", rc=0)
-
-    # Caddy
-    conn.when("dpkg -l caddy", stdout="ii  caddy\n")
-    conn.when("dig +short", stdout="198.51.100.1\n")
-    conn.when("caddy", rc=0)
-    conn.when("grep -q", rc=0)
 
     # DeployConnectionPage: qrencode
     conn.when("qrencode", stdout="iVBORw0KGgo=")
@@ -342,9 +336,9 @@ class TestContextKeyConsistency:
                 f"ConfigurePanel didn't set these required keys: {missing}. Keys set: {set(ctx._state.keys())}"
             )
 
-    def test_caddy_resolves_paths_from_context(self, tmp_path: Path) -> None:
-        """InstallCaddy with empty constructor args resolves from ctx."""
-        from meridian.provision.services import InstallCaddy
+    def test_nginx_resolves_paths_from_context(self, tmp_path: Path) -> None:
+        """InstallNginx with empty constructor args resolves from ctx."""
+        from meridian.provision.services import InstallNginx
 
         ctx = ProvisionContext(
             ip="198.51.100.1",
@@ -361,23 +355,23 @@ class TestContextKeyConsistency:
         ctx["ws_path"] = "wspath"
 
         conn = MockConnection()
-        conn.when("dpkg -l caddy", stdout="ii  caddy\n")
+        conn.when("dpkg -l nginx", stdout="ii  nginx\n")
         conn.when("systemctl", rc=0)
-        conn.when("grep -q", rc=0)
+        conn.when("nginx -t", rc=0)
 
-        # InstallCaddy is created with empty paths — must resolve from ctx
-        step = InstallCaddy(domain="", ip_mode=True, server_ip="198.51.100.1")
+        # InstallNginx is created with empty paths — must resolve from ctx
+        step = InstallNginx(domain="")
 
         try:
             step.run(conn, ctx)
         except KeyError as e:
             raise AssertionError(
-                f"InstallCaddy couldn't resolve '{e}' from context. ConfigurePanel must set this key."
+                f"InstallNginx couldn't resolve '{e}' from context. ConfigurePanel must set this key."
             ) from e
 
-        # Verify the resolved paths were used in the Caddy config
-        caddy_calls = [c for c in conn.calls if "meridian.caddy" in c or "printf" in c]
-        config_text = " ".join(caddy_calls)
+        # Verify the resolved paths were used in the nginx config
+        nginx_calls = [c for c in conn.calls if "nginx" in c or "printf" in c]
+        config_text = " ".join(nginx_calls)
         assert "xhttppath" in config_text or any("xhttppath" in c for c in conn.calls), (
-            "xhttp_path from context wasn't used in Caddy config"
+            "xhttp_path from context wasn't used in nginx config"
         )

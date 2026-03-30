@@ -20,11 +20,11 @@
   <circle cx="400" cy="45" r="36" class="node-circle"/>
   <text x="400" y="50" text-anchor="middle" class="label">Internet</text>
 
-  <!-- HAProxy -->
+  <!-- nginx stream -->
   <rect x="275" y="120" width="250" height="40" class="node node-accent"/>
-  <text x="400" y="145" text-anchor="middle" class="label">HAProxy — SNI Router</text>
+  <text x="400" y="145" text-anchor="middle" class="label">nginx stream — SNI Router</text>
 
-  <!-- Edge: Internet → HAProxy -->
+  <!-- Edge: Internet → nginx -->
   <line x1="400" y1="81" x2="400" y2="120" class="edge"/>
   <text x="440" y="105" class="edge-label">Port 443</text>
 
@@ -32,11 +32,11 @@
   <rect x="80" y="230" width="200" height="40" class="node node-main"/>
   <text x="180" y="255" text-anchor="middle" class="label">Xray Reality :10443</text>
 
-  <!-- Caddy TLS -->
+  <!-- nginx http -->
   <rect x="520" y="230" width="200" height="40" class="node node-accent"/>
-  <text x="620" y="255" text-anchor="middle" class="label">Caddy TLS :8443</text>
+  <text x="620" y="255" text-anchor="middle" class="label">nginx http :8443</text>
 
-  <!-- Edges: HAProxy → Xray, HAProxy → Caddy -->
+  <!-- Edges: nginx stream → Xray, nginx stream → nginx http -->
   <path d="M 330 160 L 180 230" class="edge"/>
   <text x="220" y="192" class="edge-label">SNI = camouflage</text>
 
@@ -59,18 +59,18 @@
   <rect x="610" y="400" width="140" height="36" class="node node-main"/>
   <text x="680" y="423" text-anchor="middle" class="label">Xray WSS</text>
 
-  <!-- Edges: Caddy → children -->
+  <!-- Edges: nginx http → children -->
   <line x1="580" y1="270" x2="505" y2="330" class="edge"/>
   <line x1="660" y1="270" x2="680" y2="330" class="edge"/>
   <line x1="580" y1="270" x2="505" y2="400" class="edge"/>
   <path d="M 660 270 L 680 400" class="edge-dashed"/>
   <text x="720" y="385" class="edge-label" font-style="italic">domain mode</text>
 
-  <!-- Caddy ACME -->
+  <!-- nginx ACME -->
   <rect x="80" y="330" width="200" height="36" class="node node-main"/>
-  <text x="180" y="353" text-anchor="middle" class="label">Caddy ACME</text>
+  <text x="180" y="353" text-anchor="middle" class="label">nginx ACME</text>
 
-  <!-- Edge: Internet → Caddy ACME -->
+  <!-- Edge: Internet → nginx ACME -->
   <path d="M 368 65 Q 60 65 60 340 L 80 348" class="edge"/>
   <text x="42" y="200" class="edge-label" transform="rotate(-90 42 200)">Port 80</text>
 </svg>

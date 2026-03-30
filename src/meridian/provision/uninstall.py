@@ -13,9 +13,11 @@ from meridian.ssh import ServerConnection
 class Uninstall:
     """Remove all Meridian proxy components from the server.
 
-    Removes: 3x-ui container+image, /opt/3x-ui, HAProxy config,
-    Caddy Meridian config, web files, cron jobs, server credentials,
+    Removes: 3x-ui container+image, /opt/3x-ui, nginx Meridian configs,
+    TLS certificates, web files, cron jobs, server credentials,
     CLI symlink, UFW rules.
+
+    Also cleans up legacy HAProxy + Caddy configs from older deployments.
 
     Does NOT remove: Docker engine, system packages, SSH settings.
     """
@@ -27,15 +29,22 @@ class Uninstall:
             # 3x-ui container and data
             "cd /opt/3x-ui && docker compose down --rmi all 2>/dev/null; true",
             "rm -rf /opt/3x-ui",
-            # HAProxy (+ systemd restart override)
+            # nginx (+ systemd restart override)
+            "systemctl stop nginx 2>/dev/null; systemctl disable nginx 2>/dev/null; true",
+            "rm -f /etc/nginx/conf.d/meridian-http.conf /etc/nginx/stream.d/meridian.conf",
+            "rm -rf /etc/systemd/system/nginx.service.d",
+            # TLS certificates
+            "rm -rf /etc/ssl/meridian",
+            # Legacy: HAProxy (from older deployments)
             "systemctl stop haproxy 2>/dev/null; systemctl disable haproxy 2>/dev/null; true",
             "rm -f /etc/haproxy/haproxy.cfg",
             "rm -rf /etc/systemd/system/haproxy.service.d",
-            # Caddy (+ systemd restart override)
+            # Legacy: Caddy (from older deployments)
             "systemctl stop caddy 2>/dev/null; systemctl disable caddy 2>/dev/null; true",
             "rm -f /etc/caddy/conf.d/meridian.caddy",
             "rm -rf /etc/systemd/system/caddy.service.d",
-            "rm -rf /var/www/private",
+            # Web files
+            "rm -rf /var/www/private /var/www/acme",
             # Cron jobs (stats + health watchdog)
             (
                 "crontab -l 2>/dev/null"

@@ -65,8 +65,7 @@ class TestMinimalPipeline:
 
     def test_no_services_without_domain_or_hosted_page(self, base_ctx: ProvisionContext):
         names = step_names(base_ctx)
-        assert "Install HAProxy" not in names
-        assert "Install Caddy" not in names
+        assert "Install nginx" not in names
         assert "Deploy connection page" not in names
 
 
@@ -102,8 +101,7 @@ class TestDomainMode:
         )
         names = step_names(ctx)
         assert "Create WSS inbound" in names
-        assert "Install HAProxy" in names
-        assert "Install Caddy" in names
+        assert "Install nginx" in names
         assert "Deploy PWA assets" in names
         assert "Deploy connection page" in names
 
@@ -112,8 +110,7 @@ class TestHostedPage:
     def test_hosted_page_adds_services(self, base_ctx: ProvisionContext):
         base_ctx.hosted_page = True
         names = step_names(base_ctx)
-        assert "Install HAProxy" in names
-        assert "Install Caddy" in names
+        assert "Install nginx" in names
         assert "Deploy PWA assets" in names
         assert "Deploy connection page" in names
 
@@ -121,10 +118,10 @@ class TestHostedPage:
 class TestFullPipeline:
     def test_full_pipeline_step_count(self, domain_ctx: ProvisionContext):
         """All flags on: disk check + common(3) + harden(2) + BBR + docker(2) + panel(2)
-        + reality + xhttp + wss + verify + haproxy + caddy + pwa assets + connection page = 19."""
+        + reality + xhttp + wss + verify + nginx + pwa assets + connection page = 18."""
         steps = build_setup_steps(domain_ctx)
         names = [s.name for s in steps]
-        assert len(steps) == 19, f"Expected 19 full steps, got {len(steps)}: {names}"
+        assert len(steps) == 18, f"Expected 18 full steps, got {len(steps)}: {names}"
 
 
 class TestStepOrdering:
@@ -146,7 +143,6 @@ class TestStepOrdering:
         # Inbounds before verify
         assert_before("Create Reality inbound", "Verify Xray configuration")
         # Verify before services
-        assert_before("Verify Xray configuration", "Install HAProxy")
-        assert_before("Install HAProxy", "Install Caddy")
-        assert_before("Install Caddy", "Deploy PWA assets")
+        assert_before("Verify Xray configuration", "Install nginx")
+        assert_before("Install nginx", "Deploy PWA assets")
         assert_before("Deploy PWA assets", "Deploy connection page")

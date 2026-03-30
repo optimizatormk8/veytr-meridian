@@ -24,7 +24,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--sni HOST` | www.microsoft.com | Сайт, который Reality выдаёт за себя |
 | `--domain DOMAIN` | (нет) | Включить режим домена с резервным CDN |
 | `--email EMAIL` | (нет) | Email для TLS сертификатов (опционально) |
-| `--xhttp / --no-xhttp` | включено | Транспорт XHTTP (через порт 443 via Caddy) |
+| `--xhttp / --no-xhttp` | включено | Транспорт XHTTP (через порт 443 via nginx) |
 | `--name NAME` | default | Имя для первого клиента |
 | `--server-name NAME` | (нет) | Отображаемое имя на страницах подключения (напр. "VPN Алисы") |
 | `--icon EMOJI_OR_URL` | (нет) | Значок сервера — эмодзи или URL изображения |

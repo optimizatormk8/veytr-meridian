@@ -47,7 +47,7 @@ meridian deploy local
 2. **Generates x25519 keypair** — unique keys for Reality authentication
 3. **Hardens the server** — UFW firewall, SSH key-only auth, BBR congestion control
 4. **Configures VLESS+Reality** on port 443 — impersonates a real TLS server
-5. **Enables XHTTP transport** — additional stealth layer, routed through Caddy
+5. **Enables XHTTP transport** — additional stealth layer, routed through nginx
 6. **Outputs QR codes** and saves an HTML connection page
 
 ## Where things live
@@ -58,7 +58,7 @@ Meridian connects to the VPS via SSH (or runs directly on it with `deploy local`
 |------|-------|
 | Credentials & keys | `~/.meridian/credentials/<IP>/` on your machine |
 | Server registry | `~/.meridian/servers` on your machine |
-| Proxy services | Docker, Xray, HAProxy, Caddy on the VPS |
+| Proxy services | Docker, Xray, nginx on the VPS |
 
 When you run `meridian client add alice`, Meridian looks up the server in your local registry, SSHes in, creates the client, and updates the local cache. With multiple servers, target a specific one with `--server NAME`.
 

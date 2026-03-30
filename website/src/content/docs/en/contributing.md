@@ -57,7 +57,7 @@ Key modules:
 
 - **Shell values use `shlex.quote()`** — never interpolate unsanitized values
 - **Connection-info templates must stay in sync** (CSS/JS/app links)
-- **Caddy config** goes in `/etc/caddy/conf.d/meridian.caddy`, not the main Caddyfile
+- **nginx config** goes in `/etc/nginx/conf.d/meridian-*.conf`, not the main nginx.conf
 - **Provisioner steps** return `StepResult` (ok/changed/skipped/failed)
 
 ## Testing

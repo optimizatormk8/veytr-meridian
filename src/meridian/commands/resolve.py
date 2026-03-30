@@ -262,9 +262,7 @@ def _check_version_mismatch(server_ip: str, proxy_file: Path) -> None:
     )
     err_console.print()
     err_console.print("    To update the server:")
-    err_console.print(
-        f"      [info]meridian deploy {server_ip}[/info]       Re-provisions configs (HAProxy, Caddy, services)"
-    )
+    err_console.print(f"      [info]meridian deploy {server_ip}[/info]       Re-provisions configs (nginx, services)")
     err_console.print(f"      [info]meridian teardown {server_ip}[/info]    Full reset (then re-deploy from scratch)")
     err_console.print()
     err_console.print("    To match the server instead:")

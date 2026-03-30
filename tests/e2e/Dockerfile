@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # ---------------------------------------------------------------------------
 # System packages (includes everything from REQUIRED_PACKAGES in common.py
-# plus haproxy so the provisioner InstallPackages/InstallHAProxy steps skip)
+# plus nginx so the provisioner InstallNginx step skips installation)
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server openssh-client \
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates gnupg sudo iptables ufw jq \
     socat unzip apt-transport-https \
     unattended-upgrades apt-listchanges \
-    haproxy \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
@@ -33,16 +33,9 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
     rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Caddy (add repo + install so InstallCaddy step skips)
+# acme.sh (so InstallNginx step skips installation)
 # ---------------------------------------------------------------------------
-RUN curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
-      -o /etc/apt/keyrings/caddy-stable.asc && \
-    chmod 644 /etc/apt/keyrings/caddy-stable.asc && \
-    echo "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" \
-      > /etc/apt/sources.list.d/caddy-stable.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends caddy && \
-    rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://get.acme.sh | sh -s email=test@example.com
 
 # ---------------------------------------------------------------------------
 # SSH on port 2222: self-connect via key auth (root@127.0.0.1)

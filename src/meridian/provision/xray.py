@@ -169,8 +169,8 @@ def _wss_stream_settings(ws_path: str) -> str:
     )
 
 
-def _xhttp_caddy_stream_settings(xhttp_path: str) -> str:
-    """Build streamSettings for XHTTP behind Caddy (security: none, like WSS)."""
+def _xhttp_reverse_proxy_stream_settings(xhttp_path: str) -> str:
+    """Build streamSettings for XHTTP behind a TLS reverse proxy (security: none, like WSS)."""
     return json.dumps(
         {
             "network": "xhttp",
@@ -283,12 +283,12 @@ class CreateRealityInbound:
 
 
 class CreateXHTTPInbound:
-    """Create the VLESS+XHTTP inbound behind Caddy (TLS terminated by Caddy).
+    """Create the VLESS+XHTTP inbound behind nginx (TLS terminated by nginx).
 
     Replaces: configure_reality_xhttp.yml
 
     Uses the same UUID as Reality (shared identity).
-    XHTTP listens on 127.0.0.1 (traffic arrives via Caddy reverse proxy),
+    XHTTP listens on 127.0.0.1 (traffic arrives via nginx reverse proxy),
     following the same pattern as WSS.
     """
 
@@ -348,7 +348,7 @@ class CreateXHTTPInbound:
                 client_limit_ip=self.client_limit_ip,
                 client_total_gb=self.client_total_gb,
             ),
-            "streamSettings": _xhttp_caddy_stream_settings(
+            "streamSettings": _xhttp_reverse_proxy_stream_settings(
                 xhttp_path=xhttp_path,
             ),
             "sniffing": SNIFFING_JSON,
@@ -384,7 +384,7 @@ class CreateWSSInbound:
     Replaces: configure_wss.yml
 
     Only created when domain mode is enabled. Listens on 127.0.0.1
-    (traffic arrives via Caddy reverse proxy).
+    (traffic arrives via nginx reverse proxy).
     """
 
     name = "Create WSS inbound"

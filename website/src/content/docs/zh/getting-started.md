@@ -39,7 +39,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com
 2. **生成 x25519 密钥对** — Reality 认证的唯一密钥
 3. **加固服务器** — UFW 防火墙、SSH 仅密钥认证、BBR 拥塞控制
 4. **配置 VLESS+Reality** 在端口 443 上 — 伪装为真实的 TLS 服务器
-5. **启用 XHTTP 传输** — 额外的隐身层，通过 Caddy 路由
+5. **启用 XHTTP 传输** — 额外的隐身层，通过 nginx 路由
 6. **输出 QR 码** 并保存 HTML 连接页面
 
 ## 连接

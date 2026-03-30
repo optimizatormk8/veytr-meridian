@@ -12,7 +12,7 @@ from meridian.provision.xray import (
     _client_settings,
     _reality_stream_settings,
     _wss_stream_settings,
-    _xhttp_caddy_stream_settings,
+    _xhttp_reverse_proxy_stream_settings,
     _xhttp_stream_settings,
 )
 
@@ -124,14 +124,14 @@ class TestXHTTPStreamSettings:
 
 
 # ---------------------------------------------------------------------------
-# _xhttp_caddy_stream_settings
+# _xhttp_reverse_proxy_stream_settings
 # ---------------------------------------------------------------------------
 
 
-class TestXHTTPCaddyStreamSettings:
-    def test_xhttp_caddy_stream_settings_security_none(self):
-        """XHTTP behind Caddy uses security: none (Caddy handles TLS)."""
-        raw = _xhttp_caddy_stream_settings(xhttp_path="xhttp123")
+class TestXHTTPReverseProxyStreamSettings:
+    def test_xhttp_reverse_proxy_stream_settings_security_none(self):
+        """XHTTP behind nginx uses security: none (nginx handles TLS)."""
+        raw = _xhttp_reverse_proxy_stream_settings(xhttp_path="xhttp123")
         data = json.loads(raw)
         assert data["security"] == "none"
 

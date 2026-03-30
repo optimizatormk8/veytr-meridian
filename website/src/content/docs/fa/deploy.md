@@ -24,7 +24,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--sni HOST` | www.microsoft.com | سایتی که Reality شخصیت‌سازی می‌کند |
 | `--domain DOMAIN` | (هیچ) | فعال کردن حالت دامنه با fallback CDN |
 | `--email EMAIL` | (هیچ) | ایمیل برای گواهی‌های TLS (اختیاری) |
-| `--xhttp / --no-xhttp` | فعال | XHTTP transport (از طریق پورت 443 via Caddy) |
+| `--xhttp / --no-xhttp` | فعال | XHTTP transport (از طریق پورت 443 via nginx) |
 | `--name NAME` | default | نام برای کلاینت اول |
 | `--server-name NAME` | (هیچ) | نام نمایشی در صفحات اتصال (مثلاً "VPN علی") |
 | `--icon EMOJI_OR_URL` | (هیچ) | آیکون سرور — اموجی یا URL تصویر |

@@ -187,7 +187,7 @@ class RealityProtocol(Protocol):
 
 
 class XHTTPProtocol(Protocol):
-    """VLESS + XHTTP — enhanced stealth transport behind Caddy."""
+    """VLESS + XHTTP — enhanced stealth transport behind nginx."""
 
     @property
     def key(self) -> str:
@@ -219,7 +219,7 @@ class XHTTPProtocol(Protocol):
 
 
 class WSSProtocol(Protocol):
-    """VLESS + WSS — CDN fallback via Caddy/Cloudflare."""
+    """VLESS + WSS — CDN fallback via nginx/Cloudflare."""
 
     @property
     def key(self) -> str:

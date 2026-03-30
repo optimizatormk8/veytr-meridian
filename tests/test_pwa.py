@@ -160,11 +160,11 @@ class TestUploadClientFiles:
         # mkdir call + 4 file uploads = 5 total calls
         assert len(conn.calls) == 5
 
-    def test_chown_caddy_on_files(self, sample_files: dict[str, str]) -> None:
+    def test_chown_www_data_on_files(self, sample_files: dict[str, str]) -> None:
         conn = _MockConnection()
         upload_client_files(conn, "550e8400-e29b-41d4-a716-446655440000", sample_files)
-        # Each printf command includes chown caddy:caddy
-        chown_calls = [c for c in conn.calls if "chown caddy:caddy" in c]
+        # Each printf command includes chown www-data:www-data
+        chown_calls = [c for c in conn.calls if "chown www-data:www-data" in c]
         # mkdir + chown on dir, plus 4 file uploads each with chown
         assert len(chown_calls) >= 5
 
@@ -216,10 +216,10 @@ class TestUploadPWAAssets:
         b64_calls = [c for c in conn.calls if "base64 -d" in c]
         assert len(b64_calls) == 4
 
-    def test_chown_caddy_on_assets(self) -> None:
+    def test_chown_www_data_on_assets(self) -> None:
         conn = _MockConnection()
         upload_pwa_assets(conn)
-        chown_calls = [c for c in conn.calls if "chown caddy:caddy" in c]
+        chown_calls = [c for c in conn.calls if "chown www-data:www-data" in c]
         # mkdir chown + 4 file chowns = 5
         assert len(chown_calls) >= 5
 

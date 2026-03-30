@@ -9,8 +9,8 @@ section: guides
 
 域名模式用三个组件扩展独立设置：
 
-1. **HAProxy SNI 路由**——将域名流量路由到 Caddy，将 Reality 流量路由到 Xray
-2. **Caddy TLS**——为您的域名自动颁发 Let's Encrypt 证书
+1. **nginx stream SNI 路由**——将域名流量路由到 nginx http，将 Reality 流量路由到 Xray
+2. **nginx TLS**——证书由 acme.sh (Let's Encrypt) 管理
 3. **VLESS+WSS 入站**——通过 Cloudflare 的 CDN 回退
 
 WSS 连接通过 Cloudflare 的 CDN 路由，即使您的服务器 IP 被阻断也能工作——Cloudflare 的 IP 范围太广泛无法阻止。
@@ -27,11 +27,11 @@ meridian deploy 1.2.3.4 --domain proxy.example.com
 
 1. 在 Cloudflare 中添加您的域名，创建指向您的服务器 IP 的 **A 记录**
 2. 保持云图标为**灰色**（"仅 DNS"）——暂时不启用代理
-3. 运行 `meridian deploy`——Caddy 自动获取 TLS 证书
+3. 运行 `meridian deploy`——acme.sh 自动获取 TLS 证书
 4. 切换为**橙色云**（已代理）
 5. 配置 SSL/TLS → **完整（严格）**和网络 → **启用 WebSocket**
 
-> **重要：** Caddy 通过端口 80 上的 HTTP-01 挑战获取证书。如果启用了 Cloudflare 的"始终使用 HTTPS"，会破坏挑战。禁用它或为 `/.well-known/acme-challenge/*` 添加页面规则。
+> **重要：** acme.sh 通过端口 80 上的 HTTP-01 挑战获取证书。如果启用了 Cloudflare 的"始终使用 HTTPS"，会破坏挑战。禁用它或为 `/.well-known/acme-challenge/*` 添加页面规则。
 
 ## 连接链接
 
@@ -40,7 +40,7 @@ meridian deploy 1.2.3.4 --domain proxy.example.com
 | 协议 | 优先级 | 路由 |
 |----------|----------|-------|
 | Reality | 主要 | 直接到服务器 IP |
-| XHTTP | 替代 | 通过端口 443 上的 Caddy |
+| XHTTP | 替代 | 通过端口 443 上的 nginx |
 | WSS | 备份 | 通过 Cloudflare CDN |
 
 用户应首先尝试 Reality（最快），其次是 XHTTP，仅当两者都失败时才尝试 WSS（IP 被阻止）。

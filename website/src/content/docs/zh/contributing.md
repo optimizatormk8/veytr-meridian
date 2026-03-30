@@ -57,7 +57,7 @@ CLI 是一个 Python 包（`src/meridian/`），通过 PyPI 分发为 `meridian-
 
 - **Shell 值使用 `shlex.quote()`**——不要插入未清理的值
 - **Connection-info 模板必须保持同步**（CSS/JS/应用链接）
-- **Caddy 配置**放在 `/etc/caddy/conf.d/meridian.caddy`，不是主 Caddyfile
+- **nginx 配置**放在 `/etc/nginx/conf.d/meridian-*.conf`，不是主 nginx.conf
 - **配置程序步骤**返回 `StepResult`（ok/changed/skipped/failed）
 
 ## 测试

@@ -103,7 +103,7 @@ def build_relay_urls(
     parameters pointing to the exit's TLS certificate identity:
 
     - **Reality**: uses its own handshake — works as-is with relay IP.
-    - **XHTTP**: add ``sni=<exit_ip_or_domain>`` so Caddy's cert matches.
+    - **XHTTP**: add ``sni=<exit_ip_or_domain>`` so nginx's cert matches.
     - **WSS**: add ``sni=<domain>`` + ``host=<domain>`` (domain mode only).
 
     Args:
@@ -141,7 +141,7 @@ def build_relay_urls(
     )
     urls.append(ProtocolURL(key="reality", label=f"Primary (via {relay_label})", url=url))
 
-    # XHTTP — TLS goes to exit, explicit sni= makes Caddy cert match
+    # XHTTP — TLS goes to exit, explicit sni= makes nginx cert match
     if xhttp_path:
         xhttp_sni = domain or exit_ip
         xhttp_url = (

@@ -1,4 +1,4 @@
-"""Tests for HAProxy, Caddy, and connection page provisioning steps."""
+"""Tests for nginx and connection page provisioning steps."""
 
 from __future__ import annotations
 
@@ -7,147 +7,460 @@ from pathlib import Path
 from meridian.provision.services import (
     DeployConnectionPage,
     DeployPWAAssets,
-    InstallHAProxy,
-    _render_caddy_config,
-    _render_caddy_ip_config,
-    _render_haproxy_cfg,
+    InstallNginx,
+    _render_nginx_http_config,
+    _render_nginx_ip_config,
+    _render_nginx_stream_config,
     _render_stats_script,
 )
 from meridian.provision.steps import ProvisionContext
 from tests.provision.conftest import MockConnection, make_credentials
 
 # ---------------------------------------------------------------------------
-# Config rendering: HAProxy
+# Config rendering: nginx stream (SNI routing)
 # ---------------------------------------------------------------------------
 
 
-class TestRenderHAProxyCfg:
+class TestRenderNginxStreamConfig:
     def test_contains_sni_routing(self):
-        cfg = _render_haproxy_cfg(
+        cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
         assert "www.microsoft.com" in cfg
-        assert "use_backend xray_reality" in cfg
+        assert "ssl_preread on" in cfg
+        assert "proxy_pass $meridian_backend" in cfg
 
-    def test_no_check_on_backends(self):
-        """HAProxy convention: no 'check' keyword on TLS backend server lines."""
-        cfg = _render_haproxy_cfg(
+    def test_reality_sni_routes_to_xray(self):
+        cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
-        # Extract only the 'server' lines in backend sections
-        for line in cfg.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("server "):
-                assert "check" not in stripped, f"Backend server line must NOT use 'check': {stripped}"
+        assert "www.microsoft.com  xray_reality" in cfg
+        assert "127.0.0.1:10443" in cfg
 
-    def test_no_default_backend(self):
-        """Unknown SNI must NOT be forwarded — no default_backend allowed.
-
-        No-SNI connections use an explicit 'unless' rule, not default_backend.
-        Connections with a wrong/unknown SNI are still dropped.
-        """
-        cfg = _render_haproxy_cfg(
+    def test_server_ip_routes_to_nginx(self):
+        cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
-        assert "default_backend" not in cfg
-        # No-SNI connections (browsers to IP) get routed to Caddy
-        assert "unless { req_ssl_sni -m found }" in cfg
+        assert "198.51.100.1  nginx_https" in cfg
 
-    def test_server_ip_routes_to_caddy(self):
-        """Server IP must be an explicit SNI routing to Caddy."""
-        cfg = _render_haproxy_cfg(
+    def test_domain_routes_to_nginx(self):
+        cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
-            server_ip="198.51.100.1",
-        )
-        assert "use_backend caddy_https if { req_ssl_sni -i 198.51.100.1 }" in cfg
-
-    def test_domain_routes_to_caddy(self):
-        """In domain mode, the domain must also route to Caddy."""
-        cfg = _render_haproxy_cfg(
-            reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
             domain="example.com",
         )
-        assert "use_backend caddy_https if { req_ssl_sni -i example.com }" in cfg
-        assert "use_backend caddy_https if { req_ssl_sni -i 198.51.100.1 }" in cfg
+        assert "example.com  nginx_https" in cfg
+        assert "198.51.100.1  nginx_https" in cfg
 
-    def test_no_domain_no_domain_rule(self):
-        """Without domain, server IP + no-SNI fallback should route to Caddy."""
-        cfg = _render_haproxy_cfg(
+    def test_no_sni_routes_to_nginx(self):
+        """Browsers connecting to bare IP send no SNI (RFC 6066)."""
+        cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
-            haproxy_reality_backend_port=10443,
-            caddy_internal_port=8443,
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
-        # SNI-based rule for server IP + no-SNI fallback = 2 caddy rules
-        caddy_rules = [line for line in cfg.splitlines() if "use_backend caddy_https" in line]
-        assert len(caddy_rules) == 2
-        # No domain rule
-        assert "example.com" not in cfg
+        assert '""  nginx_https' in cfg
 
-
-# ---------------------------------------------------------------------------
-# Config rendering: Caddy IP mode
-# ---------------------------------------------------------------------------
-
-
-class TestRenderCaddyIpConfig:
-    def test_has_acme_shortlived(self):
-        cfg = _render_caddy_ip_config(
+    def test_unknown_sni_drops(self):
+        """Unknown SNI must route to blackhole (connection dropped)."""
+        cfg = _render_nginx_stream_config(
+            reality_sni="www.microsoft.com",
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
             server_ip="198.51.100.1",
-            caddy_internal_port=8443,
+        )
+        assert "default  blackhole" in cfg
+        assert "127.0.0.1:1" in cfg
+
+    def test_no_domain_no_domain_rule(self):
+        """Without domain, only server IP + no-SNI route to nginx."""
+        cfg = _render_nginx_stream_config(
+            reality_sni="www.microsoft.com",
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
+            server_ip="198.51.100.1",
+        )
+        assert "example.com" not in cfg
+        # Count nginx_https entries: server IP + no-SNI = 2
+        nginx_rules = [
+            line
+            for line in cfg.splitlines()
+            if "nginx_https" in line and "upstream" not in line and "server" not in line
+        ]
+        assert len(nginx_rules) == 2
+
+
+# ---------------------------------------------------------------------------
+# Config rendering: nginx http (IP mode)
+# ---------------------------------------------------------------------------
+
+
+class TestRenderNginxIpConfig:
+    def test_has_ssl_certificate(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
             panel_web_base_path="secretpanel",
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "profile shortlived" in cfg
+        assert "ssl_certificate" in cfg
+        assert "/etc/ssl/meridian/fullchain.pem" in cfg
+
+    def test_has_server_tokens_off(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "server_tokens off" in cfg
+
+    def test_has_acme_challenge_location(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "/.well-known/acme-challenge/" in cfg
 
 
 # ---------------------------------------------------------------------------
-# InstallHAProxy step
+# nginx config: PWA headers (cache control maps)
 # ---------------------------------------------------------------------------
 
 
-class TestInstallHAProxy:
-    def test_already_installed_writes_config(self, tmp_path: Path):
+class TestNginxPWAHeaders:
+    def _ip_config(self) -> str:
+        return _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def _domain_config(self) -> str:
+        return _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def test_ip_config_has_cache_map(self):
+        cfg = self._ip_config()
+        assert "$meridian_cache" in cfg
+        assert "max-age=86400" in cfg
+
+    def test_ip_config_has_sw_header_map(self):
+        cfg = self._ip_config()
+        assert "$meridian_sw" in cfg
+        assert "Service-Worker-Allowed" in cfg
+
+    def test_ip_config_has_dynamic_no_cache(self):
+        cfg = self._ip_config()
+        assert "no-cache, must-revalidate" in cfg
+
+    def test_domain_config_has_cache_map(self):
+        cfg = self._domain_config()
+        assert "$meridian_cache" in cfg
+        assert "max-age=86400" in cfg
+
+    def test_domain_config_has_sw_header_map(self):
+        cfg = self._domain_config()
+        assert "$meridian_sw" in cfg
+        assert "Service-Worker-Allowed" in cfg
+
+
+# ---------------------------------------------------------------------------
+# nginx config: XHTTP block
+# ---------------------------------------------------------------------------
+
+
+class TestNginxXHTTPBlock:
+    def test_ip_config_xhttp_proxy_pass(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-abc123",
+            xhttp_internal_port=29000,
+        )
+        assert "proxy_pass http://127.0.0.1:29000" in cfg
+        assert "proxy_buffering off" in cfg
+        assert "xh-abc123" in cfg
+
+    def test_domain_config_xhttp_proxy_pass(self):
+        cfg = _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-def456",
+            xhttp_internal_port=29500,
+        )
+        assert "proxy_pass http://127.0.0.1:29500" in cfg
+        assert "proxy_buffering off" in cfg
+        assert "xh-def456" in cfg
+
+    def test_xhttp_before_panel(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-test",
+            xhttp_internal_port=29000,
+        )
+        xhttp_pos = cfg.index("xh-test")
+        panel_pos = cfg.index("secretpanel")
+        assert xhttp_pos < panel_pos
+
+    def test_no_xhttp_without_params(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "XHTTP" not in cfg
+
+    def test_xhttp_has_read_timeout(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-test",
+            xhttp_internal_port=29000,
+        )
+        assert "proxy_read_timeout 360s" in cfg
+
+
+# ---------------------------------------------------------------------------
+# nginx config: location structure (connection pages)
+# ---------------------------------------------------------------------------
+
+
+class TestNginxLocationStructure:
+    def _ip_config(self) -> str:
+        return _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def _domain_config(self) -> str:
+        return _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def test_ip_uses_alias(self):
+        """Connection pages must use alias (strips location prefix)."""
+        cfg = self._ip_config()
+        assert "location /connect/" in cfg
+        assert "alias /var/www/private/" in cfg
+
+    def test_domain_uses_alias(self):
+        cfg = self._domain_config()
+        assert "location /connect/" in cfg
+        assert "alias /var/www/private/" in cfg
+
+    def test_ip_has_security_headers(self):
+        cfg = self._ip_config()
+        assert "X-Frame-Options" in cfg
+        assert "X-Content-Type-Options" in cfg
+        assert "Referrer-Policy" in cfg
+
+    def test_domain_has_security_headers(self):
+        cfg = self._domain_config()
+        assert "X-Frame-Options" in cfg
+        assert "X-Content-Type-Options" in cfg
+        assert "Referrer-Policy" in cfg
+
+    def test_ip_cache_map_has_stats(self):
+        cfg = self._ip_config()
+        assert "stats/" in cfg
+
+    def test_domain_cache_map_has_stats(self):
+        cfg = self._domain_config()
+        assert "stats/" in cfg
+
+
+# ---------------------------------------------------------------------------
+# nginx config: domain mode WSS
+# ---------------------------------------------------------------------------
+
+
+class TestNginxWSS:
+    def test_domain_config_has_websocket_upgrade(self):
+        cfg = _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "proxy_set_header Upgrade" in cfg
+        assert 'proxy_set_header Connection "upgrade"' in cfg
+        assert "proxy_pass http://127.0.0.1:28000" in cfg
+
+    def test_ip_config_has_no_wss(self):
+        """IP mode should not have WSS location."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "Upgrade" not in cfg
+        assert "WSS" not in cfg
+
+
+# ---------------------------------------------------------------------------
+# nginx config: decoy mode
+# ---------------------------------------------------------------------------
+
+
+class TestNginxDecoy:
+    def test_default_returns_444(self):
+        """Default (no decoy) returns 444 — nginx close connection."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "return 444" in cfg
+        assert "return 403" not in cfg
+
+    def test_decoy_403_returns_403(self):
+        """decoy=403 returns 403 — stock nginx 403 page (genuine)."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        assert "return 403" in cfg
+        assert "return 444" not in cfg
+
+    def test_domain_decoy_403(self):
+        cfg = _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            decoy="403",
+        )
+        assert "return 403" in cfg
+        assert "return 444" not in cfg
+
+    def test_default_has_security_headers(self):
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "X-Frame-Options" in cfg
+        assert "X-Content-Type-Options" in cfg
+        assert "Referrer-Policy" in cfg
+
+    def test_server_tokens_off(self):
+        """Both modes should have server_tokens off."""
+        for decoy in ("", "403"):
+            cfg = _render_nginx_ip_config(
+                server_ip="198.51.100.1",
+                nginx_internal_port=8443,
+                panel_web_base_path="secretpanel",
+                panel_internal_port=2053,
+                info_page_path="connect",
+                decoy=decoy,
+            )
+            assert "server_tokens off" in cfg
+
+
+# ---------------------------------------------------------------------------
+# InstallNginx step
+# ---------------------------------------------------------------------------
+
+
+class TestInstallNginx:
+    def test_already_installed_deploys_config(self, tmp_path: Path):
         conn = MockConnection()
-        # dpkg shows haproxy installed
-        conn.when("dpkg -l haproxy", stdout="ii  haproxy")
-        # config write + validation + reload all succeed
+        # nginx installed, stream module available
+        conn.when("dpkg -l nginx", stdout="ii  nginx")
+        conn.when("nginx -V", stdout="--with-stream_ssl_preread_module")
+        # acme.sh installed
+        conn.when("test -f /root/.acme.sh/acme.sh", stdout="", rc=0)
+        # cert exists
+        conn.when("test -f /etc/ssl/meridian/fullchain.pem", stdout="", rc=0)
+        # All other commands succeed
+        conn.when("mkdir", stdout="")
+        conn.when("chown", stdout="")
         conn.when("printf", stdout="")
-        conn.when("haproxy -c", stdout="Configuration file is valid")
+        conn.when("grep", stdout="stream {", rc=0)
+        conn.when("rm -f", stdout="")
+        conn.when("nginx -t", stdout="syntax is ok")
         conn.when("systemctl", stdout="")
+        # acme.sh issue (cert already valid)
+        conn.when("acme.sh --issue", stdout="", rc=2)
+        conn.when("acme.sh --install-cert", stdout="")
+        # Stop old services
+        conn.when("systemctl stop haproxy", stdout="")
+        conn.when("systemctl stop caddy", stdout="")
 
         ctx = ProvisionContext(ip="198.51.100.1", creds_dir=str(tmp_path))
-        step = InstallHAProxy(reality_sni="www.microsoft.com")
+        step = InstallNginx(domain="", ip_mode=True, server_ip="198.51.100.1")
         result = step.run(conn, ctx)
-        # Already installed -> "ok" (not "changed")
-        assert result.status == "ok"
-
-    def test_validates_config(self, tmp_path: Path):
-        conn = MockConnection()
-        conn.when("dpkg -l haproxy", stdout="ii  haproxy")
-        conn.when("printf", stdout="")
-        conn.when("haproxy -c", stdout="")
-        conn.when("systemctl", stdout="")
-
-        ctx = ProvisionContext(ip="198.51.100.1", creds_dir=str(tmp_path))
-        step = InstallHAProxy(reality_sni="www.microsoft.com")
-        step.run(conn, ctx)
-        conn.assert_called_with_pattern("haproxy -c")
+        assert result.status == "changed"
+        assert "nginx" in result.detail
 
 
 # ---------------------------------------------------------------------------
@@ -201,433 +514,7 @@ class TestDeployPWAAssets:
 
 
 # ---------------------------------------------------------------------------
-# Caddy config: PWA headers
-# ---------------------------------------------------------------------------
-
-
-class TestCaddyPWAHeaders:
-    def _ip_config(self) -> str:
-        return _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-
-    def _domain_config(self) -> str:
-        return _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-
-    def test_ip_config_has_manifest_content_type(self):
-        cfg = self._ip_config()
-        assert "application/manifest+json" in cfg
-
-    def test_ip_config_has_service_worker_allowed(self):
-        cfg = self._ip_config()
-        assert "Service-Worker-Allowed" in cfg
-
-    def test_ip_config_has_pwa_asset_cache(self):
-        cfg = self._ip_config()
-        assert "max-age=86400" in cfg
-
-    def test_ip_config_has_dynamic_no_cache(self):
-        cfg = self._ip_config()
-        assert "no-cache, must-revalidate" in cfg
-
-    def test_domain_config_has_manifest_content_type(self):
-        cfg = self._domain_config()
-        assert "application/manifest+json" in cfg
-
-    def test_domain_config_has_service_worker_allowed(self):
-        cfg = self._domain_config()
-        assert "Service-Worker-Allowed" in cfg
-
-    def test_domain_config_has_pwa_asset_cache(self):
-        cfg = self._domain_config()
-        assert "max-age=86400" in cfg
-
-
-# ---------------------------------------------------------------------------
-# Caddy config: XHTTP block (Gap #2)
-# ---------------------------------------------------------------------------
-
-
-class TestCaddyXHTTPBlock:
-    """Verify XHTTP reverse_proxy block in Caddy config renderers."""
-
-    def test_ip_config_xhttp_reverse_proxy(self):
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            xhttp_path="xh-abc123",
-            xhttp_internal_port=29000,
-        )
-        assert "reverse_proxy 127.0.0.1:29000" in cfg
-        assert "flush_interval -1" in cfg
-        assert "xh-abc123" in cfg
-
-    def test_domain_config_xhttp_reverse_proxy(self):
-        cfg = _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            xhttp_path="xh-def456",
-            xhttp_internal_port=29500,
-        )
-        assert "reverse_proxy 127.0.0.1:29500" in cfg
-        assert "flush_interval -1" in cfg
-        assert "xh-def456" in cfg
-
-    def test_ip_config_xhttp_before_panel(self):
-        """XHTTP handle block must appear BEFORE the panel handle block in Caddy config."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            xhttp_path="xh-test",
-            xhttp_internal_port=29000,
-        )
-        xhttp_pos = cfg.index("xh-test")
-        panel_pos = cfg.index("secretpanel")
-        assert xhttp_pos < panel_pos, "XHTTP block must appear before panel block"
-
-    def test_domain_config_xhttp_before_panel(self):
-        """XHTTP handle block must appear BEFORE the panel handle block in domain config."""
-        cfg = _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            xhttp_path="xh-test2",
-            xhttp_internal_port=29000,
-        )
-        xhttp_pos = cfg.index("xh-test2")
-        panel_pos = cfg.index("secretpanel")
-        assert xhttp_pos < panel_pos, "XHTTP block must appear before panel block"
-
-    def test_ip_config_no_xhttp_without_params(self):
-        """When xhttp_path is empty, no XHTTP block should be present."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        assert "XHTTP" not in cfg
-
-    def test_domain_config_no_xhttp_without_params(self):
-        """When xhttp_path is empty, no XHTTP block should be present."""
-        cfg = _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        assert "XHTTP" not in cfg
-
-    def test_xhttp_has_read_timeout(self):
-        """XHTTP transport should have read_timeout configured."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            xhttp_path="xh-test",
-            xhttp_internal_port=29000,
-        )
-        assert "read_timeout 360s" in cfg
-
-
-# ---------------------------------------------------------------------------
-# Caddy handle_path structural validation (Gap #3)
-# ---------------------------------------------------------------------------
-
-
-class TestCaddyHandlePathStructure:
-    """Validate Caddy config structural correctness beyond substring checks."""
-
-    def _ip_config(self) -> str:
-        return _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-
-    def _domain_config(self) -> str:
-        return _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-
-    def test_ip_uses_handle_path(self):
-        """Connection pages must use handle_path (not bare handle + uri strip_prefix)."""
-        cfg = self._ip_config()
-        assert "handle_path /connect/*" in cfg
-        assert "uri strip_prefix" not in cfg
-
-    def test_domain_uses_handle_path(self):
-        cfg = self._domain_config()
-        assert "handle_path /connect/*" in cfg
-        assert "uri strip_prefix" not in cfg
-
-    def test_ip_nocache_excludes_pwa(self):
-        """@nocache block must have 'not path /pwa/*' to avoid caching static assets."""
-        cfg = self._ip_config()
-        assert "not path /pwa/*" in cfg
-
-    def test_domain_nocache_excludes_pwa(self):
-        cfg = self._domain_config()
-        assert "not path /pwa/*" in cfg
-
-    def test_ip_dynamic_includes_stats(self):
-        """@dynamic matcher must include */stats/* for per-client stats."""
-        cfg = self._ip_config()
-        assert "*/stats/*" in cfg
-
-    def test_domain_dynamic_includes_stats(self):
-        cfg = self._domain_config()
-        assert "*/stats/*" in cfg
-
-    def test_ip_pwa_assets_matcher(self):
-        """@pwa_assets matcher must match /pwa/* path."""
-        cfg = self._ip_config()
-        assert "@pwa_assets path /pwa/*" in cfg
-
-    def test_domain_pwa_assets_matcher(self):
-        cfg = self._domain_config()
-        assert "@pwa_assets path /pwa/*" in cfg
-
-    def test_ip_nocache_excludes_dynamic_paths(self):
-        """@nocache block must exclude config.json and sub.txt (they have their own cache rules)."""
-        cfg = self._ip_config()
-        assert "not path */config.json" in cfg
-        assert "not path */sub.txt" in cfg
-        assert "not path */stats/*" in cfg
-
-    def test_domain_nocache_excludes_dynamic_paths(self):
-        cfg = self._domain_config()
-        assert "not path */config.json" in cfg
-        assert "not path */sub.txt" in cfg
-        assert "not path */stats/*" in cfg
-
-
-# ---------------------------------------------------------------------------
-# Caddy config: decoy mode
-# ---------------------------------------------------------------------------
-
-
-class TestCaddyDecoy:
-    """Verify decoy mode renders correct default handler in Caddy configs."""
-
-    def test_default_has_abort(self):
-        """Default (no decoy) renders abort handler."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        assert "abort" in cfg
-        assert "nginx" not in cfg
-
-    def test_default_strips_server_header_site_wide(self):
-        """Default mode strips Server header at the site level."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        assert "header -Server" in cfg
-
-    def test_ip_config_403_has_nginx_page(self):
-        """decoy=403 renders nginx 403 page in IP mode."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        assert "403 Forbidden" in cfg
-        assert "nginx" in cfg
-        assert "abort" not in cfg
-
-    def test_domain_config_403_has_nginx_page(self):
-        """decoy=403 renders nginx 403 page in domain mode."""
-        cfg = _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        assert "403 Forbidden" in cfg
-        assert "nginx" in cfg
-        assert "abort" not in cfg
-
-    def test_403_sets_server_header_in_decoy_block(self):
-        """decoy=403 sets Server header to nginx in the handle block."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        assert 'header Server "nginx"' in cfg
-
-    def test_403_strips_server_in_connection_pages(self):
-        """decoy=403 strips Server header inside connection page handle_path."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        # header -Server should appear inside the handle_path block
-        handle_path_start = cfg.index("handle_path /connect/*")
-        handle_path_block = cfg[handle_path_start : cfg.index("}", handle_path_start + 100) + 50]
-        assert "header -Server" in handle_path_block
-
-    def test_403_sets_content_type_text_html(self):
-        """decoy=403 sets Content-Type to text/html (real nginx behavior, not Caddy's text/plain default)."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        assert 'header Content-Type "text/html"' in cfg
-
-    def test_403_handles_connect_method(self):
-        """decoy=403 intercepts CONNECT method to prevent Caddy identity leak."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        assert "@connect method CONNECT" in cfg
-        assert "handle @connect" in cfg
-
-    def test_403_no_security_headers_at_site_level(self):
-        """decoy=403 keeps security headers inside connection page handler only.
-
-        Stock nginx 403 has no X-Frame-Options or similar headers.
-        Their presence at site level fingerprints a reverse proxy.
-        """
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        # Security headers should be inside handle_path block
-        handle_path_start = cfg.index("handle_path /connect/*")
-        # Find the decoy handler that follows
-        decoy_start = cfg.index("# Intercept CONNECT", handle_path_start)
-        inside_block = cfg[handle_path_start:decoy_start]
-        assert "X-Frame-Options" in inside_block
-
-        # Should NOT appear in the decoy handler section
-        decoy_section = cfg[decoy_start:]
-        assert "X-Frame-Options" not in decoy_section
-
-    def test_default_has_security_headers_at_site_level(self):
-        """Default mode (no decoy) keeps security headers at site level."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        assert "X-Frame-Options" in cfg
-        assert "X-Content-Type-Options" in cfg
-        assert "Referrer-Policy" in cfg
-
-    def test_403_redirect_has_nginx_server_header(self):
-        """decoy=403 HTTP redirect includes nginx Server header."""
-        cfg = _render_caddy_ip_config(
-            server_ip="198.51.100.1",
-            caddy_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        # Find the HTTP redirect block
-        redirect_start = cfg.index("http://198.51.100.1")
-        redirect_block = cfg[redirect_start:]
-        assert "nginx" in redirect_block
-
-    def test_domain_403_redirect_has_nginx_server_header(self):
-        """decoy=403 domain mode HTTP redirect includes nginx Server header."""
-        cfg = _render_caddy_config(
-            domain="example.com",
-            caddy_internal_port=8443,
-            ws_path="wspath",
-            wss_internal_port=28000,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-            decoy="403",
-        )
-        redirect_start = cfg.index("http://example.com")
-        redirect_block = cfg[redirect_start:]
-        assert "nginx" in redirect_block
-
-
-# ---------------------------------------------------------------------------
-# _render_stats_script() basic test (Gap #7)
+# _render_stats_script() basic test
 # ---------------------------------------------------------------------------
 
 

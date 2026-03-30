@@ -65,7 +65,7 @@ class ProvisionContext:
 
     @property
     def needs_web_server(self) -> bool:
-        """Whether this setup needs HAProxy + Caddy (domain mode OR hosted page)."""
+        """Whether this setup needs nginx (domain mode OR hosted page)."""
         return self.domain_mode or self.hosted_page
 
     def __getitem__(self, key: str) -> Any:

@@ -18,11 +18,11 @@ section: reference
 ## طراحی امنیت
 
 - **اعتبارات**: با اجازه‌های `0600` ذخیره می‌شوند، اسرار هرگز از طریق دستورات shell بدون `shlex.quote()` منتقل نمی‌شوند، از خروجی `meridian doctor` حذف می‌شوند
-- **دسترسی پنل**: توسط Caddy در یک مسیر HTTPS مخفی reverse-proxy می‌شود در تمام حالات — هیچ تونل SSH لازم نیست
+- **دسترسی پنل**: توسط nginx در یک مسیر HTTPS مخفی reverse-proxy می‌شود در تمام حالات — هیچ تونل SSH لازم نیست
 - **SSH**: احراز هویت رمز رمز به طور پیش‌فرض غیرفعال است
 - **Firewall**: UFW با deny-all-incoming پیکربندی می‌شود، فقط پورت‌های 22، 80، و 443 باز می‌شوند
 - **Docker**: تصویر 3x-ui به نسخه تست‌شده‌ای پین شده‌اند
-- **TLS**: Caddy گواهینامه‌ها را به طور خودکار از طریق Let's Encrypt مدیریت می‌کند
+- **TLS**: acme.sh گواهینامه‌ها را از طریق Let's Encrypt مدیریت می‌کند، توسط nginx ارائه می‌شوند
 
 ## دامنه
 
@@ -30,5 +30,4 @@ Meridian سرورهای proxy را پیکربندی می‌کند — پروتک
 
 - [Xray-core](https://github.com/XTLS/Xray-core) — پروتکل VLESS+Reality
 - [3x-ui](https://github.com/MHSanaei/3x-ui) — پنل مدیریت
-- [Caddy](https://github.com/caddyserver/caddy) — خاتمه TLS
-- [HAProxy](https://www.haproxy.org/) — مسیریابی SNI
+- [nginx](https://nginx.org/) — مسیریابی SNI و خاتمه TLS

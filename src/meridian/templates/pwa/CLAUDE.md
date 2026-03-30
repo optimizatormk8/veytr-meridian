@@ -17,7 +17,7 @@ Server-hosted Progressive Web App. The old `connection-info.html.j2` is kept for
 ## What's done well
 
 - **`config.json` decoupling** — credentials change without HTML redeploy.
-- **SW scope trick** — registered with `{scope: '../'}` to control sibling client dirs. Requires Caddy `Service-Worker-Allowed: "/"` header.
+- **SW scope trick** — registered with `{scope: '../'}` to control sibling client dirs. Requires nginx `Service-Worker-Allowed: "/"` header.
 - **Graceful offline** — SW caches shell (cache-first), fetches config fresh (network-first with 503 fallback).
 
 ## Pitfalls

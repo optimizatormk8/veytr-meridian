@@ -49,20 +49,20 @@ Add `--ai` to preflight or doctor for an AI-ready diagnostic prompt.
 
 **Fixes:**
 1. Check Xray: `docker logs 3x-ui --tail 20`
-2. Check port: `ss -tlnp sport = :443` — should be haproxy
+2. Check port: `ss -tlnp sport = :443` — should be nginx
 3. Test SNI: `meridian preflight IP`
 
 ### Domain not reachable
 
 **Causes:**
 1. DNS not pointing to server IP
-2. Caddy not running or failed to get TLS certificate
-3. HAProxy not routing domain SNI correctly
+2. nginx not running or failed to get TLS certificate
+3. nginx not routing domain SNI correctly
 
 **Fixes:**
 1. Check DNS: `dig +short yourdomain.com @8.8.8.8`
-2. Check Caddy: `systemctl status caddy`
-3. Check HAProxy: `/etc/haproxy/haproxy.cfg`
+2. Check nginx: `systemctl status nginx`
+3. Check nginx config: `/etc/nginx/conf.d/meridian-stream.conf`
 
 ## Connection drops after seconds
 
@@ -100,7 +100,7 @@ The 3x-ui inbound `settings` or `streamSettings` fields contain corrupted JSON. 
 
 In older versions (pre-v3.6.0), both Reality and XHTTP tried to use port 443. 3x-ui rejects duplicate ports.
 
-**Fix:** Update to v3.6.0+. XHTTP now runs on a localhost-only port, routed through Caddy.
+**Fix:** Update to v3.6.0+. XHTTP now runs on a localhost-only port, routed through nginx.
 
 ### Disk space insufficient
 
@@ -167,7 +167,7 @@ See the [Relay guide — Troubleshooting](/docs/en/relay/#troubleshooting) secti
 | Server | OS version, uptime (recent reboot?), disk/memory usage |
 | Docker | Is 3x-ui container running? Status should be "Up" |
 | 3x-ui Logs | Error messages, "failed to start" entries, certificate issues |
-| Listening Ports | Port 443 should show haproxy. If missing, proxy isn't running |
+| Listening Ports | Port 443 should show nginx. If missing, proxy isn't running |
 | Firewall (UFW) | Port 443/tcp should be ALLOW. If not listed, it's blocked |
 | SNI Target | Should show CONNECTED with a certificate chain |
 | Domain DNS | Should resolve to server IP |
@@ -178,6 +178,6 @@ See the [Relay guide — Troubleshooting](/docs/en/relay/#troubleshooting) secti
 |-------|------|------|
 | TCP port 443 | Server is network-reachable | Firewall, ISP block, or server down |
 | TLS handshake | Reality protocol is working | Xray not running, port conflict, or SNI issue |
-| Domain HTTPS | Caddy + HAProxy working | DNS, Caddy, or HAProxy issue |
+| Domain HTTPS | nginx working | DNS or nginx issue |
 
 If all checks pass but the VPN client still can't connect: re-scan the QR code, check device clock is accurate (within 30 seconds), or try a different app (v2rayNG, Hiddify).

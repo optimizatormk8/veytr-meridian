@@ -245,7 +245,7 @@ import Base from '../layouts/Base.astro';
       resultsDiv.innerHTML += renderCheck(
         domOk ? 'pass' : 'fail',
         'Domain reachable',
-        domOk ? `${domain} responded over HTTPS` : `${domain} not reachable — check DNS and Caddy`
+        domOk ? `${domain} responded over HTTPS` : `${domain} not reachable — check DNS and nginx`
       );
       if (!domOk) issues.push('Domain not reachable');
     }

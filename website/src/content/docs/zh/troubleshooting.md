@@ -45,20 +45,20 @@ section: guides
 
 **修复：**
 1. 检查 Xray：`docker logs 3x-ui --tail 20`
-2. 检查端口：`ss -tlnp sport = :443` — 应该是 haproxy
+2. 检查端口：`ss -tlnp sport = :443` — 应该是 nginx
 3. 测试 SNI：`meridian preflight IP`
 
 ### 域名无法访问
 
 **原因：**
 1. DNS 未指向服务器 IP
-2. Caddy 未运行或未能获取 TLS 证书
-3. HAProxy 未正确路由域 SNI
+2. nginx 未运行或未能获取 TLS 证书
+3. nginx 未正确路由域 SNI
 
 **修复：**
 1. 检查 DNS：`dig +short yourdomain.com @8.8.8.8`
-2. 检查 Caddy：`systemctl status caddy`
-3. 检查 HAProxy：`/etc/haproxy/haproxy.cfg`
+2. 检查 nginx：`systemctl status nginx`
+3. 检查 nginx 配置：`/etc/nginx/conf.d/meridian-stream.conf`
 
 ## 连接在几秒钟后中断
 
@@ -96,7 +96,7 @@ section: guides
 
 在旧版本（v3.6.0 之前），Reality 和 XHTTP 都尝试使用端口 443。3x-ui 拒绝重复端口。
 
-**解决方案：** 升级到 v3.6.0+。XHTTP 现在在 localhost 端口上运行，通过 Caddy 路由。
+**解决方案：** 升级到 v3.6.0+。XHTTP 现在在 localhost 端口上运行，通过 nginx 路由。
 
 ### 磁盘空间不足
 
@@ -163,7 +163,7 @@ meridian doctor
 | 服务器 | 系统版本、运行时间（最近重启？）、磁盘/内存使用 |
 | Docker | 3x-ui 容器是否运行？状态应为 "Up" |
 | 3x-ui 日志 | 错误消息、"failed to start" 条目、证书问题 |
-| 监听端口 | 端口 443 应显示 haproxy。如缺失，代理未运行 |
+| 监听端口 | 端口 443 应显示 nginx。如缺失，代理未运行 |
 | 防火墙 (UFW) | 端口 443/tcp 应为 ALLOW。如未列出，已被阻止 |
 | SNI 目标 | 应显示 CONNECTED 及证书链 |
 | 域名 DNS | 应解析到服务器 IP |
@@ -174,6 +174,6 @@ meridian doctor
 |------|------|------|
 | TCP 端口 443 | 服务器网络可达 | 防火墙、ISP 封锁或服务器宕机 |
 | TLS 握手 | Reality 协议正常工作 | Xray 未运行、端口冲突或 SNI 问题 |
-| Domain HTTPS | Caddy + HAProxy 正常工作 | DNS、Caddy 或 HAProxy 问题 |
+| Domain HTTPS | nginx 正常工作 | DNS 或 nginx 问题 |
 
 如果所有检查通过但 VPN 客户端仍无法连接：重新扫描 QR 码、检查设备时钟准确性（30 秒内）、或尝试其他应用（v2rayNG、Hiddify）。

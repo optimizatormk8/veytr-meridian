@@ -26,7 +26,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--sni HOST` | www.microsoft.com | Site that Reality impersonates |
 | `--domain DOMAIN` | (none) | Enable domain mode with CDN fallback |
 | `--email EMAIL` | (none) | Email for TLS certificates (optional) |
-| `--xhttp / --no-xhttp` | enabled | XHTTP transport (through port 443 via Caddy) |
+| `--xhttp / --no-xhttp` | enabled | XHTTP transport (through port 443 via nginx) |
 | `--name NAME` | default | Name for the first client |
 | `--server-name NAME` | (none) | Display name on connection pages (e.g. "Alice's VPN") |
 | `--icon EMOJI_OR_URL` | (none) | Server icon — emoji or image URL |

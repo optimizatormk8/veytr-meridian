@@ -1,7 +1,8 @@
-"""HAProxy, Caddy, and connection page provisioning steps.
+"""nginx and connection page provisioning steps.
 
-Replaces roles/haproxy/tasks/main.yml, roles/caddy/tasks/main.yml,
-and the connection page deployment from roles/caddy/tasks/main.yml.
+nginx handles both SNI-based TCP routing (stream module) and TLS termination
++ web serving (http module), replacing the previous HAProxy + Caddy setup.
+Certificate management via acme.sh.
 """
 
 from __future__ import annotations
@@ -10,251 +11,98 @@ import shlex
 import textwrap
 
 from meridian.config import DEFAULT_FINGERPRINT, DEFAULT_PANEL_PORT
-from meridian.provision.steps import ProvisionContext, StepResult, StepStatus
+from meridian.provision.steps import ProvisionContext, StepResult
 from meridian.ssh import ServerConnection
 
 # ---------------------------------------------------------------------------
-# HAProxy configuration template
+# nginx stream configuration (SNI routing — replaces HAProxy)
 # ---------------------------------------------------------------------------
 
 
-def _render_haproxy_cfg(
+def _render_nginx_stream_config(
     reality_sni: str,
-    haproxy_reality_backend_port: int,
-    caddy_internal_port: int,
+    reality_backend_port: int,
+    nginx_internal_port: int,
     server_ip: str = "",
     domain: str = "",
 ) -> str:
-    """Render the HAProxy configuration.
+    """Render the nginx stream configuration for SNI-based routing.
 
-    Replaces: roles/haproxy/templates/haproxy.cfg.j2
-
-    HAProxy sits on port 443 and does TCP-level SNI routing WITHOUT
-    TLS termination. Reality-targeted SNIs go to Xray, only explicitly
-    allowed SNIs go to Caddy. Unrecognized SNI connections are dropped
-    to avoid fingerprinting (a catch-all ``default_backend`` would serve
-    an IP certificate for unknown SNIs — something no legitimate CDN does).
+    nginx stream sits on port 443 and inspects the TLS ClientHello SNI
+    WITHOUT terminating TLS. Reality-targeted SNIs go to Xray, explicitly
+    allowed SNIs (server IP, domain) go to the nginx HTTPS backend.
+    Unrecognized SNI connections hit a blackhole upstream (nothing listens
+    on port 1, so the client gets an immediate RST).
     """
-    # Build explicit Caddy SNI rules (server IP + optional domain)
-    caddy_sni_rules = ""
+    # Build SNI → backend map entries
+    map_entries = [
+        f"    {reality_sni}  xray_reality;",
+    ]
     if server_ip:
-        caddy_sni_rules += (
-            f"\n            # Route connections with server IP SNI to Caddy"
-            f"\n            use_backend caddy_https if {{ req_ssl_sni -i {server_ip} }}"
-        )
+        map_entries.append(f"    {server_ip}  nginx_https;")
     if domain:
-        caddy_sni_rules += (
-            f"\n            # Route connections with domain SNI to Caddy"
-            f"\n            use_backend caddy_https if {{ req_ssl_sni -i {domain} }}"
-        )
+        map_entries.append(f"    {domain}  nginx_https;")
+
+    # No SNI (browsers connecting to bare IP per RFC 6066) → nginx
+    map_entries.append('    ""  nginx_https;')
+    # Unknown SNI → drop (anti-fingerprinting)
+    map_entries.append("    default  blackhole;")
+
+    map_block = "\n".join(map_entries)
 
     # Flow comment lines
     flow_lines = [
-        f"Client with SNI={reality_sni} -> Xray Reality (127.0.0.1:{haproxy_reality_backend_port})",
+        f"SNI={reality_sni} -> Xray Reality (127.0.0.1:{reality_backend_port})",
     ]
     if server_ip:
-        flow_lines.append(f"Client with SNI={server_ip}  -> Caddy HTTPS  (127.0.0.1:{caddy_internal_port})")
+        flow_lines.append(f"SNI={server_ip} -> nginx HTTPS (127.0.0.1:{nginx_internal_port})")
     if domain:
-        flow_lines.append(f"Client with SNI={domain}  -> Caddy HTTPS  (127.0.0.1:{caddy_internal_port})")
-    flow_lines.append("Client with no SNI (IP only)  -> Caddy HTTPS  (browsers don't send SNI for IPs)")
-    flow_lines.append("Client with unknown SNI       -> connection dropped (anti-fingerprinting)")
-    flow_comment = "\n".join(f"        #   {line}" for line in flow_lines)
+        flow_lines.append(f"SNI={domain} -> nginx HTTPS (127.0.0.1:{nginx_internal_port})")
+    flow_lines.append(f"No SNI (bare IP) -> nginx HTTPS (127.0.0.1:{nginx_internal_port})")
+    flow_lines.append("Unknown SNI -> connection dropped (anti-fingerprinting)")
+    flow_comment = "\n".join(f"#   {line}" for line in flow_lines)
 
     return textwrap.dedent(f"""\
-        # HAProxy SNI Router
-        # Managed by Meridian. Manual edits will be overwritten on next run.
+        # nginx SNI Router (stream module)
+        # Managed by Meridian. Manual edits will be overwritten on next deploy.
         #
         # Flow:
-{flow_comment}
+        {flow_comment}
 
-        global
-            log /dev/log local0
-            log /dev/log local1 notice
-            chroot /var/lib/haproxy
-            stats socket /run/haproxy/admin.sock mode 660 level admin
-            stats timeout 30s
-            user haproxy
-            group haproxy
-            daemon
-            maxconn 4096
+        map $ssl_preread_server_name $meridian_backend {{
+        {map_block}
+        }}
 
-        defaults
-            mode tcp
-            log global
-            option tcplog
-            option dontlognull
-            timeout connect 5s
-            timeout client  300s
-            timeout server  300s
-            retries 3
+        upstream xray_reality {{
+            server 127.0.0.1:{reality_backend_port};
+        }}
 
-        # --- Port 443: SNI-based TLS routing ---
-        frontend tls_router
-            bind *:443
-            # Wait up to 5s to inspect the TLS ClientHello for SNI
-            tcp-request inspect-delay 5s
-            tcp-request content accept if {{ req_ssl_hello_type 1 }}
+        upstream nginx_https {{
+            server 127.0.0.1:{nginx_internal_port};
+        }}
 
-            # Route connections with Reality SNI to Xray
-            use_backend xray_reality if {{ req_ssl_sni -i {reality_sni} }}
-{caddy_sni_rules}
+        # Nothing listens on port 1 — connection gets immediate RST.
+        # This drops unknown-SNI connections without leaking any response.
+        upstream blackhole {{
+            server 127.0.0.1:1;
+        }}
 
-            # Route connections with no SNI (browsers connecting to IP) to Caddy.
-            # Browsers don't send SNI for bare IP addresses (RFC 6066).
-            use_backend caddy_https unless {{ req_ssl_sni -m found }}
-
-            # Connections with an unrecognized SNI are implicitly dropped.
-            # This prevents fingerprinting: responding to arbitrary SNIs
-            # is something no legitimate server does.
-
-        # --- Backend: Xray Reality ---
-        backend xray_reality
-            server xray 127.0.0.1:{haproxy_reality_backend_port}
-
-        # --- Backend: Caddy HTTPS ---
-        backend caddy_https
-            server caddy 127.0.0.1:{caddy_internal_port}
+        server {{
+            listen 443;
+            ssl_preread on;
+            proxy_pass $meridian_backend;
+        }}
     """)
 
 
 # ---------------------------------------------------------------------------
-# Caddy configuration template
+# nginx http configuration (TLS + reverse proxy + web — replaces Caddy)
 # ---------------------------------------------------------------------------
 
 
-def _render_connection_page_block(info_page_path: str, decoy: str = "") -> str:
-    """Render the shared connection-page Caddy block.
-
-    Used by both domain and IP config renderers to avoid duplication.
-    Includes file serving, PWA headers, cache control, CSP, and security headers.
-
-    Args:
-        info_page_path: Secret URL prefix for connection pages.
-        decoy: Decoy mode — "" for abort (default), "403" for nginx 403 page.
-
-    Returns a multi-line string (no trailing newline) indented at 8 spaces
-    (matching the site-block body indentation in the Caddy config).
-    """
-    if decoy == "403":
-        # Decoy: serve a stock nginx 403 page. The Server header is set
-        # explicitly in the handle block; connection pages strip it via
-        # header -Server inside handle_path to avoid leaking Caddy identity.
-        #
-        # To match real nginx behavior:
-        # - Content-Type must be text/html (Caddy respond defaults to text/plain)
-        # - No X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-        #   (stock nginx 403 has none — their presence fingerprints a reverse proxy)
-        # - CONNECT method must return nginx Server header (Caddy handles it
-        #   before our default handler, leaking "Server: Caddy")
-        default_handler = textwrap.dedent("""\
-
-            # Intercept CONNECT before Caddy's built-in handler leaks "Server: Caddy"
-            @connect method CONNECT
-            handle @connect {
-                header Server "nginx"
-                respond 405
-            }
-
-            # Decoy: serve a stock nginx 403 page to probers.
-            # Looks like a default nginx installation — common and boring.
-            handle {
-                header Server "nginx"
-                header Content-Type "text/html"
-                respond <<NGINX
-            <html>
-            <head><title>403 Forbidden</title></head>
-            <body>
-            <center><h1>403 Forbidden</h1></center>
-            <hr><center>nginx</center>
-            </body>
-            </html>
-            NGINX 403
-            }""")
-        # Strip Caddy's Server header only for connection pages
-        server_header_line = ""
-        connection_page_server_header = "\n            header -Server"
-        # In decoy mode, security headers go INSIDE connection page handler only.
-        # Stock nginx 403 has none of these — site-level would fingerprint us.
-        security_headers = ""
-        connection_page_security_headers = "\n".join(
-            [
-                "",
-                '            header X-Content-Type-Options "nosniff"',
-                '            header X-Frame-Options "DENY"',
-                '            header Referrer-Policy "no-referrer"',
-            ]
-        )
-    else:
-        # Default: abort connections to unknown paths (anti-probing)
-        default_handler = textwrap.dedent("""\
-
-            # Drop requests to unknown paths (anti-probing).
-            # Only known secret paths get a response.
-            # Censors hitting / or random paths get an immediate connection close.
-            handle {
-                abort
-            }""")
-        # Strip Server header site-wide
-        server_header_line = "\n        header -Server"
-        connection_page_server_header = ""
-        # No decoy persona — security headers are fine at site level
-        security_headers = textwrap.dedent("""\
-        header X-Content-Type-Options "nosniff"
-        header X-Frame-Options "DENY"
-        header Referrer-Policy "no-referrer"
-""")
-        connection_page_security_headers = ""
-
-    return textwrap.dedent(f"""\
-
-        # --- Connection Info Pages (PWA with per-client config) ---
-        # handle_path strips the prefix BEFORE directive evaluation,
-        # so path matchers see /pwa/*, /uuid/config.json etc. correctly.
-        handle_path /{info_page_path}/* {{
-            root * /var/www/private
-            file_server
-{connection_page_server_header}
-
-            @manifest path *.webmanifest
-            header @manifest Content-Type "application/manifest+json"
-
-            @sw path */sw.js
-            header @sw Service-Worker-Allowed "/"
-
-            # Static PWA assets: cache 24h
-            @pwa_assets path /pwa/*
-            header @pwa_assets Cache-Control "public, max-age=86400"
-
-            # Dynamic per-client data: revalidate
-            @dynamic path */config.json */sub.txt */stats/*
-            header @dynamic Cache-Control "no-cache, must-revalidate"
-
-            # Everything else (HTML, manifest): no store
-            @nocache {{
-                not path /pwa/*
-                not path */config.json
-                not path */sub.txt
-                not path */stats/*
-            }}
-            header @nocache Cache-Control "no-store"
-
-            header Content-Security-Policy "default-src 'self'; img-src 'self' data:; connect-src 'self'"
-{connection_page_security_headers}
-        }}
-{default_handler}
-{server_header_line}
-        {security_headers}
-        log {{
-            output file /var/log/caddy/access.log {{
-                roll_size 10mb
-                roll_keep 3
-            }}
-        }}""")
-
-
-def _render_caddy_config(
+def _render_nginx_http_config(
     domain: str,
-    caddy_internal_port: int,
+    nginx_internal_port: int,
     ws_path: str,
     wss_internal_port: int,
     panel_web_base_path: str,
@@ -265,74 +113,55 @@ def _render_caddy_config(
     xhttp_internal_port: int = 0,
     decoy: str = "",
 ) -> str:
-    """Render the Meridian Caddy configuration.
+    """Render the nginx http configuration for domain mode.
 
-    Replaces: roles/caddy/templates/Caddyfile.j2
-
-    Architecture: HAProxy (port 443) -> Caddy (internal port)
-    HAProxy terminates nothing -- just routes by SNI. Caddy handles TLS.
+    Architecture: nginx stream (port 443) -> nginx http (internal port)
+    nginx stream does SNI routing without TLS termination.
+    nginx http handles TLS with certificates issued by acme.sh.
     """
-    tls_line = f"    tls {email}\n" if email else ""
+    wss_block = textwrap.dedent(f"""\
+
+        # --- VLESS+WSS Fallback (Cloudflare CDN path) ---
+        location /{ws_path} {{
+            proxy_pass http://127.0.0.1:{wss_internal_port};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 360s;
+        }}
+    """).rstrip()
 
     xhttp_block = ""
     if xhttp_path and xhttp_internal_port > 0:
         xhttp_block = textwrap.dedent(f"""\
 
-            # --- VLESS+XHTTP (enhanced stealth, Caddy-terminated TLS) ---
-            handle /{xhttp_path}/* {{
-                reverse_proxy 127.0.0.1:{xhttp_internal_port} {{
-                    transport http {{
-                        read_timeout 360s
-                    }}
-                    flush_interval -1
-                }}
+            # --- VLESS+XHTTP (enhanced stealth, nginx-terminated TLS) ---
+            location /{xhttp_path}/ {{
+                proxy_pass http://127.0.0.1:{xhttp_internal_port};
+                proxy_http_version 1.1;
+                proxy_read_timeout 360s;
+                proxy_buffering off;
             }}
         """).rstrip()
 
-    connection_block = _render_connection_page_block(info_page_path, decoy=decoy)
+    default_action = "return 403;" if decoy == "403" else "return 444;"
 
-    redirect_server_header = '    header Server "nginx"\n' if decoy == "403" else ""
-
-    return (
-        textwrap.dedent(f"""\
-        # Meridian Proxy Configuration
-        # Managed by Meridian -- this file is overwritten on each run.
-        # Your own Caddy config in /etc/caddy/Caddyfile is NOT touched.
-        #
-        # Architecture: HAProxy (port 443) -> Caddy (port {caddy_internal_port})
-        # HAProxy terminates nothing -- just routes by SNI. Caddy handles TLS.
-
-        {domain}:{caddy_internal_port} {{
-        {tls_line}
-            # --- VLESS+WSS Fallback (Cloudflare CDN path) ---
-            handle /{ws_path} {{
-                reverse_proxy 127.0.0.1:{wss_internal_port} {{
-                    transport http {{
-                        read_timeout 360s
-                    }}
-                }}
-            }}
-{xhttp_block}
-
-            # --- 3x-ui Panel (management interface on secret path) ---
-            handle /{panel_web_base_path}/* {{
-                reverse_proxy 127.0.0.1:{panel_internal_port}
-            }}
-    """).rstrip()
-        + textwrap.indent(connection_block, "    ")
-        + textwrap.dedent(f"""
-        }}
-
-        http://{domain} {{
-        {redirect_server_header}    redir https://{domain}{{uri}} permanent
-        }}
-    """)
+    return _render_nginx_server_block(
+        host=domain,
+        nginx_internal_port=nginx_internal_port,
+        panel_web_base_path=panel_web_base_path,
+        panel_internal_port=panel_internal_port,
+        info_page_path=info_page_path,
+        extra_locations=wss_block + xhttp_block,
+        default_action=default_action,
+        mode_comment="Domain Mode",
+        tls_comment=(f"TLS: certificates issued by acme.sh for {domain}"),
     )
 
 
-def _render_caddy_ip_config(
+def _render_nginx_ip_config(
     server_ip: str,
-    caddy_internal_port: int,
+    nginx_internal_port: int,
     panel_web_base_path: str,
     panel_internal_port: int,
     info_page_path: str,
@@ -341,64 +170,127 @@ def _render_caddy_ip_config(
     xhttp_internal_port: int = 0,
     decoy: str = "",
 ) -> str:
-    """Render Caddy configuration for IP certificate mode (no domain).
+    """Render nginx http configuration for IP certificate mode (no domain).
 
-    Architecture: HAProxy (port 443) -> Caddy (internal port)
-    TLS via Let's Encrypt IP certificate (ACME profile shortlived, 6-day validity).
-    Falls back to self-signed if IP cert issuance is not supported.
+    Architecture: nginx stream (port 443) -> nginx http (internal port)
+    TLS via Let's Encrypt IP certificate (acme.sh --certificate-profile shortlived).
     """
-    email_line = f"\n            email {email}" if email else ""
-
     xhttp_block = ""
     if xhttp_path and xhttp_internal_port > 0:
         xhttp_block = textwrap.dedent(f"""\
 
-            # --- VLESS+XHTTP (enhanced stealth, Caddy-terminated TLS) ---
-            handle /{xhttp_path}/* {{
-                reverse_proxy 127.0.0.1:{xhttp_internal_port} {{
-                    transport http {{
-                        read_timeout 360s
-                    }}
-                    flush_interval -1
-                }}
+            # --- VLESS+XHTTP (enhanced stealth, nginx-terminated TLS) ---
+            location /{xhttp_path}/ {{
+                proxy_pass http://127.0.0.1:{xhttp_internal_port};
+                proxy_http_version 1.1;
+                proxy_read_timeout 360s;
+                proxy_buffering off;
             }}
         """).rstrip()
 
-    connection_block = _render_connection_page_block(info_page_path, decoy=decoy)
+    default_action = "return 403;" if decoy == "403" else "return 444;"
 
-    redirect_server_header = '    header Server "nginx"\n' if decoy == "403" else ""
+    return _render_nginx_server_block(
+        host=server_ip,
+        nginx_internal_port=nginx_internal_port,
+        panel_web_base_path=panel_web_base_path,
+        panel_internal_port=panel_internal_port,
+        info_page_path=info_page_path,
+        extra_locations=xhttp_block,
+        default_action=default_action,
+        mode_comment="IP Certificate Mode",
+        tls_comment=("TLS: Let's Encrypt IP certificate (acme.sh, shortlived profile)"),
+    )
 
-    return (
-        textwrap.dedent(f"""\
-        # Meridian Proxy Configuration (IP Certificate Mode)
-        # Managed by Meridian -- this file is overwritten on each run.
-        # Your own Caddy config in /etc/caddy/Caddyfile is NOT touched.
+
+def _render_nginx_server_block(
+    host: str,
+    nginx_internal_port: int,
+    panel_web_base_path: str,
+    panel_internal_port: int,
+    info_page_path: str,
+    extra_locations: str,
+    default_action: str,
+    mode_comment: str,
+    tls_comment: str,
+) -> str:
+    """Render the shared nginx server block structure.
+
+    Used by both domain and IP config renderers to avoid duplication.
+    """
+    csp = "default-src 'self'; img-src 'self' data:; connect-src 'self'"
+    return textwrap.dedent(f"""\
+        # Meridian Proxy Configuration ({mode_comment})
+        # Managed by Meridian — this file is overwritten on each deploy.
         #
-        # Architecture: HAProxy (port 443) -> Caddy (port {caddy_internal_port})
-        # TLS: Let's Encrypt IP certificate (6-day, auto-renewed by Caddy)
+        # Architecture: nginx stream (port 443) -> nginx http (port {nginx_internal_port})
+        # {tls_comment}
 
-        {server_ip}:{caddy_internal_port} {{
-            tls {{
-                issuer acme {{{email_line}
-                    profile shortlived
-                }}
-            }}
-{xhttp_block}
+        # --- Cache control for connection pages (map avoids add_header inheritance) ---
+        map $uri $meridian_cache {{
+            ~*/pwa/            "public, max-age=86400";
+            ~*/config\\.json$   "no-cache, must-revalidate";
+            ~*/sub\\.txt$       "no-cache, must-revalidate";
+            ~*/stats/          "no-cache, must-revalidate";
+            default            "no-store";
+        }}
+
+        map $uri $meridian_sw {{
+            ~*/sw\\.js$   "/";
+            default      "";
+        }}
+
+        server {{
+            listen 127.0.0.1:{nginx_internal_port} ssl;
+            server_name {host};
+            server_tokens off;
+
+            ssl_certificate     /etc/ssl/meridian/fullchain.pem;
+            ssl_certificate_key /etc/ssl/meridian/key.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+    {extra_locations}
 
             # --- 3x-ui Panel (management interface on secret path) ---
-            handle /{panel_web_base_path}/* {{
-                reverse_proxy 127.0.0.1:{panel_internal_port}
+            location /{panel_web_base_path}/ {{
+                proxy_pass http://127.0.0.1:{panel_internal_port};
             }}
-    """).rstrip()
-        + textwrap.indent(connection_block, "    ")
-        + textwrap.dedent(f"""
+
+            # --- Connection Info Pages (PWA with per-client config) ---
+            # alias strips the location prefix (like Caddy's handle_path).
+            location /{info_page_path}/ {{
+                alias /var/www/private/;
+
+                add_header Cache-Control $meridian_cache;
+                add_header Service-Worker-Allowed $meridian_sw;
+                add_header Content-Security-Policy "{csp}" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-Frame-Options "DENY" always;
+                add_header Referrer-Policy "no-referrer" always;
+            }}
+
+            # Default: unknown paths
+            location / {{
+                {default_action}
+            }}
+
+            access_log /var/log/nginx/meridian.log;
         }}
 
-        http://{server_ip} {{
-        {redirect_server_header}    redir https://{server_ip}{{uri}} permanent
+        # --- HTTP: ACME challenge + redirect ---
+        server {{
+            listen 80;
+            server_name {host};
+            server_tokens off;
+
+            location /.well-known/acme-challenge/ {{
+                root /var/www/acme;
+            }}
+
+            location / {{
+                return 301 https://$host$request_uri;
+            }}
         }}
     """)
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -407,10 +299,7 @@ def _render_caddy_ip_config(
 
 
 def _render_stats_script(panel_internal_port: int) -> str:
-    """Render the stats update Python script.
-
-    Replaces: roles/caddy/templates/update-stats.py.j2
-    """
+    """Render the stats update Python script."""
     return textwrap.dedent(f"""\
         #!/usr/bin/env python3
         \"\"\"Fetch per-client traffic stats from 3x-ui and write per-client JSON files.
@@ -539,139 +428,31 @@ def _render_stats_script(panel_internal_port: int) -> str:
 
 
 # ---------------------------------------------------------------------------
-# InstallHAProxy
+# InstallNginx (replaces InstallHAProxy + InstallCaddy)
 # ---------------------------------------------------------------------------
 
 
-class InstallHAProxy:
-    """Install HAProxy and deploy SNI routing configuration.
+class InstallNginx:
+    """Install nginx and deploy SNI routing + TLS + web serving configuration.
 
-    Replaces: roles/haproxy/tasks/main.yml + haproxy.cfg.j2
+    Combines the previous InstallHAProxy (SNI routing) and InstallCaddy
+    (TLS termination + web serving) into a single nginx process.
 
-    HAProxy sits on port 443 and inspects the TLS ClientHello SNI field
-    WITHOUT terminating TLS. Routes Reality-targeted SNIs to Xray,
-    explicitly allowed SNIs (server IP, domain) to Caddy, and drops
-    connections with unrecognized SNI to prevent fingerprinting.
+    nginx stream module handles SNI routing on port 443 (no TLS termination).
+    nginx http module handles TLS + reverse proxy + static files on internal port.
+    acme.sh handles certificate issuance and renewal.
+
+    On upgrade from HAProxy+Caddy, stops and disables the old services.
     """
 
-    name = "Install HAProxy"
-
-    def __init__(
-        self,
-        reality_sni: str,
-        haproxy_reality_backend_port: int = 10443,
-        caddy_internal_port: int = 8443,
-        server_ip: str = "",
-        domain: str = "",
-    ) -> None:
-        self.reality_sni = reality_sni
-        self.haproxy_reality_backend_port = haproxy_reality_backend_port
-        self.caddy_internal_port = caddy_internal_port
-        self.server_ip = server_ip
-        self.domain = domain
-
-    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        # Resolve server_ip and domain from context if not set at init time
-        server_ip = self.server_ip or ctx.ip
-        domain = self.domain or ctx.domain
-
-        # Check if already installed and configured
-        check = conn.run("dpkg -l haproxy 2>/dev/null | grep -q '^ii'", timeout=10)
-        already_installed = check.returncode == 0
-
-        # Install HAProxy
-        if not already_installed:
-            result = conn.run(
-                "DEBIAN_FRONTEND=noninteractive apt-get install -y haproxy",
-                timeout=120,
-            )
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"Failed to install HAProxy: {result.stderr.strip()}",
-                )
-
-        # Render and deploy configuration
-        config = _render_haproxy_cfg(
-            reality_sni=self.reality_sni,
-            haproxy_reality_backend_port=self.haproxy_reality_backend_port,
-            caddy_internal_port=self.caddy_internal_port,
-            server_ip=server_ip,
-            domain=domain,
-        )
-        q_config = shlex.quote(config)
-        result = conn.run(f"printf '%s' {q_config} > /etc/haproxy/haproxy.cfg", timeout=10)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to write HAProxy config: {result.stderr.strip()}",
-            )
-
-        # Validate configuration
-        result = conn.run("haproxy -c -f /etc/haproxy/haproxy.cfg", timeout=10)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"HAProxy config validation failed: {result.stderr.strip()}",
-            )
-
-        # Ensure HAProxy restarts on failure (distro defaults may not include this)
-        conn.run(
-            "mkdir -p /etc/systemd/system/haproxy.service.d && "
-            "printf '[Service]\\nRestart=on-failure\\nRestartSec=5\\n' "
-            "> /etc/systemd/system/haproxy.service.d/restart.conf && "
-            "systemctl daemon-reload",
-            timeout=10,
-        )
-
-        # Start/enable/reload HAProxy
-        conn.run("systemctl enable haproxy", timeout=10)
-        result = conn.run("systemctl reload-or-restart haproxy", timeout=15)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"Failed to start HAProxy: {result.stderr.strip()}",
-            )
-
-        result_status: StepStatus = "changed" if not already_installed else "ok"
-        return StepResult(
-            name=self.name,
-            status=result_status,
-            detail=(
-                f"HAProxy configured: SNI={self.reality_sni} -> "
-                f"127.0.0.1:{self.haproxy_reality_backend_port}, "
-                f"SNI={server_ip} -> 127.0.0.1:{self.caddy_internal_port}"
-                + (f", SNI={domain} -> 127.0.0.1:{self.caddy_internal_port}" if domain else "")
-                + ", unknown SNI -> drop"
-            ),
-        )
-
-
-# ---------------------------------------------------------------------------
-# InstallCaddy
-# ---------------------------------------------------------------------------
-
-
-class InstallCaddy:
-    """Install Caddy from official repo and deploy Meridian config.
-
-    Replaces: roles/caddy/tasks/main.yml (install + config portions)
-
-    Config strategy: Meridian writes to /etc/caddy/conf.d/meridian.caddy
-    and ensures the main Caddyfile imports /etc/caddy/conf.d/*. The user's
-    own Caddyfile is never overwritten.
-    """
-
-    name = "Install Caddy"
+    name = "Install nginx"
 
     def __init__(
         self,
         domain: str,
-        caddy_internal_port: int = 8443,
+        reality_sni: str = "",
+        reality_backend_port: int = 10443,
+        nginx_internal_port: int = 8443,
         ws_path: str = "",
         wss_internal_port: int = 0,
         panel_web_base_path: str = "",
@@ -686,7 +467,9 @@ class InstallCaddy:
         decoy: str = "",
     ) -> None:
         self.domain = domain
-        self.caddy_internal_port = caddy_internal_port
+        self.reality_sni = reality_sni
+        self.reality_backend_port = reality_backend_port
+        self.nginx_internal_port = nginx_internal_port
         self.ws_path = ws_path
         self.wss_internal_port = wss_internal_port
         self.panel_web_base_path = panel_web_base_path
@@ -711,6 +494,8 @@ class InstallCaddy:
         decoy = self.decoy or ctx.decoy
         ws_path = self.ws_path or ctx.get("ws_path", "")
         wss_internal_port = self.wss_internal_port or ctx.wss_port
+        reality_sni = self.reality_sni or ctx.sni
+        reality_backend_port = self.reality_backend_port or ctx.reality_port
 
         # -- DNS pre-check (domain mode only) --
         if not self.ip_mode and not self.skip_dns_check:
@@ -718,81 +503,132 @@ class InstallCaddy:
             if dns_result is not None:
                 return StepResult(name=self.name, status="failed", detail=dns_result)
 
-        # -- Check if Caddy is already installed --
-        check = conn.run("dpkg -l caddy 2>/dev/null | grep -q '^ii'", timeout=10)
+        # -- Upgrade path: stop old HAProxy and Caddy if present --
+        conn.run(
+            "systemctl stop haproxy 2>/dev/null; systemctl disable haproxy 2>/dev/null; true",
+            timeout=10,
+        )
+        conn.run(
+            "systemctl stop caddy 2>/dev/null; systemctl disable caddy 2>/dev/null; true",
+            timeout=10,
+        )
+        # Remove old watchdog immediately to prevent it from restarting
+        # haproxy/caddy during the deploy (cron runs every 5 min)
+        conn.run("rm -f /etc/meridian/health-check.sh", timeout=5)
+        # Clean up old config files
+        conn.run(
+            "rm -f /etc/haproxy/haproxy.cfg /etc/caddy/conf.d/meridian.caddy && "
+            "rm -rf /etc/systemd/system/haproxy.service.d /etc/systemd/system/caddy.service.d && "
+            "systemctl daemon-reload 2>/dev/null; true",
+            timeout=10,
+        )
+
+        # -- Check if nginx is already installed --
+        check = conn.run("dpkg -l nginx 2>/dev/null | grep -q '^ii'", timeout=10)
         already_installed = check.returncode == 0
 
         if not already_installed:
-            # -- Install prerequisites --
             result = conn.run(
-                "DEBIAN_FRONTEND=noninteractive apt-get install -y "
-                "debian-keyring debian-archive-keyring apt-transport-https curl dnsutils",
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx",
                 timeout=120,
             )
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
                     status="failed",
-                    detail=f"Failed to install Caddy prerequisites: {result.stderr.strip()}",
+                    detail=f"Failed to install nginx: {result.stderr.strip()}",
                 )
 
-            # -- Add Caddy GPG key --
-            result = conn.run(
-                "curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key "
-                "-o /etc/apt/keyrings/caddy-stable.asc && "
-                "chmod 644 /etc/apt/keyrings/caddy-stable.asc",
-                timeout=30,
+        # -- Verify stream module is available --
+        check = conn.run("nginx -V 2>&1 | grep -q stream_ssl_preread_module", timeout=10)
+        if check.returncode != 0:
+            # Try installing libnginx-mod-stream (separate package on some distros)
+            conn.run(
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y libnginx-mod-stream",
+                timeout=60,
             )
-            if result.returncode != 0:
+            check = conn.run("nginx -V 2>&1 | grep -q stream_ssl_preread_module", timeout=10)
+            if check.returncode != 0:
                 return StepResult(
                     name=self.name,
                     status="failed",
-                    detail=f"Failed to add Caddy GPG key: {result.stderr.strip()}",
-                )
-
-            # -- Add Caddy apt repository --
-            repo_line = (
-                "deb [signed-by=/etc/apt/keyrings/caddy-stable.asc] "
-                "https://dl.cloudsmith.io/public/caddy/stable/deb/debian "
-                "any-version main"
-            )
-            q_repo = shlex.quote(repo_line)
-            result = conn.run(
-                f"echo {q_repo} > /etc/apt/sources.list.d/caddy-stable.list",
-                timeout=10,
-            )
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"Failed to add Caddy repo: {result.stderr.strip()}",
-                )
-
-            # -- Install Caddy --
-            result = conn.run(
-                "DEBIAN_FRONTEND=noninteractive apt-get update && "
-                "DEBIAN_FRONTEND=noninteractive apt-get install -y caddy",
-                timeout=120,
-            )
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"Failed to install Caddy: {result.stderr.strip()}",
+                    detail="nginx stream_ssl_preread_module not available",
                 )
 
         # -- Create directories --
         conn.run(
-            "mkdir -p /var/www/private /var/log/caddy /etc/caddy/conf.d && "
-            "chown caddy:caddy /var/www/private /var/log/caddy /etc/caddy/conf.d",
+            "mkdir -p /var/www/private /var/www/acme/.well-known/acme-challenge "
+            "/etc/ssl/meridian /etc/nginx/stream.d && "
+            "chown -R www-data:www-data /var/www/private /var/www/acme",
             timeout=10,
         )
 
-        # -- Deploy Meridian Caddy config --
+        # -- Ensure webmanifest MIME type is registered --
+        # nginx doesn't know .webmanifest by default; PWA manifests need it.
+        conn.run(
+            "grep -q webmanifest /etc/nginx/mime.types || "
+            r"sed -i '/^}/i \    application/manifest+json  webmanifest;' /etc/nginx/mime.types",
+            timeout=10,
+        )
+
+        # -- Install acme.sh (if not already installed) --
+        check = conn.run("test -f /root/.acme.sh/acme.sh", timeout=5)
+        if check.returncode != 0:
+            email_arg = shlex.quote(self.email) if self.email else "''"
+            result = conn.run(
+                f"curl -fsSL https://get.acme.sh | sh -s email={email_arg}",
+                timeout=60,
+            )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"Failed to install acme.sh: {result.stderr.strip()}",
+                )
+
+        # -- Bootstrap: generate self-signed cert so nginx can start --
+        check = conn.run("test -f /etc/ssl/meridian/fullchain.pem", timeout=5)
+        if check.returncode != 0:
+            cert_host = server_ip if self.ip_mode else self.domain
+            q_host = shlex.quote(cert_host)
+            result = conn.run(
+                f"openssl req -x509 -newkey rsa:2048 -keyout /etc/ssl/meridian/key.pem "
+                f"-out /etc/ssl/meridian/fullchain.pem -days 1 -nodes "
+                f"-subj '/CN={q_host}'",
+                timeout=15,
+            )
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail="Failed to generate bootstrap certificate",
+                )
+
+        # -- Deploy nginx stream config --
+        stream_config = _render_nginx_stream_config(
+            reality_sni=reality_sni,
+            reality_backend_port=reality_backend_port,
+            nginx_internal_port=self.nginx_internal_port,
+            server_ip=server_ip,
+            domain=self.domain,
+        )
+        q_stream = shlex.quote(stream_config)
+        result = conn.run(
+            f"printf '%s' {q_stream} > /etc/nginx/stream.d/meridian.conf",
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail=f"Failed to write stream config: {result.stderr.strip()}",
+            )
+
+        # -- Deploy nginx http config --
         if self.ip_mode:
-            caddy_config = _render_caddy_ip_config(
+            http_config = _render_nginx_ip_config(
                 server_ip=server_ip,
-                caddy_internal_port=self.caddy_internal_port,
+                nginx_internal_port=self.nginx_internal_port,
                 panel_web_base_path=panel_web_base_path,
                 panel_internal_port=panel_internal_port,
                 info_page_path=info_page_path,
@@ -802,9 +638,9 @@ class InstallCaddy:
                 decoy=decoy,
             )
         else:
-            caddy_config = _render_caddy_config(
+            http_config = _render_nginx_http_config(
                 domain=self.domain,
-                caddy_internal_port=self.caddy_internal_port,
+                nginx_internal_port=self.nginx_internal_port,
                 ws_path=ws_path,
                 wss_internal_port=wss_internal_port,
                 panel_web_base_path=panel_web_base_path,
@@ -815,62 +651,94 @@ class InstallCaddy:
                 xhttp_internal_port=xhttp_internal_port,
                 decoy=decoy,
             )
-        q_config = shlex.quote(caddy_config)
+        q_http = shlex.quote(http_config)
         result = conn.run(
-            f"printf '%s' {q_config} > /etc/caddy/conf.d/meridian.caddy",
+            f"printf '%s' {q_http} > /etc/nginx/conf.d/meridian-http.conf",
             timeout=10,
         )
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
                 status="failed",
-                detail=f"Failed to write Caddy config: {result.stderr.strip()}",
+                detail=f"Failed to write http config: {result.stderr.strip()}",
             )
 
-        # -- Write main Caddyfile with global options + import --
-        # Build global options block from flags:
-        #   - default_sni for IP mode (RFC 6066: TLS clients omit SNI for IP addresses)
-        #   - protocols h1 h2 for decoy mode (disables HTTP/3, removes alt-svc header;
-        #     nginx doesn't advertise H3, so it blows the decoy cover)
-        global_opts = []
-        if self.ip_mode:
-            global_opts.append(f"\tdefault_sni {shlex.quote(server_ip)}")
-        if decoy:
-            global_opts.append("\tservers {\n\t\tprotocols h1 h2\n\t}")
+        # -- Ensure nginx.conf has a stream block --
+        # The default nginx.conf only has an http{} block with
+        # include conf.d/*.conf. We need a top-level stream{} block
+        # for SNI routing. Stream config lives in stream.d/ to avoid
+        # being included inside http{} by the default conf.d/*.conf glob.
+        check = conn.run("grep -q 'stream {' /etc/nginx/nginx.conf", timeout=5)
+        if check.returncode != 0:
+            # Append stream block at the end of nginx.conf (outside http{})
+            stream_block = "\\nstream {\\n    include /etc/nginx/stream.d/*.conf;\\n}\\n"
+            conn.run(
+                f"printf '{stream_block}' >> /etc/nginx/nginx.conf",
+                timeout=10,
+            )
 
-        import_line = "import /etc/caddy/conf.d/*.caddy"
-        if global_opts:
-            caddyfile_content = "{{\n{opts}\n}}\n\n{imp}\n".format(opts="\n".join(global_opts), imp=import_line)
-        else:
-            caddyfile_content = f"{import_line}\n"
+        # -- Remove default site (conflicts with our port 80 listener) --
+        conn.run("rm -f /etc/nginx/sites-enabled/default", timeout=5)
 
-        q_caddyfile = shlex.quote(caddyfile_content)
-        conn.run(f"printf '%s' {q_caddyfile} > /etc/caddy/Caddyfile", timeout=10)
+        # -- Validate configuration --
+        result = conn.run("nginx -t 2>&1", timeout=10)
+        if result.returncode != 0:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail=f"nginx config validation failed: {result.stderr.strip() or result.stdout.strip()}",
+            )
 
-        # -- Ensure Caddy restarts on failure --
+        # -- Ensure nginx restarts on failure --
         conn.run(
-            "mkdir -p /etc/systemd/system/caddy.service.d && "
+            "mkdir -p /etc/systemd/system/nginx.service.d && "
             "printf '[Service]\\nRestart=on-failure\\nRestartSec=5\\n' "
-            "> /etc/systemd/system/caddy.service.d/restart.conf && "
+            "> /etc/systemd/system/nginx.service.d/restart.conf && "
             "systemctl daemon-reload",
             timeout=10,
         )
 
-        # -- Start/enable/reload Caddy --
-        conn.run("systemctl enable caddy", timeout=10)
-        result = conn.run("systemctl reload-or-restart caddy", timeout=15)
+        # -- Start/enable/reload nginx --
+        conn.run("systemctl enable nginx", timeout=10)
+        result = conn.run("systemctl reload-or-restart nginx", timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
                 status="failed",
-                detail=f"Failed to start Caddy: {result.stderr.strip()}",
+                detail=f"Failed to start nginx: {result.stderr.strip()}",
             )
 
+        # -- Issue real TLS certificate via acme.sh --
+        cert_host = server_ip if self.ip_mode else self.domain
+        q_cert_host = shlex.quote(cert_host)
+        profile_flag = " --certificate-profile shortlived" if self.ip_mode else ""
+
+        result = conn.run(
+            f"/root/.acme.sh/acme.sh --issue -d {q_cert_host} "
+            f"--webroot /var/www/acme --server letsencrypt{profile_flag} 2>&1",
+            timeout=120,
+        )
+        # acme.sh returns 0 on success, 2 if cert already valid (skip renewal)
+        cert_issued = result.returncode in (0, 2)
+
+        if cert_issued:
+            # Install cert and set reload command for auto-renewal
+            conn.run(
+                f"/root/.acme.sh/acme.sh --install-cert -d {q_cert_host} "
+                f"--key-file /etc/ssl/meridian/key.pem "
+                f"--fullchain-file /etc/ssl/meridian/fullchain.pem "
+                f'--reloadcmd "systemctl reload nginx" 2>&1',
+                timeout=30,
+            )
+            # Reload to pick up the real cert
+            conn.run("systemctl reload nginx", timeout=10)
+
         host = server_ip if self.ip_mode else self.domain
+        cert_detail = "TLS cert issued" if cert_issued else "self-signed (ACME pending)"
         return StepResult(
             name=self.name,
             status="changed",
-            detail=f"Caddy configured for {host}:{self.caddy_internal_port}",
+            detail=f"nginx configured for {host}:{self.nginx_internal_port} ({cert_detail})",
         )
 
 
@@ -1042,7 +910,7 @@ class DeployConnectionPage:
 
         # Create stats directory
         conn.run(
-            "mkdir -p /var/www/private/stats && chown caddy:caddy /var/www/private/stats",
+            "mkdir -p /var/www/private/stats && chown www-data:www-data /var/www/private/stats",
             timeout=10,
         )
 
@@ -1057,19 +925,16 @@ class DeployConnectionPage:
             timeout=10,
         )
 
-        # Deploy health watchdog cron (checks Xray, Caddy, HAProxy every 5 min)
+        # Deploy health watchdog cron (checks Xray and nginx every 5 min)
         watchdog_script = (
             "#!/bin/sh\n"
             "# Meridian service health watchdog — restarts crashed services\n"
             "docker exec 3x-ui pgrep -f xray >/dev/null 2>&1 || "
             '{ logger -t meridian-health "Xray not running, restarting 3x-ui"; '
             "docker restart 3x-ui; }\n"
-            "systemctl is-active --quiet caddy || "
-            '{ logger -t meridian-health "Caddy not running, restarting"; '
-            "systemctl restart caddy; }\n"
-            "systemctl is-active --quiet haproxy || "
-            '{ logger -t meridian-health "HAProxy not running, restarting"; '
-            "systemctl restart haproxy; }\n"
+            "systemctl is-active --quiet nginx || "
+            '{ logger -t meridian-health "nginx not running, restarting"; '
+            "systemctl restart nginx; }\n"
         )
         q_watchdog = shlex.quote(watchdog_script)
         conn.run(f"printf '%s' {q_watchdog} > /etc/meridian/health-check.sh", timeout=10)
@@ -1143,7 +1008,7 @@ def _check_domain_dns(conn: ServerConnection, domain: str, server_ip: str) -> st
         return (
             f"{domain} does not resolve to this server's IP ({server_ip}).\n"
             f"DNS returned: {resolved}\n\n"
-            f"Caddy needs the domain to point DIRECTLY to this server for TLS certificates.\n\n"
+            f"The domain must point DIRECTLY to this server for TLS certificates.\n\n"
             f"Fix: In Cloudflare, set the A record to 'DNS only' (grey cloud), then re-run.\n"
             f"After setup succeeds, switch to 'Proxied' (orange cloud).\n\n"
             f"To skip this check: use skip_dns_check=True"

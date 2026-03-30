@@ -35,11 +35,11 @@ Meridian ships the strongest available protocol — today that's VLESS+Reality �
 |---|---|---|---|---|
 | Install | One command | Manual Docker + config | Docker + CLI | Script + web UI |
 | Client handoff | QR + hosted page | Manual URL sharing | Panel-only | Panel-only |
-| Architecture | HAProxy+Caddy+Xray (hardened) | Xray only | Xray+Nginx | Xray+Nginx |
+| Architecture | nginx+Xray (hardened) | Xray only | Xray+Nginx | Xray+Nginx |
 | Relay support | Built-in L4 relay | Manual | No | Manual |
 | Rebuild workflow | `deploy NEW_IP` | Start over | Reconfigure | Reconfigure |
 
-Meridian is an **orchestrator** — it configures Docker, Xray, HAProxy, Caddy, firewall, BBR, and TLS certificates automatically. You focus on deploying and sharing access, not debugging configs.
+Meridian is an **orchestrator** — it configures Docker, Xray, nginx, firewall, BBR, and TLS certificates automatically. You focus on deploying and sharing access, not debugging configs.
 
 ## Install
 
@@ -114,12 +114,12 @@ Meridian deploys [VLESS+Reality](https://github.com/XTLS/Xray-core) — a protoc
 ## Architecture
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/uburuntu/meridian/main/website/public/img/architecture.svg" width="720" alt="Meridian architecture — HAProxy SNI routing, Caddy TLS, Xray Reality">
+  <img src="https://raw.githubusercontent.com/uburuntu/meridian/main/website/public/img/architecture.svg" width="720" alt="Meridian architecture — nginx SNI routing, TLS, Xray Reality">
 </p>
 
-**Standalone mode** — HAProxy on port 443 routes Reality traffic to Xray. Caddy provides auto-TLS (Let's Encrypt IP certificate) for hosted connection pages, panel access, and XHTTP transport. No domain needed.
+**Standalone mode** — nginx on port 443 routes Reality traffic to Xray via SNI inspection. nginx also provides TLS (Let's Encrypt IP certificate via acme.sh) for hosted connection pages, panel access, and XHTTP transport. No domain needed.
 
-**Domain mode** — Same architecture, plus Caddy handles VLESS+WSS through Cloudflare CDN as a fallback when the server IP is blocked.
+**Domain mode** — Same architecture, plus nginx handles VLESS+WSS through Cloudflare CDN as a fallback when the server IP is blocked.
 
 **Relay mode** — A lightweight TCP forwarder (Realm) on a domestic server forwards port 443 to the exit server abroad. All protocols work through the relay with end-to-end encryption.
 
