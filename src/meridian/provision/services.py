@@ -89,8 +89,13 @@ def _render_nginx_stream_config(
 
         server {{
             listen 443;
+            listen [::]:443;
             ssl_preread on;
             proxy_pass $meridian_backend;
+            # Fast timeout for blackhole upstream — unknown-SNI connections
+            # get RST in <1s instead of waiting 60s (default). Also reduces
+            # log noise from port scanners since connections close quickly.
+            proxy_connect_timeout 1s;
         }}
     """)
 
@@ -126,7 +131,7 @@ def _render_nginx_http_config(
             proxy_pass http://127.0.0.1:{wss_internal_port};
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_set_header Connection $connection_upgrade;
             proxy_read_timeout 360s;
         }}
     """).rstrip()
@@ -240,6 +245,12 @@ def _render_nginx_server_block(
             default      "";
         }}
 
+        # WebSocket upgrade: only set Connection: upgrade when client sends Upgrade header
+        map $http_upgrade $connection_upgrade {{
+            default upgrade;
+            ""      close;
+        }}
+
         server {{
             listen 127.0.0.1:{nginx_internal_port} ssl;
             server_name {host};
@@ -260,8 +271,8 @@ def _render_nginx_server_block(
             location /{info_page_path}/ {{
                 alias /var/www/private/;
 
-                add_header Cache-Control $meridian_cache;
-                add_header Service-Worker-Allowed $meridian_sw;
+                add_header Cache-Control $meridian_cache always;
+                add_header Service-Worker-Allowed $meridian_sw always;
                 add_header Content-Security-Policy "{csp}" always;
                 add_header X-Content-Type-Options "nosniff" always;
                 add_header X-Frame-Options "DENY" always;
@@ -279,6 +290,7 @@ def _render_nginx_server_block(
         # --- HTTP: ACME challenge + redirect ---
         server {{
             listen 80;
+            listen [::]:80;
             server_name {host};
             server_tokens off;
 
@@ -515,10 +527,11 @@ class InstallNginx:
         # Remove old watchdog immediately to prevent it from restarting
         # haproxy/caddy during the deploy (cron runs every 5 min)
         conn.run("rm -f /etc/meridian/health-check.sh", timeout=5)
-        # Clean up old config files
+        # Clean up old config files and cert storage
         conn.run(
             "rm -f /etc/haproxy/haproxy.cfg /etc/caddy/conf.d/meridian.caddy && "
-            "rm -rf /etc/systemd/system/haproxy.service.d /etc/systemd/system/caddy.service.d && "
+            "rm -rf /etc/systemd/system/haproxy.service.d /etc/systemd/system/caddy.service.d "
+            "/var/lib/caddy/.local/share/caddy/certificates && "
             "systemctl daemon-reload 2>/dev/null; true",
             timeout=10,
         )
@@ -590,11 +603,11 @@ class InstallNginx:
         check = conn.run("test -f /etc/ssl/meridian/fullchain.pem", timeout=5)
         if check.returncode != 0:
             cert_host = server_ip if self.ip_mode else self.domain
-            q_host = shlex.quote(cert_host)
+            q_subj = shlex.quote(f"/CN={cert_host}")
             result = conn.run(
                 f"openssl req -x509 -newkey rsa:2048 -keyout /etc/ssl/meridian/key.pem "
                 f"-out /etc/ssl/meridian/fullchain.pem -days 1 -nodes "
-                f"-subj '/CN={q_host}'",
+                f"-subj {q_subj}",
                 timeout=15,
             )
             if result.returncode != 0:
@@ -732,13 +745,27 @@ class InstallNginx:
             )
             # Reload to pick up the real cert
             conn.run("systemctl reload nginx", timeout=10)
+        else:
+            # Certificate issuance failed — server is running with self-signed cert.
+            # This is a hard failure: connection pages won't work (browser cert errors),
+            # and there's no auto-retry without --install-cert setting up the cron.
+            acme_output = result.stdout.strip()[-200:] if result.stdout else ""
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail=(
+                    f"TLS certificate issuance failed (rc={result.returncode}). "
+                    f"nginx is running with a self-signed cert. "
+                    f"Check: is port 80 open? Does the domain resolve to this IP? "
+                    f"acme.sh: {acme_output}"
+                ),
+            )
 
         host = server_ip if self.ip_mode else self.domain
-        cert_detail = "TLS cert issued" if cert_issued else "self-signed (ACME pending)"
         return StepResult(
             name=self.name,
             status="changed",
-            detail=f"nginx configured for {host}:{self.nginx_internal_port} ({cert_detail})",
+            detail=f"nginx configured for {host}:{self.nginx_internal_port} (TLS cert issued)",
         )
 
 

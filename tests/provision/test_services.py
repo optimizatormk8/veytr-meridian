@@ -339,7 +339,7 @@ class TestNginxWSS:
             info_page_path="connect",
         )
         assert "proxy_set_header Upgrade" in cfg
-        assert 'proxy_set_header Connection "upgrade"' in cfg
+        assert "proxy_set_header Connection $connection_upgrade" in cfg
         assert "proxy_pass http://127.0.0.1:28000" in cfg
 
     def test_ip_config_has_no_wss(self):
@@ -351,8 +351,8 @@ class TestNginxWSS:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "Upgrade" not in cfg
-        assert "WSS" not in cfg
+        assert "VLESS+WSS" not in cfg
+        assert "proxy_set_header Upgrade" not in cfg
 
 
 # ---------------------------------------------------------------------------
