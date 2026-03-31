@@ -363,12 +363,13 @@ class TestNginxWSS:
 
 
 class TestNginxDecoy:
-    def test_default_serves_placeholder_page(self):
-        """Default serves a 200 placeholder page — looks like a site under construction.
+    def test_default_returns_nginx_403_404(self):
+        """Default uses nginx's built-in 403/404 — not custom HTML.
 
-        Blind censor assessment rated 200+content as 2/10 suspicious vs
-        403 (4/10) and 444 (9/10). A placeholder page blends in with
-        millions of real "coming soon" sites.
+        Custom HTML (like a placeholder page) would be fingerprintable:
+        a censor finding one Meridian server could scan for the same HTML
+        on all IPs.  nginx-generated error pages are identical across all
+        nginx installations — no Meridian-specific content.
         """
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
@@ -377,15 +378,15 @@ class TestNginxDecoy:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "return 200" in cfg
-        assert "default_type text/html" in cfg
-        assert "under construction" in cfg
-        # 444 must never appear in the HTTPS server block
+        assert "return 403" in cfg
+        assert "return 404" in cfg
+        # No custom HTML content in the HTTPS block
         https_block = cfg.split("listen 80")[0]
         assert "return 444" not in https_block
+        assert "return 200" not in https_block
 
-    def test_domain_default_serves_placeholder_page(self):
-        """Domain mode also serves placeholder page."""
+    def test_domain_default_returns_nginx_403_404(self):
+        """Domain mode also uses nginx-generated 403/404."""
         cfg = _render_nginx_http_config(
             domain="example.com",
             nginx_internal_port=8443,
@@ -395,24 +396,11 @@ class TestNginxDecoy:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "return 200" in cfg
-        assert "default_type text/html" in cfg
-        # 444 must not appear in the HTTPS server block
+        assert "return 403" in cfg
+        assert "return 404" in cfg
         https_block = cfg.split("listen 80")[0]
         assert "return 444" not in https_block
-
-    def test_placeholder_is_self_contained(self):
-        """Placeholder page must not load external resources."""
-        cfg = _render_nginx_ip_config(
-            server_ip="198.51.100.1",
-            nginx_internal_port=8443,
-            panel_web_base_path="secretpanel",
-            panel_internal_port=2053,
-            info_page_path="connect",
-        )
-        # Extract the HTML from the return 200 directive
-        assert "http://" not in cfg.split("return 200")[1].split(";")[0]
-        assert "https://" not in cfg.split("return 200")[1].split(";")[0]
+        assert "return 200" not in https_block
 
     def test_default_has_security_headers(self):
         cfg = _render_nginx_ip_config(
@@ -579,10 +567,22 @@ class TestNginxFingerprinting:
         ]:
             # Split at port 80 to isolate the HTTPS block
             https_block = cfg.split("listen 80")[0]
-            assert "return 200" in https_block
+            assert "return 403" in https_block
             assert "return 404" in https_block
             assert "return 444" not in https_block
-            assert "return 403" not in https_block
+
+    def test_no_custom_html_in_response(self):
+        """HTTPS block must not serve custom HTML — it would be fingerprintable."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        https_block = cfg.split("listen 80")[0]
+        assert "return 200" not in https_block
+        assert "default_type text/html" not in https_block
 
     def test_csp_restricts_external_resources(self):
         """CSP must block external resource loading (self-hosted everything)."""
@@ -606,8 +606,8 @@ class TestNginxFingerprinting:
         assert "default  reality_dest" in cfg
         assert "blackhole" not in cfg
 
-    def test_placeholder_page_on_root_404_on_other(self):
-        """Root serves placeholder (200), other paths return 404."""
+    def test_root_403_vs_default_404(self):
+        """Root returns 403, other paths 404 — all nginx-generated, not Meridian."""
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
             nginx_internal_port=8443,
@@ -616,7 +616,7 @@ class TestNginxFingerprinting:
             info_page_path="connect",
         )
         assert "location = /" in cfg
-        assert "return 200" in cfg
+        assert "return 403" in cfg
         assert "return 404" in cfg
 
 

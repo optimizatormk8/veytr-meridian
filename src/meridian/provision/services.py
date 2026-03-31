@@ -104,27 +104,6 @@ def _render_nginx_stream_config(
 # nginx http configuration (TLS + reverse proxy + web — replaces Caddy)
 # ---------------------------------------------------------------------------
 
-# Minimal self-contained placeholder page — returned for "/" to make the
-# server look like a generic site under construction.  Avoids 403 (which
-# signals "something is here but you can't have it") in favour of a 200
-# that blends in with millions of real placeholder pages.  No single
-# quotes (nginx string delimiter) and no external resources.
-_PLACEHOLDER_HTML = (
-    "<!doctype html><html><head><meta charset=utf-8>"
-    '<meta name=viewport content="width=device-width,initial-scale=1">'
-    "<title>Welcome</title>"
-    "<style>*{margin:0;padding:0;box-sizing:border-box}"
-    "body{font-family:system-ui,-apple-system,sans-serif;"
-    "display:flex;justify-content:center;align-items:center;"
-    "min-height:100vh;background:#fafafa;color:#333}"
-    "main{text-align:center;padding:2em}"
-    "h1{font-weight:300;font-size:2em;margin-bottom:.4em}"
-    "p{color:#888;font-size:.95em}</style></head>"
-    "<body><main><h1>Welcome</h1>"
-    "<p>This site is under construction.</p>"
-    "</main></body></html>"
-)
-
 
 def _render_nginx_http_config(
     domain: str,
@@ -169,11 +148,10 @@ def _render_nginx_http_config(
             }}
         """).rstrip()
 
-    # Root: serve a minimal placeholder page (200) instead of 403.
-    # Automated classifiers key on HTTP status codes — 200 is dramatically
-    # less suspicious (2/10) than 403 (4/10).  The page content is generic
-    # enough that it blends in with millions of real "under construction" sites.
-    root_action = f"default_type text/html;\n            return 200 '{_PLACEHOLDER_HTML}';"
+    # Root: nginx's built-in 403 page. NOT a custom Meridian page — custom
+    # HTML would be fingerprintable (one known server reveals all others).
+    # nginx generates 403/404 bodies itself, identical across all installs.
+    root_action = "return 403;"
     default_action = "return 404;"
 
     return _render_nginx_server_block(
@@ -219,8 +197,8 @@ def _render_nginx_ip_config(
             }}
         """).rstrip()
 
-    # Root: serve a minimal placeholder page (200) — see domain mode comment.
-    root_action = f"default_type text/html;\n            return 200 '{_PLACEHOLDER_HTML}';"
+    # Root: nginx's built-in 403 — see domain mode comment for rationale.
+    root_action = "return 403;"
     default_action = "return 404;"
 
     return _render_nginx_server_block(
@@ -323,12 +301,12 @@ def _render_nginx_server_block(
                 add_header Referrer-Policy "no-referrer" always;
             }}
 
-            # Root: placeholder page (200 — looks like a site under construction)
+            # Root: nginx-generated 403 (not custom HTML — avoids fingerprinting)
             location = / {{
                 {root_action}
             }}
 
-            # Default: everything else returns 404
+            # Default: nginx-generated 404
             location / {{
                 {default_action}
             }}
