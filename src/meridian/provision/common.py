@@ -17,7 +17,6 @@ REQUIRED_PACKAGES = [
     "wget",
     "unzip",
     "jq",
-    "qrencode",
     "ufw",
     "gnupg",
     "apt-transport-https",

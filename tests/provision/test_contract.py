@@ -102,8 +102,7 @@ def _make_pipeline_conn() -> MockConnection:
     conn.when("nginx -t", rc=0)
     conn.when("systemctl", rc=0)
 
-    # DeployConnectionPage: qrencode
-    conn.when("qrencode", stdout="iVBORw0KGgo=")
+    # DeployConnectionPage
     conn.when("printf", rc=0)
     conn.when("mkdir", rc=0)
     conn.when("chown", rc=0)

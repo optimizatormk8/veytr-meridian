@@ -22,11 +22,7 @@ class TestBuildDemoUrls:
         assert "security=reality" in url
         assert "198.51.100.1" in url
 
-    def test_qr_codes_generated_when_qrencode_available(self) -> None:
-        import shutil
-
-        if not shutil.which("qrencode"):
-            return  # skip if qrencode not installed
+    def test_qr_codes_generated(self) -> None:
         urls = _build_demo_urls()
         for u in urls:
             assert u.qr_b64, f"QR missing for {u.key}"

@@ -36,14 +36,18 @@ Things that require human action outside the codebase.
 
 ### Anti-censorship
 
-- [ ] **IP cert fingerprinting via Caddy catch-all** — active probers get Let's Encrypt IP cert on non-Reality SNI. Need cert strategy that mimics camouflage target or drops connection
-- [ ] **XHTTP URL missing `sni=` in direct mode** — client infers SNI from raw IP, active probers can distinguish (`protocols.py:218`)
+- [ ] **IP cert fingerprinting via nginx catch-all** — active probers get Let's Encrypt IP cert on non-Reality SNI. Need cert strategy that mimics camouflage target or drops connection
+- [ ] **XHTTP URL missing `sni=` and `fp=` in direct mode** — Shadowrocket shows warning, connection fails. Reality URL has all params, XHTTP URL is missing `sni` and `fp=chrome`. Relay XHTTP URL correctly includes `sni` but direct doesn't. Also missing from `DeployConnectionPage` in `services.py` (`protocols.py:218`, `services.py:941-948`)
 - [ ] **Relay topology exposed in connection pages** — relay + direct URLs together expose full topology (`connection-info.html.j2:172-188`)
 
 ### Product
 
 - [ ] **`meridian client show NAME`** — regenerate/re-display connection info without recreating client
 - [ ] **Client migration for rebuilds** — `meridian rebuild NEW_IP --from OLD_IP` or `meridian client migrate`
+
+### UX
+
+- [ ] **Rich markup eats `[y/N]` hint in prompts** — `prompt("Set up a relay? [y/N]")` renders without the hint because Rich parses `[y/N]` as markup tag. User sees no way to decline. Fix: escape brackets `\\[y/N]` or use `markup=False`. Affects relay offer and potentially other prompts
 
 ### Code quality
 
@@ -86,6 +90,7 @@ Things that require human action outside the codebase.
 
 - [ ] **Provisioner no recovery guidance** — user left in inconsistent state. Add "resume from step N" messaging
 - [ ] **`InstallDocker` skips regardless of image version** — no `docker compose pull` on re-deploy
+- [ ] **Docker panel deploy intermittent timeout** — "Deploy 3x-ui panel" fails with "Connection timed out during banner exchange" on first attempt, succeeds on retry. Panel slow to start. Add retry with backoff to `_wait_for_panel`
 
 ### UX / Accessibility
 
@@ -111,10 +116,10 @@ Things that require human action outside the codebase.
 - [ ] **Zero test coverage: upload pipeline** — security-sensitive shell construction untested
 - [ ] **Zero test coverage: `DeployConnectionPage`** — ~80 lines URL+QR+stats untested
 - [ ] **Zero test coverage: `_render_stats_script()`** — complex embedded Python untested
-- [ ] **Caddy XHTTP block untested** — tests never pass `xhttp_path`/`xhttp_internal_port`
+- [ ] **nginx XHTTP block untested** — tests never pass `xhttp_path`/`xhttp_internal_port`
 - [ ] **`_PWA_APPS` / `apps.json` sync untested** — CI validates template, not Python constant
 - [ ] **Manifest color mismatch** — `#0c0e14` vs `#14161E` causes PWA splash flash
-- [ ] **Caddy config duplication** — `_render_caddy_config()` and `_render_caddy_ip_config()` near-identical
+- [ ] **nginx config duplication** — `_render_nginx_http_config()` and `_render_nginx_ip_config()` near-identical
 - [ ] **Protocol card hero/non-hero duplication** — ~85 lines differ only by CSS class
 - [ ] **`protocols` typed as `dict[str, Any]`** — forces runtime isinstance guards
 - [ ] **ValueError instead of fail()** — `client.py:208,401,475` raise wrong exception
@@ -146,7 +151,7 @@ Things that require human action outside the codebase.
 - [ ] **`meridian server status`** — multi-server overview
 - [ ] **`meridian test --via RELAY_IP`** — E2E test through relay
 - [ ] **`meridian client export NAME`** — standalone HTML for offline sharing
-- [ ] **`qrencode` install or louder failure** — include in install script
+- [ ] **Replace `qrencode` binary with Python `segno` package** — `generate_qr_terminal()` and `generate_qr_base64()` shell out to system `qrencode`, which users must install separately. `segno` (zero deps) generates PNG + ANSI natively, eliminating the system dependency. Also removes `qrencode` apt install from `DeployConnectionPage` on the server (`urls.py:184-239`, `services.py:894`)
 
 ### Reliability
 
@@ -168,7 +173,7 @@ Things that require human action outside the codebase.
 - [ ] **Stats strings English-only** — "Active now" not translated
 - [ ] **Wizard `_confirm_scan()` fails silently on WSL**
 - [ ] **Wizard no SSH user validation** — shell metacharacters accepted
-- [ ] **Relay offer defaults to N** — hides useful feature
+- [ ] **Relay offer `[y/N]` invisible** — Rich eats the hint (see P0/UX). User sees no way to decline
 - [ ] **Docs links in translations** — point to `/docs/en/`
 - [ ] **Landing i18n doesn't update `<title>`/OG** — shared links show English
 - [ ] **Mobile nav keyboard broken** — no Escape handler/focus management
@@ -181,8 +186,8 @@ Things that require human action outside the codebase.
 - [ ] **Unicode client names never tested** — Cyrillic/Farsi/CJK real-world scenarios
 - [ ] **`confirm()` raises Exit(1) on "n"** — can't distinguish from failure
 - [ ] **`_sync_credentials_to_server()` ignores SCP failures**
-- [ ] **`_qrencode_warned` global poisons test isolation**
-- [ ] **`InstallCaddy` 11-parameter constructor** — resolved from context anyway
+- [ ] **`_warned_servers` global poisons test isolation**
+- [ ] **`InstallNginx` 14-parameter constructor** — resolved from context anyway
 - [ ] **Wizard/provisioner integration untested**
 - [ ] **`detect_public_ip()` no caching** — adds 3-6s latency
 - [ ] **Duplicate atomic-write** — `_save_relay_local()` duplicates `ServerCredentials.save()`
@@ -258,7 +263,7 @@ Things that require human action outside the codebase.
 - [ ] `conn.run()` → `RemoteConnection`/`LocalConnection`
 - [ ] `check.py:run()` 234-line monolith
 - [ ] `client.py:run_add()` 146 lines
-- [ ] Caddy repo `any-version` codename
+- [ ] Caddy/HAProxy repo `any-version` codename (cleanup dead code)
 
 ---
 
