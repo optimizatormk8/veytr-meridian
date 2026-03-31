@@ -109,13 +109,12 @@ def check_ports(ip: str) -> CheckResult:
     """Scan for ports that reveal proxy infrastructure."""
     result = CheckResult(name="Port surface", passed=True)
 
-    # Port 443 is mandatory
-    if not tcp_connect(ip, 443, timeout=3):
+    # Port 443
+    if tcp_connect(ip, 443, timeout=3):
+        result.findings.append((True, "Port 443 is open"))
+    else:
         result.passed = False
         result.findings.append((False, "Port 443 is not reachable"))
-        return result
-
-    result.findings.append((True, "Port 443 is open"))
 
     # Port 80 — acceptable either way
     if tcp_connect(ip, 80, timeout=3):
@@ -530,19 +529,9 @@ def run(
     port_result = check_ports(resolved.ip)
     checks_run += 1
 
-    port443_open = not any("Port 443 is not reachable" in msg for _, msg in port_result.findings)
-
     _print_result(port_result)
     if not port_result.passed:
         issues += 1
-
-    # Abort early if port 443 is down — all other checks would fail
-    if not port443_open:
-        err_console.print()
-        warn("Port 443 is not reachable — cannot perform remaining checks.")
-        err_console.print("  [dim]Ensure port 443/TCP is open in your cloud provider's firewall.[/dim]")
-        err_console.print()
-        return
 
     # -- Check 2: HTTP response --
     info("Checking HTTP response (IP-based access)...")
