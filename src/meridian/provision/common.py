@@ -85,10 +85,20 @@ class InstallPackages:
         # Update apt cache first
         update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=120)
         if update.returncode != 0:
+            stderr = update.stderr.strip()
+            if "no longer has a Release file" in stderr:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=(
+                        "OS version is end-of-life — package repos have been removed. "
+                        "Reinstall with an Ubuntu LTS version"
+                    ),
+                )
             return StepResult(
                 name=self.name,
                 status="failed",
-                detail=f"apt-get update failed: {update.stderr.strip()[:200]}",
+                detail=f"apt-get update failed: {stderr[:200]}",
             )
 
         # Install missing packages

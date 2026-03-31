@@ -82,6 +82,24 @@ class TestInstallRelayPackages:
         assert result.status == "changed"
         conn.assert_called_with_pattern("apt-get install")
 
+    def test_eol_apt_update_gives_actionable_error(self):
+        """When apt-get update fails with EOL Release file error, message suggests LTS."""
+        conn = MockConnection()
+        conn.when("dpkg-query", stdout="curl\n")
+        conn.when(
+            "apt-get update",
+            rc=1,
+            stderr=(
+                "E: The repository 'http://archive.ubuntu.com/ubuntu oracular Release' no longer has a Release file."
+            ),
+        )
+
+        result = InstallRelayPackages().run(conn, _make_ctx())
+
+        assert result.status == "failed"
+        assert "end-of-life" in result.detail
+        assert "Ubuntu LTS" in result.detail
+
 
 # ---------------------------------------------------------------------------
 # ConfigureRelayBBR

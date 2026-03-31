@@ -167,7 +167,22 @@ def run(
     )
     os_info = os_result.stdout.strip()
     if "Ubuntu" in os_info or "Debian" in os_info:
-        ok(f"Server OS: {os_info}")
+        # Check for non-LTS Ubuntu (only even-year .04 releases are LTS)
+        import re
+
+        ubuntu_ver = re.search(r"Ubuntu (\d+)\.(\d+)", os_info)
+        if ubuntu_ver:
+            year, month = int(ubuntu_ver.group(1)), int(ubuntu_ver.group(2))
+            is_lts = year % 2 == 0 and month == 4
+            if not is_lts:
+                warn(f"Server OS: {os_info} (non-LTS, may be end-of-life)")
+                err_console.print("       Non-LTS Ubuntu releases are supported for only 9 months.")
+                err_console.print("       Reinstall with an Ubuntu LTS version for long-term support.")
+                issues += 1
+            else:
+                ok(f"Server OS: {os_info}")
+        else:
+            ok(f"Server OS: {os_info}")
     elif os_info:
         warn(f"Server OS: {os_info} (tested on Ubuntu/Debian only)")
         issues += 1

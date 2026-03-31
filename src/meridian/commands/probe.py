@@ -481,7 +481,7 @@ def _resolve_domain(domain: str) -> str:
     try:
         results = socket.getaddrinfo(domain, 443, socket.AF_INET, socket.SOCK_STREAM)
         if results:
-            return results[0][4][0]
+            return str(results[0][4][0])
     except (socket.gaierror, OSError):
         pass
     return ""

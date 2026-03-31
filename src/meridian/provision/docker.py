@@ -156,10 +156,20 @@ class InstallDocker:
             timeout=300,
         )
         if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if "no longer has a Release file" in stderr:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=(
+                        "OS version is end-of-life — package repos have been removed. "
+                        "Reinstall with an Ubuntu LTS version"
+                    ),
+                )
             return StepResult(
                 name=self.name,
                 status="failed",
-                detail=f"docker-ce install failed: {result.stderr.strip()[:200]}",
+                detail=f"docker-ce install failed: {stderr[:200]}",
             )
 
         # Ensure Docker service is started and enabled

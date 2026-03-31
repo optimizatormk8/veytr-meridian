@@ -53,6 +53,24 @@ class TestInstallPackages:
 
         assert result.status == "failed"
 
+    def test_eol_apt_update_gives_actionable_error(self, mock_conn: MockConnection, base_ctx):
+        """When apt-get update fails with EOL Release file error, message suggests LTS."""
+        mock_conn.when("dpkg-query", stdout="")
+        mock_conn.when(
+            "apt-get update",
+            rc=1,
+            stderr=(
+                "E: The repository 'http://security.ubuntu.com/ubuntu oracular-security Release' "
+                "no longer has a Release file."
+            ),
+        )
+
+        result = InstallPackages().run(mock_conn, base_ctx)
+
+        assert result.status == "failed"
+        assert "end-of-life" in result.detail
+        assert "Ubuntu LTS" in result.detail
+
 
 # ---------------------------------------------------------------------------
 # EnableAutoUpgrades
