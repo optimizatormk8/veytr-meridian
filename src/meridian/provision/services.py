@@ -149,9 +149,9 @@ def _render_nginx_http_config(
             }}
         """).rstrip()
 
-    # 403 = stock nginx response. Looks genuine, works correctly with HTTP/2.
-    # (return 444 causes HTTP/2 PROTOCOL_ERROR — more distinctive than a 403)
-    default_action = "return 403;"
+    # Default: silent drop (444) — server reveals nothing, connection closes.
+    # --decoy 403: stock nginx 403 page — looks like a real web server.
+    default_action = "return 403;" if decoy == "403" else "return 444;"
 
     return _render_nginx_server_block(
         host=domain,
@@ -195,9 +195,9 @@ def _render_nginx_ip_config(
             }}
         """).rstrip()
 
-    # 403 = stock nginx response. Looks genuine, works correctly with HTTP/2.
-    # (return 444 causes HTTP/2 PROTOCOL_ERROR — more distinctive than a 403)
-    default_action = "return 403;"
+    # Default: silent drop (444) — server reveals nothing, connection closes.
+    # --decoy 403: stock nginx 403 page — looks like a real web server.
+    default_action = "return 403;" if decoy == "403" else "return 444;"
 
     return _render_nginx_server_block(
         host=server_ip,

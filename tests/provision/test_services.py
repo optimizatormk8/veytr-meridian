@@ -361,11 +361,11 @@ class TestNginxWSS:
 
 
 class TestNginxDecoy:
-    def test_default_returns_403(self):
-        """Default returns 403 — stock nginx response, works with HTTP/2.
+    def test_default_drops_connection(self):
+        """Default is silent drop (444) — server reveals nothing.
 
-        return 444 causes HTTP/2 PROTOCOL_ERROR which is more distinctive
-        than a standard 403, making it a fingerprinting vector.
+        444 causes HTTP/2 PROTOCOL_ERROR, but that's not VPN-specific.
+        Users who prefer a plausible web server use --decoy 403.
         """
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
@@ -374,8 +374,8 @@ class TestNginxDecoy:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "return 403" in cfg
-        assert "return 444" not in cfg
+        assert "return 444" in cfg
+        assert "return 403" not in cfg
 
     def test_decoy_403_returns_403(self):
         """decoy=403 returns 403 — stock nginx 403 page (genuine)."""
@@ -403,6 +403,20 @@ class TestNginxDecoy:
         )
         assert "return 403" in cfg
         assert "return 444" not in cfg
+
+    def test_domain_default_drops_connection(self):
+        """Domain mode default is also silent drop (444)."""
+        cfg = _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        assert "return 444" in cfg
+        assert "return 403" not in cfg
 
     def test_default_has_security_headers(self):
         cfg = _render_nginx_ip_config(
@@ -519,8 +533,8 @@ class TestNginxFingerprinting:
         # Both server blocks should have server_tokens off
         assert cfg.count("server_tokens off") == 2
 
-    def test_no_return_444_in_config(self):
-        """return 444 causes HTTP/2 PROTOCOL_ERROR — must not appear in configs."""
+    def test_decoy_403_avoids_444(self):
+        """--decoy 403 uses stock 403 page, never 444 (HTTP/2-safe)."""
         for cfg in [
             _render_nginx_ip_config(
                 server_ip="198.51.100.1",
@@ -528,6 +542,7 @@ class TestNginxFingerprinting:
                 panel_web_base_path="secretpanel",
                 panel_internal_port=2053,
                 info_page_path="connect",
+                decoy="403",
             ),
             _render_nginx_http_config(
                 domain="example.com",
@@ -537,8 +552,10 @@ class TestNginxFingerprinting:
                 panel_web_base_path="secretpanel",
                 panel_internal_port=2053,
                 info_page_path="connect",
+                decoy="403",
             ),
         ]:
+            assert "return 403" in cfg
             assert "return 444" not in cfg
 
     def test_csp_restricts_external_resources(self):
