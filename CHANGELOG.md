@@ -4,6 +4,11 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.10.2] - 2026-03-31
+
+### Fixed
+- **`meridian probe`** — no longer aborts when port 443 is closed. Remaining checks skip gracefully, and the port scan still reports other open ports.
+
 ## [3.10.1] - 2026-03-31
 
 ### Fixed
