@@ -4,6 +4,15 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.10.3] - 2026-03-31
+
+### Fixed
+- **XHTTP URL missing `sni` and `fp` parameters** — Shadowrocket (and potentially other clients) failed to connect via XHTTP because the URL lacked TLS parameters. Reality URLs had them; XHTTP URLs did not. Fixed in all 4 URL generation locations.
+- **Rich markup eating `[y/N]` prompt hints** — the relay offer prompt showed no hint about how to decline because Rich parsed `[y/N]` as a markup tag. All y/n prompts now display correctly.
+
+### Changed
+- **Replaced `qrencode` binary with Python `segno` package** — QR codes are now generated in pure Python. No more broken QR codes when system `qrencode` is not installed. Removes the `qrencode` apt dependency from server provisioning too.
+
 ## [3.10.2] - 2026-03-31
 
 ### Fixed
