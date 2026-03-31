@@ -29,10 +29,11 @@ def _render_nginx_stream_config(
     """Render the nginx stream configuration for SNI-based routing.
 
     nginx stream sits on port 443 and inspects the TLS ClientHello SNI
-    WITHOUT terminating TLS. Reality-targeted SNIs go to Xray, all other
-    SNIs (server IP, domain, unknown) go to the nginx HTTPS backend.
-    Unknown SNIs get the same response as direct IP access — no routing
-    differential for censors to detect.
+    WITHOUT terminating TLS. Reality-targeted SNIs go to Xray, server
+    IP/domain/no-SNI go to nginx HTTPS (connection pages).
+    Unknown SNIs are TCP-proxied to the Reality dest site — a censor
+    probing with SNI=google.com sees the dest site's real cert, not
+    nginx's, eliminating the SNI routing differential.
     """
     # Build SNI → backend map entries
     map_entries = [
@@ -44,9 +45,11 @@ def _render_nginx_stream_config(
         map_entries.append(f"    {domain}  nginx_https;")
 
     # No SNI (browsers connecting to bare IP per RFC 6066) → nginx
+    # (needed for connection pages accessed via https://<IP>/...)
     map_entries.append('    ""  nginx_https;')
-    # Unknown SNI → same response as direct IP (no routing differential)
-    map_entries.append("    default  nginx_https;")
+    # Unknown SNI → proxy to Reality dest (eliminates SNI differential —
+    # censor probing with random SNIs sees the dest site, not nginx)
+    map_entries.append("    default  reality_dest;")
 
     map_block = "\n".join(map_entries)
 
@@ -59,7 +62,7 @@ def _render_nginx_stream_config(
     if domain:
         flow_lines.append(f"SNI={domain} -> nginx HTTPS (127.0.0.1:{nginx_internal_port})")
     flow_lines.append(f"No SNI (bare IP) -> nginx HTTPS (127.0.0.1:{nginx_internal_port})")
-    flow_lines.append("Unknown SNI -> nginx HTTPS (same as direct IP)")
+    flow_lines.append(f"Unknown SNI -> TCP proxy to {reality_sni}:443 (no differential)")
     flow_comment = "\n".join(f"#   {line}" for line in flow_lines)
 
     return textwrap.dedent(f"""\
@@ -81,6 +84,10 @@ def _render_nginx_stream_config(
             server 127.0.0.1:{nginx_internal_port};
         }}
 
+        upstream reality_dest {{
+            server {reality_sni}:443;
+        }}
+
         server {{
             listen 443;
             listen [::]:443;
@@ -96,6 +103,27 @@ def _render_nginx_stream_config(
 # ---------------------------------------------------------------------------
 # nginx http configuration (TLS + reverse proxy + web — replaces Caddy)
 # ---------------------------------------------------------------------------
+
+# Minimal self-contained placeholder page — returned for "/" to make the
+# server look like a generic site under construction.  Avoids 403 (which
+# signals "something is here but you can't have it") in favour of a 200
+# that blends in with millions of real placeholder pages.  No single
+# quotes (nginx string delimiter) and no external resources.
+_PLACEHOLDER_HTML = (
+    "<!doctype html><html><head><meta charset=utf-8>"
+    '<meta name=viewport content="width=device-width,initial-scale=1">'
+    "<title>Welcome</title>"
+    "<style>*{margin:0;padding:0;box-sizing:border-box}"
+    "body{font-family:system-ui,-apple-system,sans-serif;"
+    "display:flex;justify-content:center;align-items:center;"
+    "min-height:100vh;background:#fafafa;color:#333}"
+    "main{text-align:center;padding:2em}"
+    "h1{font-weight:300;font-size:2em;margin-bottom:.4em}"
+    "p{color:#888;font-size:.95em}</style></head>"
+    "<body><main><h1>Welcome</h1>"
+    "<p>This site is under construction.</p>"
+    "</main></body></html>"
+)
 
 
 def _render_nginx_http_config(
@@ -141,12 +169,11 @@ def _render_nginx_http_config(
             }}
         """).rstrip()
 
-    # Default: realistic nginx — root 403 (directory listing forbidden),
-    # unknown paths 404 (not found). Matches genuine nginx with empty docroot.
-    # Three independent censor-perspective assessments confirmed 403/404 is
-    # less fingerprintable than 444 (silent close after TLS), which virtually
-    # no legitimate server does and rated 9/10 suspiciousness.
-    root_action = "return 403;"
+    # Root: serve a minimal placeholder page (200) instead of 403.
+    # Automated classifiers key on HTTP status codes — 200 is dramatically
+    # less suspicious (2/10) than 403 (4/10).  The page content is generic
+    # enough that it blends in with millions of real "under construction" sites.
+    root_action = f"default_type text/html;\n            return 200 '{_PLACEHOLDER_HTML}';"
     default_action = "return 404;"
 
     return _render_nginx_server_block(
@@ -192,10 +219,8 @@ def _render_nginx_ip_config(
             }}
         """).rstrip()
 
-    # Default: realistic nginx — root 403 (directory listing forbidden),
-    # unknown paths 404 (not found). Matches genuine nginx with empty docroot.
-    # See domain mode comment for rationale (blind censor assessment).
-    root_action = "return 403;"
+    # Root: serve a minimal placeholder page (200) — see domain mode comment.
+    root_action = f"default_type text/html;\n            return 200 '{_PLACEHOLDER_HTML}';"
     default_action = "return 404;"
 
     return _render_nginx_server_block(
@@ -298,12 +323,12 @@ def _render_nginx_server_block(
                 add_header Referrer-Policy "no-referrer" always;
             }}
 
-            # Root: exact match (403 = directory listing forbidden, or 444 = drop)
+            # Root: placeholder page (200 — looks like a site under construction)
             location = / {{
                 {root_action}
             }}
 
-            # Default: everything else (404 = not found, or 444 = drop)
+            # Default: everything else returns 404
             location / {{
                 {default_action}
             }}

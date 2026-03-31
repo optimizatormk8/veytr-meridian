@@ -73,19 +73,20 @@ class TestRenderNginxStreamConfig:
         )
         assert '""  nginx_https' in cfg
 
-    def test_unknown_sni_routes_to_nginx(self):
-        """Unknown SNI routes to nginx — same response as direct IP (no differential)."""
+    def test_unknown_sni_routes_to_reality_dest(self):
+        """Unknown SNI routes to reality dest — eliminates SNI differential."""
         cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
             reality_backend_port=10443,
             nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
-        assert "default  nginx_https" in cfg
-        assert "blackhole" not in cfg
+        assert "default  reality_dest" in cfg
+        assert "upstream reality_dest" in cfg
+        assert "www.microsoft.com:443" in cfg
 
     def test_no_domain_no_domain_rule(self):
-        """Without domain, only server IP + no-SNI + default route to nginx."""
+        """Without domain, only server IP + no-SNI route to nginx. Default → reality_dest."""
         cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
             reality_backend_port=10443,
@@ -93,13 +94,14 @@ class TestRenderNginxStreamConfig:
             server_ip="198.51.100.1",
         )
         assert "example.com" not in cfg
-        # Count nginx_https map entries: server IP + no-SNI + default = 3
+        # Count nginx_https map entries: server IP + no-SNI = 2
+        # (default goes to reality_dest, not nginx_https)
         nginx_rules = [
             line
             for line in cfg.splitlines()
             if "nginx_https" in line and "upstream" not in line and "server" not in line
         ]
-        assert len(nginx_rules) == 3
+        assert len(nginx_rules) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -361,13 +363,12 @@ class TestNginxWSS:
 
 
 class TestNginxDecoy:
-    def test_default_returns_403_404(self):
-        """Default is 403 on root, 404 elsewhere — realistic nginx with empty docroot.
+    def test_default_serves_placeholder_page(self):
+        """Default serves a 200 placeholder page — looks like a site under construction.
 
-        Blind censor assessment (three independent experts) rated 444 (silent
-        close after TLS handshake) as 9/10 suspicious — virtually no legitimate
-        server does this. 403/404 rated 3-4/10 with high false-positive cost
-        for censors (40-60% of real servers).
+        Blind censor assessment rated 200+content as 2/10 suspicious vs
+        403 (4/10) and 444 (9/10). A placeholder page blends in with
+        millions of real "coming soon" sites.
         """
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
@@ -376,14 +377,15 @@ class TestNginxDecoy:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "return 403" in cfg
-        assert "return 404" in cfg
+        assert "return 200" in cfg
+        assert "default_type text/html" in cfg
+        assert "under construction" in cfg
         # 444 must never appear in the HTTPS server block
         https_block = cfg.split("listen 80")[0]
         assert "return 444" not in https_block
 
-    def test_domain_default_returns_403_404(self):
-        """Domain mode also uses 403/404."""
+    def test_domain_default_serves_placeholder_page(self):
+        """Domain mode also serves placeholder page."""
         cfg = _render_nginx_http_config(
             domain="example.com",
             nginx_internal_port=8443,
@@ -393,11 +395,24 @@ class TestNginxDecoy:
             panel_internal_port=2053,
             info_page_path="connect",
         )
-        assert "return 403" in cfg
-        assert "return 404" in cfg
+        assert "return 200" in cfg
+        assert "default_type text/html" in cfg
         # 444 must not appear in the HTTPS server block
         https_block = cfg.split("listen 80")[0]
         assert "return 444" not in https_block
+
+    def test_placeholder_is_self_contained(self):
+        """Placeholder page must not load external resources."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+        # Extract the HTML from the return 200 directive
+        assert "http://" not in cfg.split("return 200")[1].split(";")[0]
+        assert "https://" not in cfg.split("return 200")[1].split(";")[0]
 
     def test_default_has_security_headers(self):
         cfg = _render_nginx_ip_config(
@@ -564,9 +579,10 @@ class TestNginxFingerprinting:
         ]:
             # Split at port 80 to isolate the HTTPS block
             https_block = cfg.split("listen 80")[0]
-            assert "return 403" in https_block
+            assert "return 200" in https_block
             assert "return 404" in https_block
             assert "return 444" not in https_block
+            assert "return 403" not in https_block
 
     def test_csp_restricts_external_resources(self):
         """CSP must block external resource loading (self-hosted everything)."""
@@ -579,19 +595,19 @@ class TestNginxFingerprinting:
         )
         assert "default-src 'self'" in cfg
 
-    def test_no_sni_routing_differential(self):
-        """Unknown SNI must get same backend as direct IP — no fingerprint."""
+    def test_unknown_sni_proxied_to_dest(self):
+        """Unknown SNIs must be TCP-proxied to Reality dest, not served by nginx."""
         cfg = _render_nginx_stream_config(
             reality_sni="www.microsoft.com",
             reality_backend_port=10443,
             nginx_internal_port=8443,
             server_ip="198.51.100.1",
         )
-        assert "default  nginx_https" in cfg
+        assert "default  reality_dest" in cfg
         assert "blackhole" not in cfg
 
-    def test_root_403_vs_default_404(self):
-        """Root returns 403 (directory listing forbidden), other paths 404 (not found)."""
+    def test_placeholder_page_on_root_404_on_other(self):
+        """Root serves placeholder (200), other paths return 404."""
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
             nginx_internal_port=8443,
@@ -600,7 +616,7 @@ class TestNginxFingerprinting:
             info_page_path="connect",
         )
         assert "location = /" in cfg
-        assert "return 403" in cfg
+        assert "return 200" in cfg
         assert "return 404" in cfg
 
 

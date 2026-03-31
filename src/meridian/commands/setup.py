@@ -305,10 +305,12 @@ def _interactive_wizard(
         if not sni:
             sni = DEFAULT_SNI
 
-    # --- Domain (optional) ---
+    # --- Domain (optional but strongly recommended) ---
     err_console.print()
-    err_console.print("  [bold]CDN fallback[/bold] [dim](optional)[/dim]")
-    err_console.print("  [dim]Routes through Cloudflare when direct connection is blocked.[/dim]")
+    err_console.print("  [bold]Domain[/bold] [dim](strongly recommended)[/dim]")
+    err_console.print("  [dim]Makes your server indistinguishable from a normal website.[/dim]")
+    err_console.print("  [dim]Without a domain, probers see an IP-only certificate —[/dim]")
+    err_console.print("  [dim]a valid but less common profile. Also enables CDN fallback.[/dim]")
     err_console.print("  [dim]Guide: getmeridian.org/docs/en/domain-mode/[/dim]")
 
     # Suggest domain from saved credentials
@@ -425,7 +427,7 @@ def _interactive_wizard(
         f"Server:     {server_label}\n"
         f"Protocol:   {protocol_line}\n"
         f"Camouflage: {sni}\n"
-        f"Mode:       {'CDN fallback' if domain else 'Standalone (IP certificate)'}"
+        f"Mode:       {'Domain mode (best stealth + CDN fallback)' if domain else 'IP-only (works without a domain)'}"
         f"{branding_line}"
     )
 
