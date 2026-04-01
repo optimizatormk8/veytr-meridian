@@ -264,7 +264,7 @@ class LoginToPanel:
 def _discover_xray_binary(conn: ServerConnection) -> str:
     """Find the Xray binary path inside the 3x-ui Docker container."""
     cmd = "docker exec 3x-ui sh -c 'ls /app/bin/xray-linux-* 2>/dev/null || which xray 2>/dev/null || echo NOT_FOUND'"
-    result = conn.run(cmd, timeout=10)
+    result = conn.run(cmd, timeout=15)
     if result.returncode != 0:
         raise PanelError(f"Failed to discover Xray binary: {result.stderr.strip()}")
 
@@ -286,7 +286,7 @@ def _generate_x25519_keypair(conn: ServerConnection, xray_bin: str) -> tuple[str
     """
     q_bin = shlex.quote(xray_bin)
     cmd = f"docker exec 3x-ui {q_bin} x25519"
-    result = conn.run(cmd, timeout=10)
+    result = conn.run(cmd, timeout=15)
     if result.returncode != 0:
         raise PanelError(f"x25519 key generation failed: {result.stderr.strip()}")
 
@@ -313,7 +313,7 @@ def _generate_uuid(conn: ServerConnection, xray_bin: str) -> str:
     """Generate a UUID using the Xray binary."""
     q_bin = shlex.quote(xray_bin)
     cmd = f"docker exec 3x-ui {q_bin} uuid"
-    result = conn.run(cmd, timeout=10)
+    result = conn.run(cmd, timeout=15)
     if result.returncode != 0:
         raise PanelError(f"UUID generation failed: {result.stderr.strip()}")
 
@@ -393,7 +393,7 @@ def _apply_panel_settings(
         raise PanelError(f"Failed to update panel credentials: {data.get('msg', 'unknown')}")
 
     # Step 4: Restart container to apply webBasePath
-    result = conn.run("docker restart 3x-ui", timeout=30)
+    result = conn.run("docker restart 3x-ui", timeout=60)
     if result.returncode != 0:
         raise PanelError(f"Failed to restart 3x-ui: {result.stderr.strip()}")
 
@@ -428,7 +428,7 @@ def _wait_for_panel(
     for attempt in range(retries):
         result = conn.run(
             f"curl -s -o /dev/null -w '%{{http_code}}' {q_url}",
-            timeout=10,
+            timeout=15,
         )
         if result.returncode == 0 and result.stdout.strip() == "200":
             return

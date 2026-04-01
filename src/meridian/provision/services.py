@@ -550,32 +550,32 @@ class InstallNginx:
         # -- Upgrade path: stop old HAProxy and Caddy if present --
         conn.run(
             "systemctl stop haproxy 2>/dev/null; systemctl disable haproxy 2>/dev/null; true",
-            timeout=10,
+            timeout=15,
         )
         conn.run(
             "systemctl stop caddy 2>/dev/null; systemctl disable caddy 2>/dev/null; true",
-            timeout=10,
+            timeout=15,
         )
         # Remove old watchdog immediately to prevent it from restarting
         # haproxy/caddy during the deploy (cron runs every 5 min)
-        conn.run("rm -f /etc/meridian/health-check.sh", timeout=10)
+        conn.run("rm -f /etc/meridian/health-check.sh", timeout=15)
         # Clean up old config files and cert storage
         conn.run(
             "rm -f /etc/haproxy/haproxy.cfg /etc/caddy/conf.d/meridian.caddy /etc/caddy/Caddyfile && "
             "rm -rf /etc/systemd/system/haproxy.service.d /etc/systemd/system/caddy.service.d "
             "/var/lib/caddy/.local/share/caddy && "
             "systemctl daemon-reload 2>/dev/null; true",
-            timeout=10,
+            timeout=15,
         )
 
         # -- Check if nginx is already installed --
-        check = conn.run("dpkg -l nginx 2>/dev/null | grep -q '^ii'", timeout=10)
+        check = conn.run("dpkg -l nginx 2>/dev/null | grep -q '^ii'", timeout=15)
         already_installed = check.returncode == 0
 
         if not already_installed:
             result = conn.run(
                 "DEBIAN_FRONTEND=noninteractive apt-get install -y nginx",
-                timeout=120,
+                timeout=180,
             )
             if result.returncode != 0:
                 return StepResult(
@@ -592,12 +592,12 @@ class InstallNginx:
         # and upgrades from HAProxy+Caddy where it was never needed.
         conn.run(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libnginx-mod-stream 2>/dev/null; true",
-            timeout=60,
+            timeout=120,
         )
         # Verify the module .so exists (compile flags ≠ runtime availability)
         check = conn.run(
             "test -f /usr/lib/nginx/modules/ngx_stream_module.so || nginx -V 2>&1 | grep -q 'with-stream '",
-            timeout=10,
+            timeout=15,
         )
         if check.returncode != 0:
             return StepResult(
@@ -611,7 +611,7 @@ class InstallNginx:
             "mkdir -p /var/www/private /var/www/acme/.well-known/acme-challenge "
             "/etc/ssl/meridian /etc/nginx/stream.d && "
             "chown -R www-data:www-data /var/www/private /var/www/acme",
-            timeout=10,
+            timeout=15,
         )
 
         # -- Ensure webmanifest MIME type is registered --
@@ -619,17 +619,17 @@ class InstallNginx:
         conn.run(
             "grep -q webmanifest /etc/nginx/mime.types || "
             r"sed -i '/^}/i \    application/manifest+json  webmanifest;' /etc/nginx/mime.types",
-            timeout=10,
+            timeout=15,
         )
 
         # -- Install acme.sh (if not already installed) --
-        check = conn.run("test -f /root/.acme.sh/acme.sh", timeout=10)
+        check = conn.run("test -f /root/.acme.sh/acme.sh", timeout=15)
         if check.returncode != 0:
             # email='' breaks acme.sh installer (shift error), omit when empty
             email_flag = f"email={shlex.quote(self.email)}" if self.email else ""
             result = conn.run(
                 f"curl -fsSL https://get.acme.sh | sh -s -- {email_flag}",
-                timeout=60,
+                timeout=120,
             )
             if result.returncode != 0:
                 return StepResult(
@@ -639,7 +639,7 @@ class InstallNginx:
                 )
 
         # -- Bootstrap: generate self-signed cert so nginx can start --
-        check = conn.run("test -f /etc/ssl/meridian/fullchain.pem", timeout=10)
+        check = conn.run("test -f /etc/ssl/meridian/fullchain.pem", timeout=15)
         if check.returncode != 0:
             cert_host = server_ip if self.ip_mode else self.domain
             q_subj = shlex.quote(f"/CN={cert_host}")
@@ -667,7 +667,7 @@ class InstallNginx:
         q_stream = shlex.quote(stream_config)
         result = conn.run(
             f"printf '%s' {q_stream} > /etc/nginx/stream.d/meridian.conf",
-            timeout=10,
+            timeout=15,
         )
         if result.returncode != 0:
             return StepResult(
@@ -704,7 +704,7 @@ class InstallNginx:
         q_http = shlex.quote(http_config)
         result = conn.run(
             f"printf '%s' {q_http} > /etc/nginx/conf.d/meridian-http.conf",
-            timeout=10,
+            timeout=15,
         )
         if result.returncode != 0:
             return StepResult(
@@ -718,20 +718,20 @@ class InstallNginx:
         # include conf.d/*.conf. We need a top-level stream{} block
         # for SNI routing. Stream config lives in stream.d/ to avoid
         # being included inside http{} by the default conf.d/*.conf glob.
-        check = conn.run("grep -q 'stream {' /etc/nginx/nginx.conf", timeout=10)
+        check = conn.run("grep -q 'stream {' /etc/nginx/nginx.conf", timeout=15)
         if check.returncode != 0:
             # Append stream block at the end of nginx.conf (outside http{})
             stream_block = "\\nstream {\\n    include /etc/nginx/stream.d/*.conf;\\n}\\n"
             conn.run(
                 f"printf '{stream_block}' >> /etc/nginx/nginx.conf",
-                timeout=10,
+                timeout=15,
             )
 
         # -- Remove default site (conflicts with our port 80 listener) --
-        conn.run("rm -f /etc/nginx/sites-enabled/default", timeout=10)
+        conn.run("rm -f /etc/nginx/sites-enabled/default", timeout=15)
 
         # -- Validate configuration --
-        result = conn.run("nginx -t 2>&1", timeout=10)
+        result = conn.run("nginx -t 2>&1", timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -745,12 +745,12 @@ class InstallNginx:
             "printf '[Service]\\nRestart=on-failure\\nRestartSec=5\\n' "
             "> /etc/systemd/system/nginx.service.d/restart.conf && "
             "systemctl daemon-reload",
-            timeout=10,
+            timeout=15,
         )
 
         # -- Start/enable/reload nginx --
-        conn.run("systemctl enable nginx", timeout=10)
-        result = conn.run("systemctl reload-or-restart nginx", timeout=15)
+        conn.run("systemctl enable nginx", timeout=15)
+        result = conn.run("systemctl reload-or-restart nginx", timeout=30)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -766,7 +766,7 @@ class InstallNginx:
         result = conn.run(
             f"/root/.acme.sh/acme.sh --issue -d {q_cert_host} "
             f"--webroot /var/www/acme --server letsencrypt{profile_flag} 2>&1",
-            timeout=120,
+            timeout=180,
         )
         # acme.sh returns 0 on success, 2 if cert already valid (skip renewal)
         cert_issued = result.returncode in (0, 2)
@@ -778,10 +778,10 @@ class InstallNginx:
                 f"--key-file /etc/ssl/meridian/key.pem "
                 f"--fullchain-file /etc/ssl/meridian/fullchain.pem "
                 f'--reloadcmd "systemctl reload nginx" 2>&1',
-                timeout=30,
+                timeout=60,
             )
             # Reload to pick up the real cert
-            conn.run("systemctl reload nginx", timeout=10)
+            conn.run("systemctl reload nginx", timeout=15)
 
         host = server_ip if self.ip_mode else self.domain
         if cert_issued:
@@ -935,14 +935,14 @@ class DeployConnectionPage:
         # Deploy stats update script
         stats_script = _render_stats_script(panel_internal_port)
         q_script = shlex.quote(stats_script)
-        conn.run("mkdir -p /etc/meridian", timeout=10)
-        conn.run(f"printf '%s' {q_script} > /etc/meridian/update-stats.py", timeout=10)
-        conn.run("chmod 700 /etc/meridian/update-stats.py", timeout=10)
+        conn.run("mkdir -p /etc/meridian", timeout=15)
+        conn.run(f"printf '%s' {q_script} > /etc/meridian/update-stats.py", timeout=15)
+        conn.run("chmod 700 /etc/meridian/update-stats.py", timeout=15)
 
         # Create stats directory
         conn.run(
             "mkdir -p /var/www/private/stats && chown www-data:www-data /var/www/private/stats",
-            timeout=10,
+            timeout=15,
         )
 
         # Run stats update once
@@ -953,7 +953,7 @@ class DeployConnectionPage:
         q_cron = shlex.quote(cron_job)
         conn.run(
             f"(crontab -l 2>/dev/null | grep -v 'update-stats.py'; echo {q_cron}) | crontab -",
-            timeout=10,
+            timeout=15,
         )
 
         # Deploy health watchdog cron (checks Xray and nginx every 5 min)
@@ -968,14 +968,14 @@ class DeployConnectionPage:
             "systemctl restart nginx; }\n"
         )
         q_watchdog = shlex.quote(watchdog_script)
-        conn.run(f"printf '%s' {q_watchdog} > /etc/meridian/health-check.sh", timeout=10)
-        conn.run("chmod 700 /etc/meridian/health-check.sh", timeout=10)
+        conn.run(f"printf '%s' {q_watchdog} > /etc/meridian/health-check.sh", timeout=15)
+        conn.run("chmod 700 /etc/meridian/health-check.sh", timeout=15)
 
         watchdog_cron = "*/5 * * * * /etc/meridian/health-check.sh 2>&1 | logger -t meridian-health"
         q_wc = shlex.quote(watchdog_cron)
         conn.run(
             f"(crontab -l 2>/dev/null | grep -v 'health-check.sh'; echo {q_wc}) | crontab -",
-            timeout=10,
+            timeout=15,
         )
 
         # Build ProtocolURL list with QR data for connection page
@@ -1029,7 +1029,7 @@ def _check_domain_dns(conn: ServerConnection, domain: str, server_ip: str) -> st
     Returns an error message if DNS check fails, None if OK.
     """
     q_domain = shlex.quote(domain)
-    result = conn.run(f"dig +short {q_domain} @8.8.8.8", timeout=10)
+    result = conn.run(f"dig +short {q_domain} @8.8.8.8", timeout=15)
     resolved = result.stdout.strip() if result.returncode == 0 else ""
 
     if not resolved:

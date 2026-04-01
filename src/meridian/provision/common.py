@@ -47,7 +47,7 @@ class CheckDiskSpace:
     name = "Check disk space"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        result = conn.run("df -BM --output=avail / | tail -1", timeout=10)
+        result = conn.run("df -BM --output=avail / | tail -1", timeout=15)
         if result.returncode != 0:
             return StepResult(name=self.name, status="skipped", detail="could not check disk space")
 
@@ -82,7 +82,7 @@ class InstallPackages:
             return StepResult(name=self.name, status="ok", detail="all packages present")
 
         # Update apt cache first
-        update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=120)
+        update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=180)
         if update.returncode != 0:
             stderr = update.stderr.strip()
             if "no longer has a Release file" in stderr:
@@ -129,21 +129,21 @@ class EnableAutoUpgrades:
         conf_path = "/etc/apt/apt.conf.d/20auto-upgrades"
 
         # Check if config already matches
-        check = conn.run(f"cat {conf_path} 2>/dev/null", timeout=10)
+        check = conn.run(f"cat {conf_path} 2>/dev/null", timeout=15)
         if check.returncode == 0 and check.stdout.strip() == _AUTO_UPGRADES_CONF.strip():
             return StepResult(name=self.name, status="ok", detail="already configured")
 
         # Write the config
         # Use heredoc to avoid shell quoting issues
         write_cmd = f"cat > {conf_path} << 'MERIDIAN_EOF'\n{_AUTO_UPGRADES_CONF}MERIDIAN_EOF"
-        result = conn.run(write_cmd, timeout=10)
+        result = conn.run(write_cmd, timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
                 status="failed",
                 detail=f"failed to write config: {result.stderr.strip()[:200]}",
             )
-        conn.run(f"chmod 644 {conf_path}", timeout=10)
+        conn.run(f"chmod 644 {conf_path}", timeout=15)
 
         return StepResult(name=self.name, status="changed")
 
@@ -156,14 +156,14 @@ class SetTimezone:
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check current timezone
         tz_cmd = "timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null"
-        check = conn.run(tz_cmd, timeout=10)
+        check = conn.run(tz_cmd, timeout=15)
         if check.returncode == 0 and check.stdout.strip() == "UTC":
             return StepResult(name=self.name, status="ok", detail="already UTC")
 
-        result = conn.run("timedatectl set-timezone UTC", timeout=10)
+        result = conn.run("timedatectl set-timezone UTC", timeout=15)
         if result.returncode != 0:
             # Fallback: write directly
-            result = conn.run("ln -sf /usr/share/zoneinfo/UTC /etc/localtime", timeout=10)
+            result = conn.run("ln -sf /usr/share/zoneinfo/UTC /etc/localtime", timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -183,11 +183,11 @@ class HardenSSH:
         changed = False
 
         # Disable PasswordAuthentication
-        check_pa = conn.run("grep -qE '^PasswordAuthentication no$' /etc/ssh/sshd_config", timeout=10)
+        check_pa = conn.run("grep -qE '^PasswordAuthentication no$' /etc/ssh/sshd_config", timeout=15)
         if check_pa.returncode != 0:
             result = conn.run(
                 "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config",
-                timeout=10,
+                timeout=15,
             )
             if result.returncode != 0:
                 return StepResult(
@@ -198,7 +198,7 @@ class HardenSSH:
             changed = True
 
         # Disable KbdInteractiveAuthentication (challenge-response)
-        check_kbd = conn.run("grep -qE '^KbdInteractiveAuthentication no$' /etc/ssh/sshd_config", timeout=10)
+        check_kbd = conn.run("grep -qE '^KbdInteractiveAuthentication no$' /etc/ssh/sshd_config", timeout=15)
         if check_kbd.returncode != 0:
             # Replace either ChallengeResponseAuthentication or KbdInteractiveAuthentication
             kbd_sed = (
@@ -208,7 +208,7 @@ class HardenSSH:
                 "/KbdInteractiveAuthentication no/' "
                 "/etc/ssh/sshd_config"
             )
-            result = conn.run(kbd_sed, timeout=10)
+            result = conn.run(kbd_sed, timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -218,11 +218,11 @@ class HardenSSH:
             changed = True
 
         # Strip OS version from SSH banner (DebianBanner appends distro info)
-        check_banner = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=10)
+        check_banner = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=15)
         if check_banner.returncode != 0:
             result = conn.run(
                 "sed -i 's/^#\\?DebianBanner.*/DebianBanner no/' /etc/ssh/sshd_config",
-                timeout=10,
+                timeout=15,
             )
             if result.returncode != 0:
                 return StepResult(
@@ -231,16 +231,16 @@ class HardenSSH:
                     detail=f"failed to set DebianBanner: {result.stderr.strip()[:200]}",
                 )
             # If sed matched nothing (no existing line), append it
-            verify = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=10)
+            verify = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=15)
             if verify.returncode != 0:
-                conn.run("printf '\\nDebianBanner no\\n' >> /etc/ssh/sshd_config", timeout=10)
+                conn.run("printf '\\nDebianBanner no\\n' >> /etc/ssh/sshd_config", timeout=15)
             changed = True
 
         if not changed:
             return StepResult(name=self.name, status="ok", detail="already hardened")
 
         # Validate config before restarting
-        validate = conn.run("sshd -t", timeout=10)
+        validate = conn.run("sshd -t", timeout=15)
         if validate.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -267,15 +267,15 @@ class ConfigureBBR:
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if BBR is already enabled
-        check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=10)
+        check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=15)
         if check.returncode == 0 and check.stdout.strip() == "bbr":
-            qdisc = conn.run("sysctl -n net.core.default_qdisc 2>/dev/null", timeout=10)
+            qdisc = conn.run("sysctl -n net.core.default_qdisc 2>/dev/null", timeout=15)
             if qdisc.returncode == 0 and qdisc.stdout.strip() == "fq":
                 return StepResult(name=self.name, status="ok", detail="already enabled")
 
         # Apply sysctl settings
         for key, value in _BBR_SETTINGS.items():
-            result = conn.run(f"sysctl -w {key}={value}", timeout=10)
+            result = conn.run(f"sysctl -w {key}={value}", timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -288,8 +288,8 @@ class ConfigureBBR:
             # Remove existing entries and append new ones
             q_key = shlex.quote(key)
             q_value = shlex.quote(value)
-            conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=10)
-            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=10)
+            conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=15)
+            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=15)
 
         return StepResult(name=self.name, status="changed")
 
@@ -304,15 +304,15 @@ class EnsurePort443:
     name = "Ensure port 443"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        check = conn.run("which ufw", timeout=10)
+        check = conn.run("which ufw", timeout=15)
         if check.returncode != 0:
             return StepResult(name=self.name, status="ok", detail="ufw not installed")
 
-        ufw_status = conn.run("ufw status", timeout=10)
+        ufw_status = conn.run("ufw status", timeout=15)
         if ufw_status.returncode != 0 or "Status: active" not in ufw_status.stdout:
             return StepResult(name=self.name, status="ok", detail="ufw not active")
 
-        result = conn.run("ufw allow 443/tcp", timeout=10)
+        result = conn.run("ufw allow 443/tcp", timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -332,18 +332,19 @@ class ConfigureFirewall:
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if ufw is available
-        check = conn.run("which ufw", timeout=10)
+        check = conn.run("which ufw", timeout=15)
         if check.returncode != 0:
-            return StepResult(name=self.name, status="failed", detail="ufw not found")
+            detail = check.stderr.strip() if check.stderr.strip() else "ufw not found"
+            return StepResult(name=self.name, status="failed", detail=detail)
 
         changed = False
 
         # Check if ufw is already active
-        ufw_status = conn.run("ufw status", timeout=10)
+        ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
         # Allow SSH (port 22)
-        result = conn.run("ufw allow 22/tcp", timeout=10)
+        result = conn.run("ufw allow 22/tcp", timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -354,7 +355,7 @@ class ConfigureFirewall:
             changed = True
 
         # Allow HTTPS (port 443)
-        result = conn.run("ufw allow 443/tcp", timeout=10)
+        result = conn.run("ufw allow 443/tcp", timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -366,7 +367,7 @@ class ConfigureFirewall:
 
         # Domain mode or hosted page: allow port 80 for ACME challenges
         if ctx.needs_web_server:
-            result = conn.run("ufw allow 80/tcp", timeout=10)
+            result = conn.run("ufw allow 80/tcp", timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -377,7 +378,7 @@ class ConfigureFirewall:
                 changed = True
         else:
             # Cleanup stale port 80 rule if switching from domain/hosted mode
-            result = conn.run("ufw delete allow 80/tcp 2>/dev/null", timeout=10)
+            result = conn.run("ufw delete allow 80/tcp 2>/dev/null", timeout=15)
             if result.returncode == 0 and "Skipping" not in result.stdout and "Could not" not in result.stdout:
                 changed = True
 
@@ -387,7 +388,7 @@ class ConfigureFirewall:
         allowed_ports = {"22", "443"}
         if ctx.needs_web_server:
             allowed_ports.add("80")
-        result = conn.run("ufw status", timeout=10)
+        result = conn.run("ufw status", timeout=15)
         if result.returncode == 0:
             import re
 
@@ -396,17 +397,17 @@ class ConfigureFirewall:
                 m = re.match(r"(\d+)/tcp\s+ALLOW", line.strip())
                 if m and m.group(1) not in allowed_ports:
                     port = m.group(1)
-                    conn.run(f"ufw delete allow {port}/tcp", timeout=10)
-                    conn.run(f"ufw delete allow {port}/tcp", timeout=10)  # v6 rule
+                    conn.run(f"ufw delete allow {port}/tcp", timeout=15)
+                    conn.run(f"ufw delete allow {port}/tcp", timeout=15)  # v6 rule
                     changed = True
 
         # Set default policies and enable
-        conn.run("ufw default deny incoming", timeout=10)
-        conn.run("ufw default allow outgoing", timeout=10)
+        conn.run("ufw default deny incoming", timeout=15)
+        conn.run("ufw default allow outgoing", timeout=15)
 
         # Enable ufw (non-interactive) -- only counts as changed if it wasn't active
         if not ufw_active:
-            result = conn.run("echo y | ufw enable", timeout=15)
+            result = conn.run("echo y | ufw enable", timeout=30)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -416,7 +417,7 @@ class ConfigureFirewall:
             changed = True
         else:
             # Reload to apply any rule changes
-            conn.run("ufw reload", timeout=15)
+            conn.run("ufw reload", timeout=30)
 
         return StepResult(
             name=self.name,

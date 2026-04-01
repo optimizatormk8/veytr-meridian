@@ -473,7 +473,7 @@ class VerifyXray:
     name = "Verify Xray configuration"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        result = conn.run("docker exec 3x-ui pgrep -f xray", timeout=10)
+        result = conn.run("docker exec 3x-ui pgrep -f xray", timeout=15)
         if result.returncode == 0:
             return StepResult(
                 name=self.name,
@@ -482,7 +482,7 @@ class VerifyXray:
             )
 
         # Xray is not running -- collect logs for diagnostics
-        logs_result = conn.run("docker logs 3x-ui --tail 30", timeout=10)
+        logs_result = conn.run("docker logs 3x-ui --tail 30", timeout=15)
         logs = logs_result.stdout.strip() if logs_result.returncode == 0 else "(no logs)"
 
         server_ip = ctx.get("credentials", None)

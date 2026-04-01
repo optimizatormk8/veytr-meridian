@@ -71,21 +71,21 @@ def upload_client_files(
     conn: ServerConnection,
     reality_uuid: str,
     files: dict[str, str],
-) -> bool:
+) -> str:
     """Upload per-client PWA files to ``/var/www/private/{uuid}/``.
 
     Uses base64 transport to safely handle large or special-character
     content (same pattern as ``upload_pwa_assets``).
 
-    Returns True on success, False if any upload fails.
+    Returns empty string on success, error detail on failure.
     """
     q_uuid = shlex.quote(reality_uuid)
     result = conn.run(
         f"mkdir -p /var/www/private/{q_uuid} && chown www-data:www-data /var/www/private/{q_uuid}",
-        timeout=10,
+        timeout=30,
     )
     if result.returncode != 0:
-        return False
+        return f"Failed to create directory for {reality_uuid}: {result.stderr.strip()[:200]}"
     for filename, content in files.items():
         b64 = base64.b64encode(content.encode()).decode()
         q_b64 = shlex.quote(b64)
@@ -93,11 +93,11 @@ def upload_client_files(
         result = conn.run(
             f"printf '%s' {q_b64} | base64 -d > /var/www/private/{q_uuid}/{q_name} && "
             f"chown www-data:www-data /var/www/private/{q_uuid}/{q_name}",
-            timeout=15,
+            timeout=30,
         )
         if result.returncode != 0:
-            return False
-    return True
+            return f"Failed to upload {filename}: {result.stderr.strip()[:200]}"
+    return ""
 
 
 def load_pwa_static_assets() -> dict[str, bytes]:
@@ -115,19 +115,19 @@ def load_pwa_static_assets() -> dict[str, bytes]:
     return assets
 
 
-def upload_pwa_assets(conn: ServerConnection) -> bool:
+def upload_pwa_assets(conn: ServerConnection) -> str:
     """Upload shared PWA static assets to ``/var/www/private/pwa/``.
 
     Deploys app.js, styles.css, sw.js, and icon.svg. These are
     identical for all clients and shared across connection pages.
 
-    Returns True on success, False if any upload fails.
+    Returns empty string on success, error detail on failure.
     """
     assets = load_pwa_static_assets()
 
-    result = conn.run("mkdir -p /var/www/private/pwa && chown www-data:www-data /var/www/private/pwa", timeout=10)
+    result = conn.run("mkdir -p /var/www/private/pwa && chown www-data:www-data /var/www/private/pwa", timeout=30)
     if result.returncode != 0:
-        return False
+        return f"Failed to create /var/www/private/pwa/: {result.stderr.strip()[:200]}"
 
     for filename, content in assets.items():
         # All our assets are text/SVG, safe to use printf
@@ -137,8 +137,8 @@ def upload_pwa_assets(conn: ServerConnection) -> bool:
         result = conn.run(
             f"printf '%s' {q_b64} | base64 -d > /var/www/private/pwa/{q_name} && "
             f"chown www-data:www-data /var/www/private/pwa/{q_name}",
-            timeout=15,
+            timeout=30,
         )
         if result.returncode != 0:
-            return False
-    return True
+            return f"Failed to upload pwa/{filename}: {result.stderr.strip()[:200]}"
+    return ""

@@ -300,7 +300,7 @@ class ServerConnection:
                 ],
                 capture_output=True,
                 text=True,
-                timeout=15,
+                timeout=30,
                 stdin=subprocess.DEVNULL,
             )
             if result.returncode == 0:

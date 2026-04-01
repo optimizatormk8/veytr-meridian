@@ -134,8 +134,9 @@ def _deploy_client_page(
     )
 
     conn = resolved.conn
-    if not upload_client_files(conn, reality_uuid, client_files):
-        warn("Could not deploy server-hosted connection page")
+    upload_error = upload_client_files(conn, reality_uuid, client_files)
+    if upload_error:
+        warn(f"Could not deploy server-hosted connection page: {upload_error}")
         return ""
 
     return f"https://{server_ip}/{info_page_path}/{reality_uuid}/"

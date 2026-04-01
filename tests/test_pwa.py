@@ -138,16 +138,16 @@ class TestUploadClientFiles:
             "sub.txt": "dmxlc3M6Ly8=",
         }
 
-    def test_returns_true_on_success(self, sample_files: dict[str, str]) -> None:
+    def test_returns_empty_on_success(self, sample_files: dict[str, str]) -> None:
         conn = _MockConnection()
         result = upload_client_files(conn, "550e8400-e29b-41d4-a716-446655440000", sample_files)
-        assert result is True
+        assert result == ""
 
-    def test_returns_false_on_failure(self, sample_files: dict[str, str]) -> None:
+    def test_returns_error_on_failure(self, sample_files: dict[str, str]) -> None:
         conn = _MockConnection()
         conn.when("printf", rc=1)
         result = upload_client_files(conn, "550e8400-e29b-41d4-a716-446655440000", sample_files)
-        assert result is False
+        assert result  # non-empty error string
 
     def test_creates_directory_with_uuid(self, sample_files: dict[str, str]) -> None:
         conn = _MockConnection()
@@ -185,17 +185,17 @@ class TestUploadClientFiles:
 class TestUploadPWAAssets:
     """Tests for upload_pwa_assets() — shared static asset deployment."""
 
-    def test_returns_true_on_success(self) -> None:
+    def test_returns_empty_on_success(self) -> None:
         conn = _MockConnection()
         result = upload_pwa_assets(conn)
-        assert result is True
+        assert result == ""
 
-    def test_returns_false_on_failure(self) -> None:
+    def test_returns_error_on_failure(self) -> None:
         conn = _MockConnection()
         # base64 -d write fails
         conn.when("base64 -d", rc=1)
         result = upload_pwa_assets(conn)
-        assert result is False
+        assert result  # non-empty error string
 
     def test_creates_pwa_directory(self) -> None:
         conn = _MockConnection()

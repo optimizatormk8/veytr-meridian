@@ -56,12 +56,12 @@ class InstallDocker:
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if Docker is already installed
-        version_check = conn.run("docker --version", timeout=10)
+        version_check = conn.run("docker --version", timeout=15)
         docker_installed = version_check.returncode == 0
 
         if docker_installed:
             # Check for running containers
-            ps_check = conn.run("docker ps -q", timeout=10)
+            ps_check = conn.run("docker ps -q", timeout=15)
             has_containers = ps_check.returncode == 0 and ps_check.stdout.strip() != ""
             if has_containers:
                 return StepResult(
@@ -71,13 +71,13 @@ class InstallDocker:
                 )
 
         # Check if docker-ce is specifically installed
-        ce_check = conn.run("dpkg-query -W -f='${Status}' docker-ce 2>/dev/null", timeout=10)
+        ce_check = conn.run("dpkg-query -W -f='${Status}' docker-ce 2>/dev/null", timeout=15)
         docker_ce_installed = ce_check.returncode == 0 and "install ok installed" in ce_check.stdout
 
         if docker_ce_installed:
             # Ensure Docker service is running
-            conn.run("systemctl start docker", timeout=15)
-            conn.run("systemctl enable docker", timeout=10)
+            conn.run("systemctl start docker", timeout=30)
+            conn.run("systemctl enable docker", timeout=15)
             return StepResult(
                 name=self.name,
                 status="ok",
@@ -89,13 +89,13 @@ class InstallDocker:
             pkg_list = " ".join(_CONFLICTING_PACKAGES)
             conn.run(
                 f"DEBIAN_FRONTEND=noninteractive apt-get remove -y {pkg_list} 2>/dev/null",
-                timeout=60,
+                timeout=120,
             )
 
         # Install prerequisites
         result = conn.run(
             "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates curl gnupg",
-            timeout=60,
+            timeout=120,
         )
         if result.returncode != 0:
             return StepResult(
@@ -105,16 +105,16 @@ class InstallDocker:
             )
 
         # Create keyrings directory
-        conn.run("mkdir -p /etc/apt/keyrings && chmod 755 /etc/apt/keyrings", timeout=10)
+        conn.run("mkdir -p /etc/apt/keyrings && chmod 755 /etc/apt/keyrings", timeout=15)
 
         # Detect distro for Docker repo
-        distro = conn.run("bash -c '. /etc/os-release && echo $ID'", timeout=10)
+        distro = conn.run("bash -c '. /etc/os-release && echo $ID'", timeout=15)
         distro_name = distro.stdout.strip().lower() if distro.returncode == 0 else "ubuntu"
 
-        codename = conn.run("bash -c '. /etc/os-release && echo $VERSION_CODENAME'", timeout=10)
+        codename = conn.run("bash -c '. /etc/os-release && echo $VERSION_CODENAME'", timeout=15)
         distro_codename = codename.stdout.strip() if codename.returncode == 0 else "jammy"
 
-        arch = conn.run("dpkg --print-architecture", timeout=10)
+        arch = conn.run("dpkg --print-architecture", timeout=15)
         distro_arch = arch.stdout.strip() if arch.returncode == 0 else "amd64"
 
         # Add Docker GPG key
@@ -122,7 +122,7 @@ class InstallDocker:
         result = conn.run(
             f"curl -fsSL {shlex.quote(gpg_url)} -o /etc/apt/keyrings/docker.asc"
             " && chmod 644 /etc/apt/keyrings/docker.asc",
-            timeout=30,
+            timeout=60,
         )
         if result.returncode != 0:
             return StepResult(
@@ -139,7 +139,7 @@ class InstallDocker:
         )
         result = conn.run(
             f"echo {shlex.quote(repo_line)} > /etc/apt/sources.list.d/docker.list",
-            timeout=10,
+            timeout=15,
         )
         if result.returncode != 0:
             return StepResult(
@@ -174,7 +174,7 @@ class InstallDocker:
 
         # Ensure Docker service is started and enabled
         conn.run("systemctl start docker", timeout=15)
-        conn.run("systemctl enable docker", timeout=10)
+        conn.run("systemctl enable docker", timeout=15)
 
         return StepResult(name=self.name, status="changed")
 
@@ -187,7 +187,7 @@ class Deploy3xui:
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Create data directories
         for d in ("/opt/3x-ui", "/opt/3x-ui/db", "/opt/3x-ui/cert"):
-            result = conn.run(f"mkdir -p {d} && chmod 700 {d}", timeout=10)
+            result = conn.run(f"mkdir -p {d} && chmod 700 {d}", timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -196,7 +196,7 @@ class Deploy3xui:
                 )
 
         # Check port 443 for conflicting services
-        port_check = conn.run("ss -tlnp sport = :443", timeout=10)
+        port_check = conn.run("ss -tlnp sport = :443", timeout=15)
         if port_check.returncode == 0 and ":443" in port_check.stdout:
             # Check if the service is one of our allowed ones
             stdout = port_check.stdout
@@ -215,19 +215,19 @@ class Deploy3xui:
         compose_content = _render_compose(ctx)
         # Use heredoc to write file — avoids shell quoting issues with YAML
         write_cmd = "cat > /opt/3x-ui/docker-compose.yml << 'MERIDIAN_EOF'\n" + compose_content + "MERIDIAN_EOF"
-        result = conn.run(write_cmd, timeout=10)
+        result = conn.run(write_cmd, timeout=15)
         if result.returncode != 0:
             return StepResult(
                 name=self.name,
                 status="failed",
                 detail=f"failed to write docker-compose.yml: {result.stderr.strip()[:200]}",
             )
-        conn.run("chmod 644 /opt/3x-ui/docker-compose.yml", timeout=10)
+        conn.run("chmod 644 /opt/3x-ui/docker-compose.yml", timeout=15)
 
         # Pull the 3x-ui image (with retries)
         pull_ok = False
         for attempt in range(3):
-            result = conn.run("cd /opt/3x-ui && docker compose pull", timeout=180)
+            result = conn.run("cd /opt/3x-ui && docker compose pull", timeout=300)
             if result.returncode == 0:
                 pull_ok = True
                 break
@@ -242,7 +242,7 @@ class Deploy3xui:
             )
 
         # Start the container
-        result = conn.run("cd /opt/3x-ui && docker compose up -d", timeout=60)
+        result = conn.run("cd /opt/3x-ui && docker compose up -d", timeout=120)
         if result.returncode != 0:
             # Rescue: capture logs for diagnosis
             logs = conn.run("cd /opt/3x-ui && docker compose logs --tail 50", timeout=15)
@@ -266,7 +266,7 @@ class Deploy3xui:
         for attempt in range(30):
             check = conn.run(
                 f"curl -s -o /dev/null -w '%{{http_code}}' {shlex.quote(panel_url)}",
-                timeout=10,
+                timeout=15,
             )
             if check.returncode == 0 and check.stdout.strip() in (
                 "200",

@@ -96,7 +96,7 @@ class InstallRelayPackages:
         if not missing:
             return StepResult(name=self.name, status="ok", detail="all packages present")
 
-        update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=120)
+        update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=180)
         if update.returncode != 0:
             stderr = update.stderr.strip()
             if "no longer has a Release file" in stderr:
@@ -135,14 +135,14 @@ class ConfigureRelayBBR:
     name = "Enable BBR congestion control"
 
     def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
-        check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=10)
+        check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=15)
         if check.returncode == 0 and check.stdout.strip() == "bbr":
-            qdisc = conn.run("sysctl -n net.core.default_qdisc 2>/dev/null", timeout=10)
+            qdisc = conn.run("sysctl -n net.core.default_qdisc 2>/dev/null", timeout=15)
             if qdisc.returncode == 0 and qdisc.stdout.strip() == "fq":
                 return StepResult(name=self.name, status="ok", detail="already enabled")
 
         for key, value in _BBR_SETTINGS.items():
-            result = conn.run(f"sysctl -w {key}={value}", timeout=10)
+            result = conn.run(f"sysctl -w {key}={value}", timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
@@ -153,8 +153,8 @@ class ConfigureRelayBBR:
         for key, value in _BBR_SETTINGS.items():
             q_key = shlex.quote(key)
             q_value = shlex.quote(value)
-            conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=10)
-            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=10)
+            conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=15)
+            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=15)
 
         return StepResult(name=self.name, status="changed")
 
@@ -165,39 +165,40 @@ class ConfigureRelayFirewall:
     name = "Configure relay firewall"
 
     def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
-        check = conn.run("which ufw", timeout=10)
+        check = conn.run("which ufw", timeout=15)
         if check.returncode != 0:
-            return StepResult(name=self.name, status="failed", detail="ufw not found")
+            detail = check.stderr.strip() if check.stderr.strip() else "ufw not found"
+            return StepResult(name=self.name, status="failed", detail=detail)
 
         changed = False
 
-        ufw_status = conn.run("ufw status", timeout=10)
+        ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
         # Allow SSH
-        result = conn.run("ufw allow 22/tcp", timeout=10)
+        result = conn.run("ufw allow 22/tcp", timeout=15)
         if result.returncode != 0:
             return StepResult(name=self.name, status="failed", detail="failed to allow SSH")
         if "Skipping" not in result.stdout:
             changed = True
 
         # Allow relay port
-        result = conn.run(f"ufw allow {ctx.listen_port}/tcp", timeout=10)
+        result = conn.run(f"ufw allow {ctx.listen_port}/tcp", timeout=15)
         if result.returncode != 0:
             return StepResult(name=self.name, status="failed", detail="failed to allow relay port")
         if "Skipping" not in result.stdout:
             changed = True
 
-        conn.run("ufw default deny incoming", timeout=10)
-        conn.run("ufw default allow outgoing", timeout=10)
+        conn.run("ufw default deny incoming", timeout=15)
+        conn.run("ufw default allow outgoing", timeout=15)
 
         if not ufw_active:
-            result = conn.run("echo y | ufw enable", timeout=15)
+            result = conn.run("echo y | ufw enable", timeout=30)
             if result.returncode != 0:
                 return StepResult(name=self.name, status="failed", detail="ufw enable failed")
             changed = True
         else:
-            conn.run("ufw reload", timeout=15)
+            conn.run("ufw reload", timeout=30)
 
         return StepResult(name=self.name, status="changed" if changed else "ok")
 
@@ -209,7 +210,7 @@ class InstallRealm:
 
     def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
         # Check if Realm is already installed at the right version
-        check = conn.run("realm --version 2>/dev/null", timeout=10)
+        check = conn.run("realm --version 2>/dev/null", timeout=15)
         if check.returncode == 0:
             # Parse version from output like "realm 2.9.3"
             installed_version = check.stdout.strip().split()[-1] if check.stdout.strip() else ""
@@ -217,7 +218,7 @@ class InstallRealm:
                 return StepResult(name=self.name, status="ok", detail=f"v{ctx.realm_version} already installed")
 
         # Detect architecture
-        arch_result = conn.run("uname -m", timeout=10)
+        arch_result = conn.run("uname -m", timeout=15)
         if arch_result.returncode != 0:
             return StepResult(name=self.name, status="failed", detail="cannot detect architecture")
 
@@ -235,7 +236,7 @@ class InstallRealm:
 
         download = conn.run(
             f"curl -fsSL {q_url} -o /tmp/realm.tar.gz",
-            timeout=60,
+            timeout=120,
         )
         if download.returncode != 0:
             return StepResult(
@@ -247,10 +248,10 @@ class InstallRealm:
         # Verify SHA256 checksum (supply chain protection)
         expected_hash = REALM_SHA256.get(target, "")
         if expected_hash:
-            check = conn.run("sha256sum /tmp/realm.tar.gz | cut -d' ' -f1", timeout=10)
+            check = conn.run("sha256sum /tmp/realm.tar.gz | cut -d' ' -f1", timeout=15)
             actual_hash = check.stdout.strip()
             if actual_hash != expected_hash:
-                conn.run("rm -f /tmp/realm.tar.gz", timeout=10)
+                conn.run("rm -f /tmp/realm.tar.gz", timeout=15)
                 return StepResult(
                     name=self.name,
                     status="failed",
@@ -272,7 +273,7 @@ class InstallRealm:
             )
 
         # Verify
-        verify = conn.run("realm --version", timeout=10)
+        verify = conn.run("realm --version", timeout=15)
         if verify.returncode != 0:
             return StepResult(name=self.name, status="failed", detail="realm binary not working after install")
 
@@ -298,12 +299,12 @@ class ConfigureRealm:
             f'remote = "{ctx.exit_ip}:{ctx.exit_port}"\n'
         )
 
-        conn.run("mkdir -p /etc/meridian", timeout=10)
+        conn.run("mkdir -p /etc/meridian", timeout=15)
 
         q_config = shlex.quote(config_content)
         write_config = conn.run(
             f"printf '%s' {q_config} > {RELAY_CONFIG_PATH}.tmp && mv {RELAY_CONFIG_PATH}.tmp {RELAY_CONFIG_PATH}",
-            timeout=10,
+            timeout=15,
         )
         if write_config.returncode != 0:
             return StepResult(
@@ -311,7 +312,7 @@ class ConfigureRealm:
                 status="failed",
                 detail=f"failed to write config: {write_config.stderr.strip()[:200]}",
             )
-        conn.run(f"chmod 600 {RELAY_CONFIG_PATH}", timeout=10)
+        conn.run(f"chmod 600 {RELAY_CONFIG_PATH}", timeout=15)
 
         # Write relay metadata
         relay_meta = (
@@ -321,9 +322,9 @@ class ConfigureRealm:
         conn.run(
             f"printf '%s' {q_meta} > /etc/meridian/relay.yml.tmp && "
             "mv /etc/meridian/relay.yml.tmp /etc/meridian/relay.yml",
-            timeout=10,
+            timeout=15,
         )
-        conn.run("chmod 600 /etc/meridian/relay.yml", timeout=10)
+        conn.run("chmod 600 /etc/meridian/relay.yml", timeout=15)
 
         # Write systemd service
         unit_content = _SYSTEMD_UNIT.format(config_path=RELAY_CONFIG_PATH)
@@ -331,7 +332,7 @@ class ConfigureRealm:
         service_path = f"/etc/systemd/system/{RELAY_SERVICE_NAME}.service"
         write_service = conn.run(
             f"printf '%s' {q_unit} > {service_path}.tmp && mv {service_path}.tmp {service_path}",
-            timeout=10,
+            timeout=15,
         )
         if write_service.returncode != 0:
             return StepResult(
@@ -341,9 +342,9 @@ class ConfigureRealm:
             )
 
         # Reload systemd, enable and (re)start service
-        conn.run("systemctl daemon-reload", timeout=15)
-        conn.run(f"systemctl enable {RELAY_SERVICE_NAME}", timeout=10)
-        restart = conn.run(f"systemctl restart {RELAY_SERVICE_NAME}", timeout=15)
+        conn.run("systemctl daemon-reload", timeout=30)
+        conn.run(f"systemctl enable {RELAY_SERVICE_NAME}", timeout=15)
+        restart = conn.run(f"systemctl restart {RELAY_SERVICE_NAME}", timeout=30)
         if restart.returncode != 0:
             return StepResult(
                 name=self.name,
@@ -365,10 +366,10 @@ class VerifyRelay:
 
     def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
         # Check service is running
-        status_result = conn.run(f"systemctl is-active {RELAY_SERVICE_NAME}", timeout=10)
+        status_result = conn.run(f"systemctl is-active {RELAY_SERVICE_NAME}", timeout=15)
         if status_result.returncode != 0 or status_result.stdout.strip() != "active":
             # Collect journal for diagnosis
-            logs = conn.run(f"journalctl -u {RELAY_SERVICE_NAME} --no-pager -n 10", timeout=10)
+            logs = conn.run(f"journalctl -u {RELAY_SERVICE_NAME} --no-pager -n 10", timeout=15)
             detail = logs.stdout.strip()[-200:] if logs.returncode == 0 else "service not active"
             return StepResult(name=self.name, status="failed", detail=detail)
 
@@ -376,7 +377,7 @@ class VerifyRelay:
         # IPs are validated in RelayContext.__post_init__
         tcp_test = conn.run(
             f"nc -z -w 5 {ctx.exit_ip} {ctx.exit_port} 2>/dev/null",
-            timeout=10,
+            timeout=15,
         )
         if tcp_test.returncode != 0:
             # Fallback: same-server relay may not reach its own public IP
@@ -384,7 +385,7 @@ class VerifyRelay:
             # listen port on localhost instead — proves Realm is forwarding.
             localhost_test = conn.run(
                 f"nc -z -w 3 127.0.0.1 {ctx.listen_port} 2>/dev/null",
-                timeout=10,
+                timeout=15,
             )
             if localhost_test.returncode == 0:
                 return StepResult(
