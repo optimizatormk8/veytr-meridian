@@ -23,13 +23,23 @@ from meridian.provision.steps import ProvisionContext
 
 from .conftest import MockConnection, make_credentials
 
+# Steps that need a mock PanelClient in ctx["panel"]
+_PANEL_STEPS = {
+    "Log in to panel",
+    "Create Reality inbound",
+    "Create XHTTP inbound",
+    "Create WSS inbound",
+    "Disable Xray logs",
+}
+
 
 def _make_panel_mock() -> MagicMock:
     """Create a mock PanelClient that returns success for all API calls."""
     panel = MagicMock()
     panel.find_inbound.return_value = None  # no existing inbound
     panel.api_post_json.return_value = {"success": True}
-    panel.api_post_empty.return_value = None
+    panel.api_post_empty.return_value = {"success": True, "obj": "{}"}
+    panel.api_post_form.return_value = {"success": True}
     panel.login.return_value = None
     panel.cleanup.return_value = None
     panel.list_inbounds.return_value = []
@@ -140,7 +150,7 @@ class TestFullPipelineContract:
         # writes credentials to disk and calls the panel API.
         for step in steps:
             # Inject mock panel for steps that need it
-            if step.name in ("Log in to panel", "Create Reality inbound", "Create XHTTP inbound", "Create WSS inbound"):
+            if step.name in _PANEL_STEPS:
                 if "panel" not in ctx:
                     ctx["panel"] = _make_panel_mock()
 
@@ -191,7 +201,7 @@ class TestFullPipelineContract:
         steps = build_setup_steps(ctx)
 
         for step in steps:
-            if step.name in ("Log in to panel", "Create Reality inbound", "Create XHTTP inbound", "Create WSS inbound"):
+            if step.name in _PANEL_STEPS:
                 if "panel" not in ctx:
                     ctx["panel"] = _make_panel_mock()
 
@@ -228,7 +238,7 @@ class TestFullPipelineContract:
         steps = build_setup_steps(ctx)
 
         for step in steps:
-            if step.name in ("Log in to panel", "Create Reality inbound", "Create XHTTP inbound", "Create WSS inbound"):
+            if step.name in _PANEL_STEPS:
                 if "panel" not in ctx:
                     ctx["panel"] = _make_panel_mock()
             if step.name == "Configure panel":

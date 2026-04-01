@@ -459,6 +459,87 @@ class CreateWSSInbound:
 
 
 # ---------------------------------------------------------------------------
+# DisableXrayLogs
+# ---------------------------------------------------------------------------
+
+
+# Log section that disables access logs and minimizes error output.
+# access="none" disables per-connection access logging (privacy).
+# error="none" disables error log file (errors still visible in docker logs
+# briefly via stderr, but are not persisted to disk).
+# loglevel="warning" suppresses routine info messages.
+_XRAY_LOG_CONFIG = {
+    "access": "none",
+    "dnsLog": False,
+    "error": "none",
+    "loglevel": "warning",
+    "maskAddress": "",
+}
+
+
+class DisableXrayLogs:
+    """Ensure Xray access and error logs are disabled.
+
+    Fetches the Xray config template from 3x-ui, patches the log section,
+    and saves it back. Idempotent — skips if already correct.
+    """
+
+    name = "Disable Xray logs"
+
+    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
+        panel: PanelClient = ctx["panel"]
+
+        # Fetch current Xray config template
+        try:
+            data = panel.api_post_empty("/panel/xray/")
+        except PanelError as e:
+            return StepResult(name=self.name, status="failed", detail=f"Failed to fetch Xray config: {e}")
+
+        if not data.get("success"):
+            return StepResult(name=self.name, status="failed", detail="Failed to fetch Xray config template")
+
+        # The obj is a JSON string containing {xraySetting, inboundTags, ...}
+        obj = data.get("obj", "")
+        try:
+            wrapper = json.loads(obj) if isinstance(obj, str) else obj
+            template_str = wrapper.get("xraySetting", "")
+            if isinstance(template_str, str):
+                template = json.loads(template_str)
+            else:
+                template = template_str
+        except (json.JSONDecodeError, TypeError, AttributeError) as e:
+            return StepResult(name=self.name, status="failed", detail=f"Failed to parse Xray template: {e}")
+
+        # Check if log section already matches
+        current_log = template.get("log", {})
+        if current_log == _XRAY_LOG_CONFIG:
+            return StepResult(name=self.name, status="ok", detail="Logs already disabled")
+
+        # Patch log section and save
+        template["log"] = _XRAY_LOG_CONFIG
+        updated_json = json.dumps(template)
+
+        try:
+            from urllib.parse import quote as urlquote
+
+            form_data = f"xraySetting={urlquote(updated_json, safe='')}"
+            save_data = panel.api_post_form("/panel/xray/update", form_data)
+        except PanelError as e:
+            return StepResult(name=self.name, status="failed", detail=f"Failed to save Xray config: {e}")
+
+        if not save_data.get("success"):
+            return StepResult(name=self.name, status="failed", detail=f"Save failed: {save_data.get('msg', 'unknown')}")
+
+        # Restart Xray to apply the new config
+        try:
+            panel.api_post_empty("/panel/api/server/restartXrayService")
+        except PanelError:
+            pass  # Non-fatal — Xray will pick up config on next restart
+
+        return StepResult(name=self.name, status="changed", detail="Access and error logs disabled")
+
+
+# ---------------------------------------------------------------------------
 # VerifyXray
 # ---------------------------------------------------------------------------
 

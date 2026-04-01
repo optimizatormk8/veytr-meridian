@@ -59,10 +59,10 @@ class TestMinimalPipeline:
     def test_minimal_step_count(self, base_ctx: ProvisionContext):
         """Minimal config: disk check, packages, auto-upgrades, timezone, BBR,
         ensure port 443, docker, deploy 3xui, configure panel, login, reality,
-        verify xray = 12 steps."""
+        disable logs, verify xray = 13 steps."""
         steps = build_setup_steps(base_ctx)
         names = [s.name for s in steps]
-        assert len(steps) == 12, f"Expected 12 minimal steps, got {len(steps)}: {names}"
+        assert len(steps) == 13, f"Expected 13 minimal steps, got {len(steps)}: {names}"
 
     def test_no_services_without_domain_or_hosted_page(self, base_ctx: ProvisionContext):
         names = step_names(base_ctx)
@@ -121,10 +121,10 @@ class TestHostedPage:
 class TestFullPipeline:
     def test_full_pipeline_step_count(self, domain_ctx: ProvisionContext):
         """All flags on: disk check + common(3) + harden(2) + BBR + docker(2) + panel(2)
-        + reality + xhttp + wss + verify + nginx + pwa assets + connection page = 18."""
+        + reality + xhttp + wss + disable logs + verify + nginx + pwa assets + connection page = 19."""
         steps = build_setup_steps(domain_ctx)
         names = [s.name for s in steps]
-        assert len(steps) == 18, f"Expected 18 full steps, got {len(steps)}: {names}"
+        assert len(steps) == 19, f"Expected 19 full steps, got {len(steps)}: {names}"
 
 
 class TestStepOrdering:
@@ -144,7 +144,8 @@ class TestStepOrdering:
         # Panel before inbounds
         assert_before("Log in to panel", "Create Reality inbound")
         # Inbounds before verify
-        assert_before("Create Reality inbound", "Verify Xray configuration")
+        assert_before("Create Reality inbound", "Disable Xray logs")
+        assert_before("Disable Xray logs", "Verify Xray configuration")
         # Verify before services
         assert_before("Verify Xray configuration", "Install nginx")
         assert_before("Install nginx", "Deploy PWA assets")

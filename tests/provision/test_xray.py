@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 from meridian.provision.xray import (
+    _XRAY_LOG_CONFIG,
     _client_settings,
     _reality_stream_settings,
     _wss_stream_settings,
@@ -147,3 +148,21 @@ class TestWSSStreamSettings:
         raw = _wss_stream_settings(ws_path="ws789")
         data = json.loads(raw)
         assert data["wsSettings"]["path"] == "/ws789"
+
+
+# ---------------------------------------------------------------------------
+# _XRAY_LOG_CONFIG
+# ---------------------------------------------------------------------------
+
+
+class TestXrayLogConfig:
+    def test_access_log_disabled(self):
+        """Access log must be 'none' — no per-connection logging."""
+        assert _XRAY_LOG_CONFIG["access"] == "none"
+
+    def test_error_log_disabled(self):
+        """Error log must be 'none' — no persistent error log file."""
+        assert _XRAY_LOG_CONFIG["error"] == "none"
+
+    def test_dns_log_disabled(self):
+        assert _XRAY_LOG_CONFIG["dnsLog"] is False

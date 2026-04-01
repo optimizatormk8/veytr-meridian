@@ -92,6 +92,16 @@ class PanelClient:
             raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
         return self.parse_response(result.stdout, path)
 
+    def api_post_form(self, path: str, form_data: str) -> dict:
+        """Make an authenticated POST request with form-urlencoded body."""
+        url = shlex.quote(self.base_url + path)
+        q_data = shlex.quote(form_data)
+        cmd = f"curl -s -b {self._cookie_path} -d {q_data} {url}"
+        result = self.conn.run(cmd, timeout=30, sudo=False)
+        if result.returncode != 0:
+            raise PanelError(f"API POST {path} failed: {result.stderr.strip()}")
+        return self.parse_response(result.stdout, path)
+
     def api_post_empty(self, path: str) -> dict:
         """Make an authenticated POST request with no body."""
         url = shlex.quote(self.base_url + path)

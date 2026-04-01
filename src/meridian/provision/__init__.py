@@ -39,6 +39,7 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
         CreateRealityInbound,
         CreateWSSInbound,
         CreateXHTTPInbound,
+        DisableXrayLogs,
         VerifyXray,
     )
 
@@ -103,6 +104,7 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
     if ctx.domain_mode:
         steps.append(CreateWSSInbound(port=ctx.wss_port))  # WSS binds to 127.0.0.1
 
+    steps.append(DisableXrayLogs())
     steps.append(VerifyXray())
 
     # nginx + connection page (domain mode or hosted page)
