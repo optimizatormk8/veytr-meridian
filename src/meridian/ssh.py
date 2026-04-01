@@ -155,6 +155,10 @@ class ServerConnection:
             command: Shell command to execute.
             timeout: Timeout in seconds.
             sudo: Force sudo wrapping. None = auto (sudo when user != root).
+
+        Returns a synthetic CompletedProcess with returncode=124 if the
+        command times out (matching GNU ``timeout`` convention), instead
+        of letting ``subprocess.TimeoutExpired`` crash the caller.
         """
         use_sudo = sudo if sudo is not None else (self.user != "root")
 
@@ -163,13 +167,21 @@ class ServerConnection:
                 cmd = ["sudo", "-n", "bash", "-c", command]
             else:
                 cmd = ["bash", "-c", command]
-            return subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                stdin=subprocess.DEVNULL,
-            )
+            try:
+                return subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    stdin=subprocess.DEVNULL,
+                )
+            except subprocess.TimeoutExpired:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=124,
+                    stdout="",
+                    stderr=f"Command timed out after {timeout}s",
+                )
         # Remote SSH
         if use_sudo and not self.needs_sudo:
             # Non-root remote user: wrap in sudo via SSH
@@ -177,13 +189,21 @@ class ServerConnection:
             # the first layer of quoting. sudo -n sh -c adds a second layer.
             command = f"sudo -n sh -c {shlex.quote(command)}"
         cmd = ["ssh", *self._ssh_opts, f"{self.user}@{self.ip}", command]
-        return subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-        )
+        try:
+            return subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                stdin=subprocess.DEVNULL,
+            )
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=124,
+                stdout="",
+                stderr=f"Command timed out after {timeout}s",
+            )
 
     def check_ssh(self) -> None:
         """Verify SSH connectivity. Exits on failure.
