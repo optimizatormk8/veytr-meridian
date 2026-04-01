@@ -96,6 +96,13 @@ def _render_nginx_stream_config(
             # Short timeout — don't wait 60s (default) if a backend is
             # temporarily unavailable.
             proxy_connect_timeout 1s;
+            # VPN sessions can idle for extended periods (user not browsing).
+            # Default 10m kills these; 30m is more forgiving while still
+            # reclaiming truly dead connections.
+            proxy_timeout 30m;
+            # TCP keepalives prevent NATs/firewalls from dropping idle
+            # connections — critical for relay→exit paths.
+            proxy_socket_keepalive on;
         }}
     """)
 
@@ -143,8 +150,11 @@ def _render_nginx_http_config(
             # Long timeouts: XHTTP mode=auto lets clients negotiate streaming
             # modes (stream-one/stream-up) with long-lived connections.
             location /{xhttp_path}/ {{
-                proxy_pass http://127.0.0.1:{xhttp_internal_port};
+                proxy_pass http://meridian_xhttp;
                 proxy_http_version 1.1;
+                # Empty Connection header enables upstream keepalive reuse —
+                # without this, nginx sends Connection: close per request.
+                proxy_set_header Connection "";
                 proxy_read_timeout 86400s;
                 proxy_send_timeout 86400s;
                 proxy_buffering off;
@@ -158,6 +168,19 @@ def _render_nginx_http_config(
     root_action = "return 403;"
     default_action = "return 404;"
 
+    # Upstream keepalive pool for XHTTP — connections to Xray are reused
+    # across sub-requests instead of opening a new TCP conn each time.
+    xhttp_upstream = ""
+    if xhttp_path and xhttp_internal_port > 0:
+        xhttp_upstream = textwrap.dedent(f"""\
+            upstream meridian_xhttp {{
+                server 127.0.0.1:{xhttp_internal_port};
+                keepalive 32;
+                keepalive_requests 10000;
+                keepalive_timeout 300s;
+            }}
+        """)
+
     return _render_nginx_server_block(
         host=domain,
         nginx_internal_port=nginx_internal_port,
@@ -165,6 +188,7 @@ def _render_nginx_http_config(
         panel_internal_port=panel_internal_port,
         info_page_path=info_page_path,
         extra_locations=wss_block + xhttp_block,
+        upstream_blocks=xhttp_upstream,
         root_action=root_action,
         default_action=default_action,
         mode_comment="Domain Mode",
@@ -196,8 +220,11 @@ def _render_nginx_ip_config(
             # Long timeouts: XHTTP mode=auto lets clients negotiate streaming
             # modes (stream-one/stream-up) with long-lived connections.
             location /{xhttp_path}/ {{
-                proxy_pass http://127.0.0.1:{xhttp_internal_port};
+                proxy_pass http://meridian_xhttp;
                 proxy_http_version 1.1;
+                # Empty Connection header enables upstream keepalive reuse —
+                # without this, nginx sends Connection: close per request.
+                proxy_set_header Connection "";
                 proxy_read_timeout 86400s;
                 proxy_send_timeout 86400s;
                 proxy_buffering off;
@@ -209,6 +236,18 @@ def _render_nginx_ip_config(
     root_action = "return 403;"
     default_action = "return 404;"
 
+    # Upstream keepalive pool for XHTTP (see domain mode for rationale).
+    xhttp_upstream = ""
+    if xhttp_path and xhttp_internal_port > 0:
+        xhttp_upstream = textwrap.dedent(f"""\
+            upstream meridian_xhttp {{
+                server 127.0.0.1:{xhttp_internal_port};
+                keepalive 32;
+                keepalive_requests 10000;
+                keepalive_timeout 300s;
+            }}
+        """)
+
     return _render_nginx_server_block(
         host=server_ip,
         nginx_internal_port=nginx_internal_port,
@@ -216,6 +255,7 @@ def _render_nginx_ip_config(
         panel_internal_port=panel_internal_port,
         info_page_path=info_page_path,
         extra_locations=xhttp_block,
+        upstream_blocks=xhttp_upstream,
         root_action=root_action,
         default_action=default_action,
         mode_comment="IP Certificate Mode",
@@ -236,6 +276,7 @@ def _render_nginx_server_block(
     mode_comment: str,
     tls_comment: str,
     redirect_http: bool = True,
+    upstream_blocks: str = "",
 ) -> str:
     """Render the shared nginx server block structure.
 
@@ -280,7 +321,7 @@ def _render_nginx_server_block(
             default upgrade;
             ""      close;
         }}
-
+    {upstream_blocks}
         server {{
             listen 127.0.0.1:{nginx_internal_port} ssl http2;
             server_name {host};

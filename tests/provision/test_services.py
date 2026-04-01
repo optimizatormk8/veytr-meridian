@@ -209,7 +209,7 @@ class TestNginxXHTTPBlock:
             xhttp_path="xh-abc123",
             xhttp_internal_port=29000,
         )
-        assert "proxy_pass http://127.0.0.1:29000" in cfg
+        assert "proxy_pass http://meridian_xhttp" in cfg
         assert "proxy_buffering off" in cfg
         assert "xh-abc123" in cfg
 
@@ -225,7 +225,7 @@ class TestNginxXHTTPBlock:
             xhttp_path="xh-def456",
             xhttp_internal_port=29500,
         )
-        assert "proxy_pass http://127.0.0.1:29500" in cfg
+        assert "proxy_pass http://meridian_xhttp" in cfg
         assert "proxy_buffering off" in cfg
         assert "xh-def456" in cfg
 
@@ -252,6 +252,7 @@ class TestNginxXHTTPBlock:
             info_page_path="connect",
         )
         assert "XHTTP" not in cfg
+        assert "meridian_xhttp" not in cfg
 
     def test_xhttp_has_streaming_timeouts(self):
         cfg = _render_nginx_ip_config(
@@ -266,6 +267,40 @@ class TestNginxXHTTPBlock:
         assert "proxy_read_timeout 86400s" in cfg
         assert "proxy_send_timeout 86400s" in cfg
         assert "proxy_request_buffering off" in cfg
+
+    def test_xhttp_upstream_keepalive(self):
+        """XHTTP upstream block enables connection reuse to Xray."""
+        cfg = _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-test",
+            xhttp_internal_port=29000,
+        )
+        assert "upstream meridian_xhttp" in cfg
+        assert "keepalive 32" in cfg
+        assert "127.0.0.1:29000" in cfg
+        # Connection header must be cleared for keepalive to work
+        assert 'proxy_set_header Connection ""' in cfg
+
+    def test_xhttp_upstream_keepalive_domain(self):
+        """Domain mode also gets upstream keepalive."""
+        cfg = _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+            xhttp_path="xh-test",
+            xhttp_internal_port=29500,
+        )
+        assert "upstream meridian_xhttp" in cfg
+        assert "keepalive 32" in cfg
+        assert "127.0.0.1:29500" in cfg
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +539,26 @@ class TestNginxFingerprinting:
             server_ip="198.51.100.1",
         )
         assert "proxy_connect_timeout 1s" in cfg
+
+    def test_stream_proxy_timeout(self):
+        """Stream proxy needs a long idle timeout for VPN sessions."""
+        cfg = _render_nginx_stream_config(
+            reality_sni="www.microsoft.com",
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
+            server_ip="198.51.100.1",
+        )
+        assert "proxy_timeout 30m" in cfg
+
+    def test_stream_socket_keepalive(self):
+        """TCP keepalives keep relay→exit connections alive through NATs."""
+        cfg = _render_nginx_stream_config(
+            reality_sni="www.microsoft.com",
+            reality_backend_port=10443,
+            nginx_internal_port=8443,
+            server_ip="198.51.100.1",
+        )
+        assert "proxy_socket_keepalive on" in cfg
 
     def test_ip_mode_no_http_redirect(self):
         """IP mode must NOT redirect HTTP→HTTPS (redirect to 403 is a contradiction)."""
