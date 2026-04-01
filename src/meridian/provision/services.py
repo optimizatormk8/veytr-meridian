@@ -140,11 +140,15 @@ def _render_nginx_http_config(
         xhttp_block = textwrap.dedent(f"""\
 
             # --- VLESS+XHTTP (enhanced stealth, nginx-terminated TLS) ---
+            # Long timeouts: XHTTP mode=auto lets clients negotiate streaming
+            # modes (stream-one/stream-up) with long-lived connections.
             location /{xhttp_path}/ {{
                 proxy_pass http://127.0.0.1:{xhttp_internal_port};
                 proxy_http_version 1.1;
-                proxy_read_timeout 360s;
+                proxy_read_timeout 86400s;
+                proxy_send_timeout 86400s;
                 proxy_buffering off;
+                proxy_request_buffering off;
             }}
         """).rstrip()
 
@@ -189,11 +193,15 @@ def _render_nginx_ip_config(
         xhttp_block = textwrap.dedent(f"""\
 
             # --- VLESS+XHTTP (enhanced stealth, nginx-terminated TLS) ---
+            # Long timeouts: XHTTP mode=auto lets clients negotiate streaming
+            # modes (stream-one/stream-up) with long-lived connections.
             location /{xhttp_path}/ {{
                 proxy_pass http://127.0.0.1:{xhttp_internal_port};
                 proxy_http_version 1.1;
-                proxy_read_timeout 360s;
+                proxy_read_timeout 86400s;
+                proxy_send_timeout 86400s;
                 proxy_buffering off;
+                proxy_request_buffering off;
             }}
         """).rstrip()
 

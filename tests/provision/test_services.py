@@ -253,7 +253,7 @@ class TestNginxXHTTPBlock:
         )
         assert "XHTTP" not in cfg
 
-    def test_xhttp_has_read_timeout(self):
+    def test_xhttp_has_streaming_timeouts(self):
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
             nginx_internal_port=8443,
@@ -263,7 +263,9 @@ class TestNginxXHTTPBlock:
             xhttp_path="xh-test",
             xhttp_internal_port=29000,
         )
-        assert "proxy_read_timeout 360s" in cfg
+        assert "proxy_read_timeout 86400s" in cfg
+        assert "proxy_send_timeout 86400s" in cfg
+        assert "proxy_request_buffering off" in cfg
 
 
 # ---------------------------------------------------------------------------
