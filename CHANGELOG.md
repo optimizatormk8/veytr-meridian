@@ -4,6 +4,12 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.10.7] - 2026-04-01
+
+### Changed
+- **nginx stream idle timeout** — increased `proxy_timeout` from 10m (default) to 30m so idle VPN sessions aren't killed prematurely. Added `proxy_socket_keepalive` to keep relay→exit TCP connections alive through NATs/firewalls.
+- **XHTTP upstream keepalive** — XHTTP sub-requests now reuse TCP connections to Xray via an upstream keepalive pool (`keepalive 32`) instead of opening a new connection per request. Reduces latency, especially in `packet-up` mode and through relay nodes.
+
 ## [3.10.6] - 2026-04-01
 
 ### Fixed
