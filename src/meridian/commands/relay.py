@@ -255,20 +255,32 @@ def run_deploy(
     if port_check.returncode == 0 and f":{listen_port}" in port_check.stdout:
         # Extract process name from ss output for a helpful message
         ss_lines = port_check.stdout.strip().splitlines()
+        process_name = ""
         process_info = ""
         for ss_line in ss_lines[1:]:  # skip header
             if f":{listen_port}" in ss_line:
                 if "users:" in ss_line:
                     process_info = ss_line.split("users:")[1].strip().strip("()")
+                    match = re.search(r'"([^"]*)"', process_info)
+                    if match:
+                        process_name = match.group(1)
                 break
-        msg = f"Port {listen_port} is already in use"
-        if process_info:
-            msg += f" by {process_info}"
-        fail(
-            msg,
-            hint=f"Choose a different port: meridian relay deploy {relay_ip} --exit {exit_arg} --port <OTHER_PORT>",
-            hint_type="system",
-        )
+
+        if process_name == "realm":
+            # Previous relay still running (e.g. after exit teardown + re-deploy)
+            warn(f"Previous relay service found on port {listen_port} — stopping it")
+            relay_conn.run(f"systemctl stop {RELAY_SERVICE_NAME} 2>/dev/null", timeout=15)
+            relay_conn.run(f"systemctl disable {RELAY_SERVICE_NAME} 2>/dev/null", timeout=10)
+            ok("Previous relay service stopped")
+        else:
+            msg = f"Port {listen_port} is already in use"
+            if process_info:
+                msg += f" by {process_info}"
+            fail(
+                msg,
+                hint=f"Choose a different port: meridian relay deploy {relay_ip} --exit {exit_arg} --port <OTHER_PORT>",
+                hint_type="system",
+            )
 
     # Test relay -> exit connectivity (exit always listens on 443)
     import shlex
