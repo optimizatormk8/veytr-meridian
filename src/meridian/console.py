@@ -98,3 +98,20 @@ def confirm(message: str = "Continue?") -> bool:
     if answer in ("", "y", "yes"):
         return True
     raise typer.Exit(code=1)
+
+
+def choose(message: str, options: list[str], *, default: int = 1) -> int:
+    """Numbered choice prompt. Returns 1-based index of selected option.
+
+    Displays numbered options, then prompts for selection.
+    Falls back to default on empty input or invalid choice.
+    """
+    for i, opt in enumerate(options, 1):
+        err_console.print(f"    {i}. {opt}")
+    err_console.print()
+    answer = prompt(f"{message}, or press Enter for ({default})")
+    if not answer:
+        return default
+    if answer.isdigit() and 1 <= int(answer) <= len(options):
+        return int(answer)
+    return default

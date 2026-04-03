@@ -11,6 +11,14 @@
 
 **Version mismatch check** — `fetch_credentials()` compares `deployed_with` against running CLI. Warns once per server per session. Non-blocking.
 
+**Wizard UX conventions** — the deploy wizard uses `console.py` helpers exclusively:
+- **`choose()`** for any decision with 2+ options. Never raw Y/n prompts. Shows numbered list, user picks a number. Default is always 1.
+- **`prompt()`** for free-text input (IP address, domain, server name). Show defaults in brackets.
+- **`confirm()`** only for the final deploy confirmation. One per command, at the end.
+- **Section pattern**: bold header → dim description → blank line → `choose()`/`prompt()`.
+- **`rich.status.Status`** spinner for any operation >5 seconds (scan, download). Same style as provisioner steps.
+- **Summary Panel** before deploy: show all chosen settings so user can review before confirming.
+
 ## What's done well
 
 - **`local` keyword everywhere** — `deploy local`, `check local`, `--server local` all work. Case-insensitive. Same code path.

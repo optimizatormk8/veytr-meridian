@@ -41,16 +41,18 @@ def scan_for_sni(conn: ServerConnection, ip: str) -> list[str]:
     # Download RealiTLScanner to server
     scanner_url = f"https://github.com/XTLS/RealiTLScanner/releases/latest/download/RealiTLScanner-linux-{arch}"
     q_url = shlex.quote(scanner_url)
-    info("Downloading RealiTLScanner...")
-    try:
-        dl_result = conn.run(
-            f"curl -sSfL --max-time 30 -o /tmp/realitlscanner {q_url} </dev/null && chmod +x /tmp/realitlscanner",
-            timeout=40,
-        )
-    except Exception:
-        warn("Scanner download timed out")
-        return []
-    if dl_result.returncode != 0:
+    from rich.status import Status
+
+    with Status("  [cyan]\u2192 Downloading RealiTLScanner...[/cyan]", console=err_console, spinner="dots"):
+        try:
+            dl_result = conn.run(
+                f"curl -sSfL --max-time 30 -o /tmp/realitlscanner {q_url} </dev/null && chmod +x /tmp/realitlscanner",
+                timeout=40,
+            )
+        except Exception:
+            pass
+            dl_result = None
+    if not dl_result or dl_result.returncode != 0:
         warn("Failed to download RealiTLScanner")
         return []
 
@@ -84,18 +86,17 @@ def scan_for_sni(conn: ServerConnection, ip: str) -> list[str]:
 
     # Run scan
     q_cidr = shlex.quote(server_cidr)
-    info(f"Scanning {server_cidr}...")
-    try:
-        conn.run(
-            f"cd /tmp && timeout 90 ./realitlscanner -addr {q_cidr}"
-            " -out /tmp/meridian-scan.csv -thread 4 -timeout 5 >/dev/null 2>&1",
-            timeout=100,
-        )
-    except Exception:
-        warn("Scan timed out")
-        # Clean up
-        conn.run("rm -f /tmp/realitlscanner /tmp/meridian-scan.csv", timeout=5)
-        return []
+    with Status(f"  [cyan]\u2192 Scanning {server_cidr}...[/cyan]", console=err_console, spinner="dots"):
+        try:
+            conn.run(
+                f"cd /tmp && timeout 90 ./realitlscanner -addr {q_cidr}"
+                " -out /tmp/meridian-scan.csv -thread 4 -timeout 5 >/dev/null 2>&1",
+                timeout=100,
+            )
+        except Exception:
+            warn("Scan timed out")
+            conn.run("rm -f /tmp/realitlscanner /tmp/meridian-scan.csv", timeout=5)
+            return []
 
     # Clean up binary, read CSV, clean up CSV -- all in one SSH call
     try:

@@ -15,7 +15,7 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import CREDS_BASE, DEFAULT_PANEL_PORT, DEFAULT_SNI, SERVER_CREDS_DIR, SERVERS_FILE, is_ipv4
-from meridian.console import confirm, err_console, fail, info, line, ok, prompt, warn
+from meridian.console import choose, confirm, err_console, fail, info, line, ok, prompt, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
 from meridian.ssh import ServerConnection
@@ -124,8 +124,14 @@ def run(
                 if yes:
                     sni = creds.server.scanned_sni
                 else:
-                    answer = prompt(f"Use {creds.server.scanned_sni} as SNI target? (Y/n)")
-                    if answer.lower() != "n":
+                    choice = choose(
+                        "SNI target",
+                        [
+                            f"Use {creds.server.scanned_sni}",
+                            f"Skip \u2014 use default ({DEFAULT_SNI})",
+                        ],
+                    )
+                    if choice == 1:
                         sni = creds.server.scanned_sni
 
     # Route to legacy Ansible or new Python provisioner
@@ -194,8 +200,15 @@ def _interactive_wizard(
     # Offer local deployment if running as root with a public IP
     if detected_ip and os.getuid() == 0:
         info(f"Detected: running as root on this server ({detected_ip})")
-        answer = prompt("Deploy locally on this server? [Y/n]")
-        if answer.lower() != "n":
+        err_console.print()
+        choice = choose(
+            "Deploy target",
+            [
+                f"This server ({detected_ip}) \u2014 local mode",
+                "Another server \u2014 enter IP",
+            ],
+        )
+        if choice == 1:
             server_ip = "local"
             ssh_user = "root"
             is_local = True
@@ -226,8 +239,14 @@ def _interactive_wizard(
         err_console.print("  [dim](allows ports 22, 80, 443 only). Skip if you have[/dim]")
         err_console.print("  [dim]other services running on this server.[/dim]")
         err_console.print()
-        answer = prompt("Harden server? [Y/n]")
-        if answer.lower() == "n":
+        choice = choose(
+            "Choose",
+            [
+                "Yes \u2014 harden SSH and firewall [dim](recommended)[/dim]",
+                "No \u2014 keep current settings",
+            ],
+        )
+        if choice == 2:
             harden = False
             warn("Skipping SSH hardening and firewall")
         else:
@@ -254,14 +273,33 @@ def _interactive_wizard(
         if saved_scanned_sni:
             info(f"Previous scan found: {saved_scanned_sni}")
             if not yes:
-                answer = prompt(f"Use {saved_scanned_sni}? (Y/n)")
-                if answer.lower() != "n":
+                choice = choose(
+                    "Camouflage target",
+                    [
+                        f"Use {saved_scanned_sni}",
+                        "Scan again",
+                        f"Skip \u2014 use default ({DEFAULT_SNI})",
+                    ],
+                )
+                if choice == 1:
                     sni = saved_scanned_sni
+                elif choice == 3:
+                    sni = DEFAULT_SNI
             else:
                 sni = saved_scanned_sni
 
         if not sni and not yes:
-            if _confirm_scan():
+            choice = choose(
+                "Camouflage",
+                [
+                    "Scan for optimal target (~1 minute)",
+                    "Enter manually",
+                    f"Skip \u2014 use default ({DEFAULT_SNI})",
+                ],
+            )
+            if choice == 2:
+                sni = prompt("SNI domain (e.g. example.com)")
+            elif choice == 1:
                 # Establish connection for scan
                 try:
                     scan_ip = detected_ip if is_local else server_ip
@@ -276,26 +314,19 @@ def _interactive_wizard(
                     candidates = scan_for_sni(conn, scan_ip)
 
                     if candidates:
-                        err_console.print()
                         top = candidates[:5]
-                        for i, candidate in enumerate(top, 1):
-                            err_console.print(f"    {i}. {candidate}")
-                        skip_idx = len(top) + 1
-                        err_console.print(f"    {skip_idx}. [dim]Skip \u2014 use default ({DEFAULT_SNI})[/dim]")
+                        options = list(top) + [f"[dim]Skip \u2014 use default ({DEFAULT_SNI})[/dim]"]
                         err_console.print()
+                        pick = choose("Choose", options)
+                        if pick <= len(top):
+                            sni = top[pick - 1]
 
-                        choice = prompt("Choose", default="1")
-                        if choice.isdigit():
-                            idx = int(choice) - 1
-                            if 0 <= idx < len(top):
-                                sni = top[idx]
-
-                                # Save scanned SNI to credentials
-                                creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-                                proxy_file = creds_dir / "proxy.yml"
-                                creds = ServerCredentials.load(proxy_file)
-                                creds.server.scanned_sni = sni
-                                creds.save(proxy_file)
+                            # Save scanned SNI to credentials
+                            creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+                            proxy_file = creds_dir / "proxy.yml"
+                            creds = ServerCredentials.load(proxy_file)
+                            creds.server.scanned_sni = sni
+                            creds.save(proxy_file)
                     else:
                         warn("No targets found on the same network")
                 except Exception:
@@ -378,20 +409,15 @@ def _interactive_wizard(
         err_console.print()
         err_console.print("  [bold]Color palette[/bold]")
         palette_names = list(PALETTES.keys())
-        for i, pname in enumerate(palette_names, 1):
-            marker = " [dim]← default[/dim]" if pname == "ocean" else ""
-            err_console.print(f"    {i}. {PALETTE_LABELS[pname]}{marker}")
+        options = []
+        for pname in palette_names:
+            marker = " [dim](default)[/dim]" if pname == "ocean" else ""
+            options.append(f"{PALETTE_LABELS[pname]}{marker}")
         err_console.print()
-        color_input = prompt("Choose", default="1")
-        if color_input.isdigit():
-            idx = int(color_input) - 1
-            if 0 <= idx < len(palette_names):
-                color = palette_names[idx]
-        if not color:
-            # Try matching by name
-            from meridian.branding import validate_color
-
-            color = validate_color(color_input) or "ocean"
+        color_pick = choose("Choose", options)
+        idx = color_pick - 1
+        if 0 <= idx < len(palette_names):
+            color = palette_names[idx]
     elif color:
         from meridian.branding import validate_color
 
@@ -422,10 +448,12 @@ def _interactive_wizard(
         branding_line = f"\nBranding:   {' '.join(parts)}"
 
     server_label = f"this server ({detected_ip}) \u2014 local mode" if is_local else f"{ssh_user}@{server_ip}"
+    harden_label = "SSH hardened + firewall" if harden else "skipped"
     summary = (
         f"Server:     {server_label}\n"
         f"Protocol:   {protocol_line}\n"
         f"Camouflage: {sni}\n"
+        f"Hardening:  {harden_label}\n"
         f"Mode:       {'Domain mode (best stealth + CDN fallback)' if domain else 'IP-only (works without a domain)'}"
         f"{branding_line}"
     )
@@ -443,17 +471,6 @@ def _interactive_wizard(
     err_console.print()
 
     return server_ip, ssh_user, sni, domain, email, xhttp, harden, server_name, icon, color
-
-
-def _confirm_scan() -> bool:
-    """Ask user if they want to scan. Returns True/False without exiting on 'n'."""
-    try:
-        with open("/dev/tty") as tty:
-            err_console.print("  [info]\u2192[/info] Scan for optimal target? (~1 minute) [dim][Y/n][/dim] ", end="")
-            answer = tty.readline().strip().lower()
-    except OSError:
-        return False
-    return answer in ("", "y", "yes")
 
 
 def _run_provisioner(
@@ -627,8 +644,8 @@ def _check_ports(conn: ServerConnection, ip: str, yes: bool) -> None:
                     hint_type="user",
                 )
 
-            answer = prompt("Retry? [Y/n]")
-            if answer.lower() == "n":
+            choice = choose("Retry?", ["Yes", "No"])
+            if choice == 2:
                 fail("Aborted — port conflict", hint_type="user")
 
 
@@ -643,8 +660,14 @@ def _offer_relay(resolved: ResolvedServer, yes: bool) -> None:
     err_console.print("  [dim]this exit server. Useful when the IP gets blocked.[/dim]")
     err_console.print()
 
-    answer = prompt("Set up a relay? [y/N]")
-    if answer.lower() not in ("y", "yes"):
+    choice = choose(
+        "Set up a relay?",
+        [
+            "No \u2014 skip for now",
+            "Yes \u2014 add a relay node",
+        ],
+    )
+    if choice == 1:
         err_console.print(f"  [dim]You can add one later: meridian relay deploy RELAY_IP --exit {resolved.ip}[/dim]")
         return
 
