@@ -72,6 +72,8 @@ def _render_nginx_stream_config(
         # Flow:
         {flow_comment}
 
+        map_hash_bucket_size 128;
+
         map $ssl_preread_server_name $meridian_backend {{
         {map_block}
         }}

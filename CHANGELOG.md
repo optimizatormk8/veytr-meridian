@@ -4,6 +4,15 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.10.9] - 2026-04-03
+
+### Fixed
+- **nginx stream `map_hash_bucket_size`** — long SNI hostnames (e.g. `learn.microsoft.com`) exceeded the default 32-byte bucket, failing `nginx -t` on deploy. Set to 128.
+
+### Changed
+- **Backlog cleanup** — 171 → 78 items. Dropped theoretical threats, overengineered fixes, all P3 items, and refactoring debt. Added community feedback from vas3k.club launch.
+- **README** — added Community section with launch post link.
+
 ## [3.10.8] - 2026-04-01
 
 ### Changed

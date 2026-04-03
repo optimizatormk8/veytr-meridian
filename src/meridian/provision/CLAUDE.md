@@ -35,3 +35,4 @@
 - **Port 443 allowed list** — `docker.py` and `setup.py` both check port 443 occupancy. Both must include `haproxy`/`caddy` for upgrade-from-old-stack to work.
 - **Step constructor defaults must be `None` for context-resolved fields** — `InstallNginx` uses `None` defaults with `if x is not None else ctx.Y` resolution. Never use truthy defaults (like `10443` or `DEFAULT_PANEL_PORT`) for fields that fall back to context — they silently mask the fallback. Fixed defaults (like `nginx_internal_port=8443`) that are never resolved from context are fine as-is.
 - **Xray `listen` field** — omitting `listen` from 3x-ui API defaults to all interfaces. When nginx fronts Xray, set `"listen": "127.0.0.1"`.
+- **nginx stream `map_hash_bucket_size`** — default is 32 bytes, too small for long SNI hostnames. Set `map_hash_bucket_size 128;` in the stream config before the `map` block.
