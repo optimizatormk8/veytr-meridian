@@ -396,7 +396,13 @@ class VerifyRelay:
             return StepResult(
                 name=self.name,
                 status="failed",
-                detail=f"relay cannot reach exit {ctx.exit_ip}:{ctx.exit_port}",
+                detail=(
+                    f"relay cannot reach exit {ctx.exit_ip}:{ctx.exit_port}. "
+                    f"Check: 1) exit server is running and accepts connections on port {ctx.exit_port}, "
+                    f"2) exit server firewall allows the relay IP, "
+                    f"3) relay server allows outbound to port {ctx.exit_port}. "
+                    f"Test manually: ssh relay-server 'nc -z -w 5 {ctx.exit_ip} {ctx.exit_port}'"
+                ),
             )
 
         return StepResult(name=self.name, status="ok", detail="service active, exit reachable")

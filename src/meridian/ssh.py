@@ -235,6 +235,13 @@ class ServerConnection:
                     err_console.print("  [dim]If you recently rebuilt this server, remove the old key:[/dim]")
                     err_console.print(f"  [dim]  ssh-keygen -R {self.ip}[/dim]")
                     fail(f"Host key verification failed for {self.ip}", hint_type="system")
+                # sudo not found — non-root user on a system without sudo
+                if self.user != "root" and ("sudo" in stderr and ("not found" in stderr or "No such file" in stderr)):
+                    fail(
+                        f"sudo is not installed on {self.ip}",
+                        hint=f"Install it as root: ssh root@{self.ip} 'apt-get install -y sudo'",
+                        hint_type="system",
+                    )
                 err_console.print(f"\n  [error]SSH connection failed:[/error] {stderr}")
                 err_console.print(f"  [dim]1. Copy your SSH key:  ssh-copy-id {self.user}@{self.ip}[/dim]")
                 err_console.print(f"  [dim]2. Test manually:      ssh {self.user}@{self.ip}[/dim]")
