@@ -533,6 +533,8 @@ def _run_provisioner(
     info(f"Configuring server at {ctx.ip}...")
     if domain:
         info(f"Domain: {domain}")
+    if sni and sni != DEFAULT_SNI:
+        info(f"SNI: {sni}")
     if xhttp:
         info("XHTTP: enabled (enhanced stealth)")
     err_console.print()
