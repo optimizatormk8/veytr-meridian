@@ -9,6 +9,7 @@ import logging
 import types
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from meridian.models import ProtocolURL, RelayURLSet, derive_client_name
 from meridian.urls import generate_qr_base64
@@ -129,7 +130,7 @@ def render_hosted_html(
 # ---------------------------------------------------------------------------
 
 # App download links — matches website/src/data/apps.json (single source of truth)
-_PWA_APPS = [
+_PWA_APPS: list[dict[str, Any]] = [
     {
         "name": "ShadowRocket",
         "platform": "iOS",
@@ -326,7 +327,7 @@ def render_config_json(
                 )
 
     icons = _load_app_icons()
-    apps = [dict(app, icon=icons[app["name"]]) if app["name"] in icons else app for app in _PWA_APPS]
+    apps = [{**app, "icon": icons[app["name"]]} if app["name"] in icons else app for app in _PWA_APPS]
 
     config = {
         "version": 1,

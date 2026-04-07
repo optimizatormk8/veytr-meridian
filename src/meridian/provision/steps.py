@@ -87,11 +87,17 @@ class StepContext(TypingProtocol):
 
 
 class Step(TypingProtocol):
-    """Protocol for provisioning steps."""
+    """Protocol for provisioning steps.
+
+    ``ctx`` is typed as ``Any`` because concrete steps use either
+    ``ProvisionContext`` (deploy pipeline) or ``RelayContext`` (relay pipeline).
+    Both satisfy ``StepContext`` but carry distinct extra fields.
+    ``Provisioner.run()`` is similarly ``Any``-typed.
+    """
 
     name: str
 
-    def run(self, conn: ServerConnection, ctx: StepContext) -> StepResult: ...
+    def run(self, conn: ServerConnection, ctx: Any) -> StepResult: ...
 
 
 class Provisioner:

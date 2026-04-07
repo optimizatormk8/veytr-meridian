@@ -165,7 +165,7 @@ def _resize_with_pillow(data: bytes, content_type: str) -> str:
         return ""
 
     try:
-        img = Image.open(io.BytesIO(data))
+        img: Image.Image = Image.open(io.BytesIO(data))
 
         # Animated GIF: take first frame
         if getattr(img, "is_animated", False):
@@ -182,7 +182,7 @@ def _resize_with_pillow(data: bytes, content_type: str) -> str:
         img = img.crop((left, top, left + side, top + side))
 
         # Resize to target
-        img = img.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)
+        img = img.resize((_ICON_SIZE, _ICON_SIZE), Image.LANCZOS)  # type: ignore[attr-defined]
 
         # Save as PNG
         buf = io.BytesIO()

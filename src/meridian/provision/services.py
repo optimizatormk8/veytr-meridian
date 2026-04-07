@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import shlex
 import textwrap
+from typing import TypeVar
 
 from meridian.config import DEFAULT_FINGERPRINT
 from meridian.provision.steps import ProvisionContext, StepResult
@@ -693,7 +694,10 @@ class InstallNginx:
 # ---------------------------------------------------------------------------
 
 
-def _resolve_ctx(val: object, fallback: object) -> object:
+_T = TypeVar("_T")
+
+
+def _resolve_ctx(val: _T | None, fallback: _T) -> _T:
     """Resolve a constructor value with context fallback.
 
     None = "not provided by caller, use context". Explicit values
