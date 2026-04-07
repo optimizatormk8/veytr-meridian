@@ -29,8 +29,17 @@ const dir = locale === 'fa' ? 'rtl' : 'ltr';
     <!-- Early theme detection: prevents flash of wrong color scheme -->
     <script is:inline>
       (function(){
-        var l=localStorage.getItem('meridian-lang');
-        if(l){document.documentElement.lang=l;if(l==='fa')document.documentElement.dir='rtl';}
+        // If the URL has a locale prefix (/ru/, /fa/, /zh/), use it and persist
+        var p=location.pathname.split('/')[1];
+        var urlLocale=({'ru':'ru','fa':'fa','zh':'zh'})[p];
+        if(urlLocale){
+          document.documentElement.lang=urlLocale;
+          if(urlLocale==='fa')document.documentElement.dir='rtl';
+          localStorage.setItem('meridian-lang',urlLocale);
+        } else {
+          var l=localStorage.getItem('meridian-lang');
+          if(l){document.documentElement.lang=l;if(l==='fa')document.documentElement.dir='rtl';}
+        }
         var t=localStorage.getItem('meridian-theme');
         if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;
       })();

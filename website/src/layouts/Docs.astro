@@ -45,9 +45,20 @@ interface Props {
 
 const { title, description, headings, sections, currentSlug, locale = 'en', availableLocales = [], mdPath } = Astro.props;
 const dir = locale === 'fa' ? 'rtl' : 'ltr';
+
+const breadcrumbSchema = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://getmeridian.org/" },
+    { "@type": "ListItem", "position": 2, "name": "Docs", "item": `https://getmeridian.org/docs/${locale}/` },
+    { "@type": "ListItem", "position": 3, "name": title },
+  ],
+};
 ---
 
 <Base title={`${title} — Meridian Docs`} description={description}>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
   {mdPath && <link slot="head" rel="alternate" type="text/markdown" href={mdPath} />}
   {availableLocales.map((l) => (
     <link slot="head" rel="alternate" hreflang={l.code === 'zh' ? 'zh-Hans' : l.code} href={l.href} />

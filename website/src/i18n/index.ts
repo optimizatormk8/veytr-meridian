@@ -68,4 +68,8 @@ export function setLang(lang: Locale, translations: Record<string, Record<string
 
   // Persist
   localStorage.setItem(STORAGE_KEY, lang);
+
+  // Update document title
+  const pageTitle = translations[lang]?.['page.title'];
+  if (pageTitle) document.title = pageTitle;
 }

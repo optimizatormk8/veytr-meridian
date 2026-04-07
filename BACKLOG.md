@@ -125,7 +125,7 @@ Things that require human action outside the codebase.
 ### UX
 
 - [ ] **Multi-protocol jargon** — "XHTTP" meaningless to non-tech. Use "Connection 1 / 2"
-- [ ] **`<title>` not updated on language switch** — stays English
+- [x] **`<title>` not updated on language switch** — stays English
 - [ ] **`index.html` not in SW precache** — first offline visit fails
 - [ ] **`apple-touch-icon` uses SVG** — iOS needs PNG
 - [ ] **QR 200x200px marginal on Retina** — generate 400x400px
@@ -134,7 +134,7 @@ Things that require human action outside the codebase.
 ### Website
 
 - [ ] **Live GitHub stars in trust bar** — shields.io badge or API fetch
-- [ ] **Sitemap i18n hreflang** — `i18n` option in `sitemap()` config
+- [x] **Sitemap i18n hreflang** — `i18n` option in `sitemap()` config
 - [ ] **Dark mode toggle** — system-preference only, no manual override
 - [ ] **Docs sidebar on mobile** — no nav below 860px
 

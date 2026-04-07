@@ -3,25 +3,29 @@
  * Hero — warm editorial. Benefits-first messaging.
  * "Share secure internet with your family" > "Deploy VLESS+Reality"
  */
+import { createT } from '../i18n/t';
+
+interface Props {
+  locale?: string;
+}
+
+const { locale = 'en' } = Astro.props;
+const t = createT(locale);
+const docsLocale = locale === 'en' ? 'en' : locale;
 ---
 
 <section class="hero">
   <div class="container hero__content">
-    <p class="hero__kicker" data-t="hero.kicker">Open-source internet freedom tool</p>
+    <p class="hero__kicker" data-t="hero.kicker">{t('hero.kicker', 'Open-source internet freedom tool')}</p>
 
-    <h1 class="hero__title" data-t="hero.title">
-      Share <em>secure internet</em> with the people you&nbsp;care&nbsp;about
-    </h1>
+    <h1 class="hero__title" data-t="hero.title" set:html={t('hero.title', 'Share <em>secure internet</em> with the people you&nbsp;care&nbsp;about')} />
 
-    <p class="hero__sub" data-t="hero.sub">
-      One command sets up an undetectable proxy server — firewall, TLS,
-      routing, all hardened by default. Share access via QR&nbsp;codes.
-    </p>
+    <p class="hero__sub" data-t="hero.sub">{t('hero.sub', 'One command sets up an undetectable proxy server — firewall, TLS, routing, all hardened by default. Share access via QR\u00a0codes.')}</p>
 
     <div class="hero__actions">
-      <a href="#setup" class="hero__btn hero__btn--primary" data-t="hero.cta">Get started</a>
-      <a href="/docs/en/getting-started/" class="hero__btn hero__btn--secondary" data-astro-prefetch data-t="hero.docs">
-        Read the docs
+      <a href="#setup" class="hero__btn hero__btn--primary" data-t="hero.cta">{t('hero.cta', 'Get started')}</a>
+      <a href={`/docs/${docsLocale}/getting-started/`} class="hero__btn hero__btn--secondary" data-astro-prefetch data-t="hero.docs">
+        {t('hero.docs', 'Read the docs')}
       </a>
     </div>
   </div>
@@ -37,9 +41,7 @@
           height="855"
         />
       </a>
-      <p class="hero__caption" data-t="hero.caption">
-        What your friends receive — <a href="/demo/" data-astro-prefetch>see the demo</a>
-      </p>
+      <p class="hero__caption" data-t="hero.caption" set:html={t('hero.caption', 'What your friends receive — <a href="/demo/" data-astro-prefetch>see the demo</a>')} />
     </div>
   </div>
 </section>

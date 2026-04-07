@@ -9,6 +9,9 @@
 
 export const translations: Record<string, Record<string, string>> = {
   ru: {
+    // Page title
+    'page.title': 'Meridian — Антицензурный прокси, развёрнутый правильно',
+
     // Nav / global
     'nav.docs': 'Документация',
     'nav.blog': 'Блог',
@@ -136,6 +139,8 @@ export const translations: Record<string, Record<string, string>> = {
   },
 
   fa: {
+    'page.title': 'Meridian — پراکسی ضد سانسور، راه‌اندازی بی‌نقص',
+
     'nav.docs': 'مستندات',
     'nav.blog': 'بلاگ',
     'nav.demo': 'نمونه',
@@ -255,6 +260,8 @@ export const translations: Record<string, Record<string, string>> = {
   },
 
   zh: {
+    'page.title': 'Meridian — 抗审查代理，一键正确部署',
+
     'nav.docs': '文档',
     'nav.blog': '博客',
     'nav.demo': '演示',

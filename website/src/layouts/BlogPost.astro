@@ -9,18 +9,34 @@ interface Props {
   author: string;
   category: string;
   readingTime: number;
+  tags: string[];
 }
 
-const { title, description, date, author, category, readingTime } = Astro.props;
+const { title, description, date, author, category, readingTime, tags } = Astro.props;
 
 const formatted = date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
+
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": title,
+  "description": description,
+  "datePublished": date.toISOString().slice(0, 10),
+  "author": { "@type": "Organization", "name": author },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Meridian",
+    "logo": { "@type": "ImageObject", "url": "https://getmeridian.org/img/logo-512.png" },
+  },
+};
 ---
 
 <Base title={`${title} — Meridian Blog`} description={description}>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
   <main id="main" class="blog-post">
     <article class="blog-article prose" data-pagefind-body>
       <header class="blog-header">
@@ -39,6 +55,13 @@ const formatted = date.toLocaleDateString('en-US', {
       <slot />
     </article>
     <footer class="blog-footer">
+      {tags.length > 0 && (
+        <div class="blog-tags">
+          {tags.map((tag) => (
+            <a href={`/blog/tag/${tag}/`} class="blog-tag">#{tag}</a>
+          ))}
+        </div>
+      )}
       <a href="/blog/">&larr; Back to all posts</a>
     </footer>
   </main>
@@ -104,5 +127,27 @@ const formatted = date.toLocaleDateString('en-US', {
   }
   .blog-footer a:hover {
     text-decoration: underline;
+  }
+
+  .blog-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .blog-tag {
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    background: var(--s1);
+    color: var(--t2);
+    border: 1px solid var(--b1);
+    border-radius: 4px;
+    text-decoration: none;
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .blog-tag:hover {
+    border-color: var(--ac);
+    color: var(--ac);
   }
 </style>

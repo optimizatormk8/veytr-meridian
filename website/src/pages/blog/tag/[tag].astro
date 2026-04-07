@@ -1,21 +1,35 @@
 ---
 import { getCollection } from 'astro:content';
-import Base from '../../layouts/Base.astro';
+import Base from '../../../layouts/Base.astro';
 
-const posts = (await getCollection('blog')).sort(
-  (a, b) => b.data.date.getTime() - a.data.date.getTime()
-);
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  const tagSet = new Set<string>();
+  posts.forEach((p) => p.data.tags.forEach((t) => tagSet.add(t)));
 
-function slugifyCategory(text: string) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return [...tagSet].map((tag) => ({
+    params: { tag },
+    props: {
+      tag,
+      posts: posts
+        .filter((p) => p.data.tags.includes(tag))
+        .sort((a, b) => b.data.date.getTime() - a.data.date.getTime()),
+    },
+  }));
 }
+
+const { tag, posts } = Astro.props;
 ---
 
-<Base title="Blog — Meridian" description="Articles on censorship circumvention, proxy architecture, and internet freedom.">
+<Base
+  title={`#${tag} — Meridian Blog`}
+  description={`Articles tagged "${tag}" on the Meridian blog.`}
+>
   <main id="main" class="blog-index">
     <header class="blog-index__header">
-      <h1>Blog</h1>
-      <p>How censorship circumvention works, why it matters, and how to stay connected.</p>
+      <a href="/blog/" class="blog-back">&larr; All posts</a>
+      <h1>#{tag}</h1>
+      <p>{posts.length} {posts.length === 1 ? 'article' : 'articles'} with this tag</p>
     </header>
     <div class="blog-grid">
       {posts.map((post) => {
@@ -27,21 +41,14 @@ function slugifyCategory(text: string) {
         return (
           <a href={`/blog/${post.id}/`} class="blog-card" data-astro-prefetch>
             <div class="blog-card__top">
-              <a href={`/blog/category/${slugifyCategory(post.data.category)}/`} class="blog-card__category">{post.data.category}</a>
+              <span class="blog-card__category">{post.data.category}</span>
               <span class="blog-card__time">{post.data.readingTime} min</span>
             </div>
             <h2 class="blog-card__title">{post.data.title}</h2>
             <p class="blog-card__desc">{post.data.description}</p>
-            <div class="blog-card__footer">
-              <time class="blog-card__date" datetime={post.data.date.toISOString().slice(0, 10)}>
-                {formatted}
-              </time>
-              <div class="blog-card__tags">
-                {post.data.tags.slice(0, 3).map((tag) => (
-                  <a href={`/blog/tag/${tag}/`} class="blog-card__tag">#{tag}</a>
-                ))}
-              </div>
-            </div>
+            <time class="blog-card__date" datetime={post.data.date.toISOString().slice(0, 10)}>
+              {formatted}
+            </time>
           </a>
         );
       })}
@@ -64,6 +71,18 @@ function slugifyCategory(text: string) {
   .blog-index__header p {
     color: var(--t3);
     font-size: 0.92rem;
+  }
+
+  .blog-back {
+    display: inline-block;
+    font-size: 0.84rem;
+    color: var(--t3);
+    text-decoration: none;
+    margin-bottom: 16px;
+    transition: color 0.12s;
+  }
+  .blog-back:hover {
+    color: var(--ac);
   }
 
   .blog-grid {
@@ -129,35 +148,5 @@ function slugifyCategory(text: string) {
   .blog-card__date {
     font-size: 0.76rem;
     color: var(--t3);
-  }
-
-  .blog-card__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .blog-card__tags {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .blog-card__tags a {
-    font-size: 0.68rem;
-    color: var(--t3);
-    text-decoration: none;
-    transition: color 0.12s;
-  }
-  .blog-card__tags a:hover {
-    color: var(--ac);
-  }
-
-  .blog-card__category {
-    text-decoration: none;
-    transition: opacity 0.12s;
-  }
-  .blog-card__category:hover {
-    opacity: 0.8;
   }
 </style>

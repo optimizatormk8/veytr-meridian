@@ -1,120 +1,107 @@
 ---
-import Base from '../layouts/Base.astro';
-import Hero from '../components/Hero.astro';
-import CodeBlock from '../components/CodeBlock.astro';
-import Timeline from '../components/Timeline.astro';
-import AppGrid from '../components/AppGrid.astro';
-import Accordion from '../components/Accordion.astro';
-import Callout from '../components/Callout.astro';
-import CommandBuilder from '../components/CommandBuilder.astro';
+/**
+ * Locale-specific landing pages (/ru/, /fa/, /zh/).
+ *
+ * Renders the same content as the English index.astro but with translations
+ * baked into the HTML at build time. This makes translated content indexable
+ * by search engines without requiring client-side JavaScript.
+ *
+ * English stays at / (index.astro). Client-side data-t swapping still works
+ * as a fallback on all pages.
+ */
+import Base from '../../layouts/Base.astro';
+import Hero from '../../components/Hero.astro';
+import CodeBlock from '../../components/CodeBlock.astro';
+import Timeline from '../../components/Timeline.astro';
+import AppGrid from '../../components/AppGrid.astro';
+import Accordion from '../../components/Accordion.astro';
+import Callout from '../../components/Callout.astro';
+import CommandBuilder from '../../components/CommandBuilder.astro';
+import { createT } from '../../i18n/t';
+
+export function getStaticPaths() {
+  return [
+    { params: { locale: 'ru' } },
+    { params: { locale: 'fa' } },
+    { params: { locale: 'zh' } },
+  ];
+}
+
+const locale = Astro.params.locale!;
+const t = createT(locale);
+const dir = locale === 'fa' ? 'rtl' : 'ltr';
 
 const detailSteps = [
-  { title: 'Installs Docker', text: ' and deploys <strong>Xray</strong> via the <strong>3x-ui</strong> management panel', titleKey: 'step.1.title', textKey: 'step.1.text' },
-  { title: 'Generates x25519 keypair', text: ' — unique encryption keys for Reality authentication', titleKey: 'step.2.title', textKey: 'step.2.text' },
-  { title: 'Hardens the server', text: ' — UFW firewall (ports 22 + 443 only), SSH key-only auth, <strong>BBR</strong> congestion control', titleKey: 'step.3.title', textKey: 'step.3.text' },
-  { title: 'Configures VLESS+Reality', text: ' on port 443 — impersonates a real TLS server', titleKey: 'step.4.title', textKey: 'step.4.text' },
-  { title: 'Enables XHTTP transport', text: ' — additional stealth routed through nginx, no extra port', titleKey: 'step.5.title', textKey: 'step.5.text' },
-  { title: 'Outputs QR codes', text: ' and generates an HTML connection page with setup instructions', titleKey: 'step.6.title', textKey: 'step.6.text' },
+  { title: t('step.1.title', 'Installs Docker'), text: t('step.1.text', ' and deploys <strong>Xray</strong> via the <strong>3x-ui</strong> management panel') },
+  { title: t('step.2.title', 'Generates x25519 keypair'), text: t('step.2.text', ' — unique encryption keys for Reality authentication') },
+  { title: t('step.3.title', 'Hardens the server'), text: t('step.3.text', ' — UFW firewall (ports 22 + 443 only), SSH key-only auth, <strong>BBR</strong> congestion control') },
+  { title: t('step.4.title', 'Configures VLESS+Reality'), text: t('step.4.text', ' on port 443 — impersonates a real TLS server') },
+  { title: t('step.5.title', 'Enables XHTTP transport'), text: t('step.5.text', ' — additional stealth routed through nginx, no extra port') },
+  { title: t('step.6.title', 'Outputs QR codes'), text: t('step.6.text', ' and generates an HTML connection page with setup instructions') },
+];
+
+const hreflangLinks = [
+  { lang: 'en', href: 'https://getmeridian.org/' },
+  { lang: 'ru', href: 'https://getmeridian.org/ru/' },
+  { lang: 'fa', href: 'https://getmeridian.org/fa/' },
+  { lang: 'zh-Hans', href: 'https://getmeridian.org/zh/' },
+  { lang: 'x-default', href: 'https://getmeridian.org/' },
 ];
 ---
 
-<Base title="Meridian — Censorship-Resistant Proxy, Deployed Right">
+<Base title={t('page.title', 'Meridian — Censorship-Resistant Proxy, Deployed Right')}>
   <Fragment slot="head">
-    <link rel="alternate" hreflang="en" href="https://getmeridian.org/" />
-    <link rel="alternate" hreflang="ru" href="https://getmeridian.org/ru/" />
-    <link rel="alternate" hreflang="fa" href="https://getmeridian.org/fa/" />
-    <link rel="alternate" hreflang="zh-Hans" href="https://getmeridian.org/zh/" />
-    <link rel="alternate" hreflang="x-default" href="https://getmeridian.org/" />
-    <script type="application/ld+json" set:html={JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "Meridian",
-      "url": "https://getmeridian.org",
-      "logo": "https://getmeridian.org/img/logo-512.png",
-      "sameAs": ["https://github.com/uburuntu/meridian"],
-    })} />
-    <script type="application/ld+json" set:html={JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "How does VLESS+Reality defeat Deep Packet Inspection (DPI)?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "VLESS+Reality produces traffic byte-for-byte identical to a normal HTTPS connection. No headers, no patterns, no packet sizes that distinguish it from regular web browsing. Traditional VPNs like OpenVPN and WireGuard have distinctive packet signatures that are trivial to block.",
-          },
-        },
-        {
-          "@type": "Question",
-          "name": "How does Reality protect against active probing?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Reality uses the TLS certificate from a real website (e.g., microsoft.com). When a probe connects, your server completes the handshake using that site's actual certificate. The probe sees a legitimate server. Only clients with your private key get the proxy tunnel.",
-          },
-        },
-        {
-          "@type": "Question",
-          "name": "How does Meridian prevent TLS fingerprinting?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Meridian uses uTLS to impersonate Chrome's exact TLS fingerprint — the same one used by billions of devices. Your traffic is indistinguishable from someone browsing the web with Chrome.",
-          },
-        },
-      ],
-    })} />
+    {hreflangLinks.map((l) => (
+      <link rel="alternate" hreflang={l.lang} href={l.href} />
+    ))}
   </Fragment>
-  <main id="main">
-    <Hero />
+
+  <main id="main" dir={dir}>
+    <Hero locale={locale} />
 
     <!-- TRUST BAR -->
     <section class="trust-bar">
       <div class="container">
         <div class="trust-items">
           <div class="trust-item">
-            <span class="trust-value" data-t="trust.mit">MIT Licensed</span>
+            <span class="trust-value" data-t="trust.mit">{t('trust.mit', 'MIT Licensed')}</span>
           </div>
           <div class="trust-item">
-            <span class="trust-value" data-t="trust.languages">4 Languages</span>
+            <span class="trust-value" data-t="trust.languages">{t('trust.languages', '4 Languages')}</span>
           </div>
           <div class="trust-item">
-            <span class="trust-value" data-t="trust.oss">100% Open Source</span>
+            <span class="trust-value" data-t="trust.oss">{t('trust.oss', '100% Open Source')}</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- HOW IT WORKS (simple) -->
+    <!-- HOW IT WORKS -->
     <section id="setup" class="reveal">
       <div class="container">
-        <div class="section-label" data-t="setup.label">How it works</div>
-        <h2 data-t="setup.title">Three steps to secure internet</h2>
-        <p class="section-desc" data-t="setup.desc">
-          You need a VPS (any $5/month server) and a terminal on your laptop. Meridian handles everything else.
-        </p>
+        <div class="section-label" data-t="setup.label">{t('setup.label', 'How it works')}</div>
+        <h2 data-t="setup.title">{t('setup.title', 'Three steps to secure internet')}</h2>
+        <p class="section-desc" data-t="setup.desc">{t('setup.desc', 'You need a VPS (any $5/month server) and a terminal on your laptop. Meridian handles everything else.')}</p>
 
         <div class="setup-grid">
           <div class="setup-main">
-            <CodeBlock code="curl -sSf https://getmeridian.org/install.sh | bash" label="Step 1 — Install" labelKey="setup.step1.label" />
+            <CodeBlock code="curl -sSf https://getmeridian.org/install.sh | bash" label={t('setup.step1.label', 'Step 1 — Install')} />
 
             <div class="step-separator">
-              <span data-t="setup.then">then</span>
+              <span data-t="setup.then">{t('setup.then', 'then')}</span>
             </div>
 
-            <CodeBlock code="meridian deploy" label="Step 2 — Deploy" labelKey="setup.step2.label" />
+            <CodeBlock code="meridian deploy" label={t('setup.step2.label', 'Step 2 — Deploy')} />
 
-            <p class="setup-hint" data-t="setup.hint">
-              The wizard asks for your server IP and handles the rest. Or pass flags directly —
-              see the <a href="/docs/en/cli-reference/" data-astro-prefetch>CLI reference</a>.
-            </p>
+            <p class="setup-hint" data-t="setup.hint" set:html={t('setup.hint', `The wizard asks for your server IP and handles the rest. Or pass flags directly — see the <a href="/docs/${locale}/cli-reference/" data-astro-prefetch>CLI reference</a>.`)} />
           </div>
 
           <div class="setup-aside">
             <img src="/img/deploy-terminal.svg" alt="Meridian deploy output" class="deploy-terminal" loading="lazy" width="720" height="780" />
-            <h3 data-t="setup.details">What happens behind the scenes</h3>
+            <h3 data-t="setup.details">{t('setup.details', 'What happens behind the scenes')}</h3>
             <Timeline steps={detailSteps} />
             <Callout variant="tip" icon="⏱" data-t="setup.idempotent">
-              Safe to re-run anytime. Fully idempotent — credentials preserved, settings updated in place.
+              {t('setup.idempotent', 'Safe to re-run anytime. Fully idempotent — credentials preserved, settings updated in place.')}
             </Callout>
           </div>
         </div>
@@ -126,11 +113,9 @@ const detailSteps = [
     <!-- COMMAND BUILDER -->
     <section id="builder-section" class="reveal">
       <div class="container">
-        <div class="section-label" data-t="builder.label">Command builder</div>
-        <h2 data-t="builder.title">Build your command</h2>
-        <p class="section-desc" data-t="builder.desc">
-          Configure flags interactively and copy the full command. Supports all Meridian CLI operations.
-        </p>
+        <div class="section-label" data-t="builder.label">{t('builder.label', 'Command builder')}</div>
+        <h2 data-t="builder.title">{t('builder.title', 'Build your command')}</h2>
+        <p class="section-desc" data-t="builder.desc">{t('builder.desc', 'Configure flags interactively and copy the full command. Supports all Meridian CLI operations.')}</p>
 
         <CommandBuilder />
       </div>
@@ -141,15 +126,12 @@ const detailSteps = [
     <!-- WHY IT WORKS -->
     <section id="technology" class="reveal">
       <div class="container">
-        <div class="section-label" data-t="tech.label">Technology</div>
-        <h2 data-t="tech.title">Why censors can't detect it</h2>
-        <p class="section-desc" data-t="tech.desc">
-          Traditional VPNs have distinctive traffic signatures. VLESS+Reality is
-          indistinguishable from normal web browsing.
-        </p>
+        <div class="section-label" data-t="tech.label">{t('tech.label', 'Technology')}</div>
+        <h2 data-t="tech.title">{t('tech.title', 'Why censors can\'t detect it')}</h2>
+        <p class="section-desc" data-t="tech.desc">{t('tech.desc', 'Traditional VPNs have distinctive traffic signatures. VLESS+Reality is indistinguishable from normal web browsing.')}</p>
 
         <div class="tech-grid">
-          <Accordion title="Deep Packet Inspection (DPI)" titleKey="tech.dpi" open>
+          <Accordion title={t('tech.dpi', 'Deep Packet Inspection (DPI)')} open>
             <p>
               DPI analyzes traffic patterns to identify proxy protocols. VPNs like
               OpenVPN and WireGuard have distinctive packet signatures that are trivial to block.
@@ -161,7 +143,7 @@ const detailSteps = [
             </p>
           </Accordion>
 
-          <Accordion title="Active probing" titleKey="tech.probe">
+          <Accordion title={t('tech.probe', 'Active probing')}>
             <p>
               Censors connect to suspicious servers and try to fingerprint them. If a server
               responds differently than the website it claims to be, it gets blocked.
@@ -174,7 +156,7 @@ const detailSteps = [
             </p>
           </Accordion>
 
-          <Accordion title="TLS fingerprinting" titleKey="tech.fp">
+          <Accordion title={t('tech.fp', 'TLS fingerprinting')}>
             <p>
               Every TLS client sends a unique "Client Hello" fingerprint. Censors flag connections
               where the fingerprint doesn't match the claimed application.
@@ -194,18 +176,14 @@ const detailSteps = [
     <!-- CONNECT -->
     <section id="connect" class="reveal">
       <div class="container">
-        <div class="section-label" data-t="connect.label">Connect</div>
-        <h2 data-t="connect.title">Scan and go</h2>
-        <p class="section-desc" data-t="connect.desc">
-          After deploying, you get a connection page with QR codes. Send it to
-          whoever needs it — they tap once and connect.
-        </p>
+        <div class="section-label" data-t="connect.label">{t('connect.label', 'Connect')}</div>
+        <h2 data-t="connect.title">{t('connect.title', 'Scan and go')}</h2>
+        <p class="section-desc" data-t="connect.desc">{t('connect.desc', 'After deploying, you get a connection page with QR codes. Send it to whoever needs it — they tap once and connect.')}</p>
 
         <AppGrid />
 
         <Callout variant="warning" data-t="connect.clock">
-          Device clock must be accurate within 30 seconds. Enable automatic date/time
-          in your device settings.
+          {t('connect.clock', 'Device clock must be accurate within 30 seconds. Enable automatic date/time in your device settings.')}
         </Callout>
       </div>
     </section>
@@ -215,8 +193,8 @@ const detailSteps = [
     <!-- ARCHITECTURE -->
     <section id="architecture" class="reveal">
       <div class="container">
-        <div class="section-label" data-t="arch.label">Architecture</div>
-        <h2 data-t="arch.title">Under the hood</h2>
+        <div class="section-label" data-t="arch.label">{t('arch.label', 'Architecture')}</div>
+        <h2 data-t="arch.title">{t('arch.title', 'Under the hood')}</h2>
 
         <div class="arch-img">
           <img
@@ -229,7 +207,7 @@ const detailSteps = [
         </div>
 
         <div class="arch-grid">
-          <Accordion title="Standalone mode (no domain)" titleKey="arch.standalone" open>
+          <Accordion title={t('arch.standalone', 'Standalone mode (no domain)')} open>
             <p>
               <strong>nginx</strong> sits on port 443 and routes traffic by TLS SNI using its stream module.
               Reality connections route to <strong>Xray</strong>, while nginx's http module
@@ -243,7 +221,7 @@ const detailSteps = [
             </p>
           </Accordion>
 
-          <Accordion title="Domain mode (CDN fallback)" titleKey="arch.domain">
+          <Accordion title={t('arch.domain', 'Domain mode (CDN fallback)')}>
             <p>Adds three components on top of standalone:</p>
             <p>
               <strong>nginx stream</strong> inspects TLS SNI without terminating encryption.
@@ -253,7 +231,7 @@ const detailSteps = [
             </p>
           </Accordion>
 
-          <Accordion title="Relay mode (domestic entry point)" titleKey="arch.relay">
+          <Accordion title={t('arch.relay', 'Relay mode (domestic entry point)')}>
             <p>
               A lightweight <strong>Realm</strong> TCP forwarder on a domestic server relays
               port 443 to your exit server abroad. All protocols work through the relay
@@ -271,15 +249,12 @@ const detailSteps = [
     <!-- CTA -->
     <section id="cta" class="reveal cta-section">
       <div class="container cta-content">
-        <h2 data-t="cta.title">Ready to get started?</h2>
-        <p class="section-desc cta-desc" data-t="cta.desc">
-          Install Meridian, deploy to your server, and share access with the
-          people who need it. The whole process takes about five minutes.
-        </p>
+        <h2 data-t="cta.title">{t('cta.title', 'Ready to get started?')}</h2>
+        <p class="section-desc cta-desc" data-t="cta.desc">{t('cta.desc', 'Install Meridian, deploy to your server, and share access with the people who need it. The whole process takes about five minutes.')}</p>
         <div class="hero__actions cta-actions">
-          <a href="#setup" class="hero__btn hero__btn--primary" data-t="cta.install">Install Meridian</a>
-          <a href="/docs/en/getting-started/" class="hero__btn hero__btn--secondary" data-astro-prefetch data-t="hero.docs">
-            Read the docs
+          <a href="#setup" class="hero__btn hero__btn--primary" data-t="cta.install">{t('cta.install', 'Install Meridian')}</a>
+          <a href={`/docs/${locale}/getting-started/`} class="hero__btn hero__btn--secondary" data-astro-prefetch data-t="hero.docs">
+            {t('hero.docs', 'Read the docs')}
           </a>
         </div>
       </div>
@@ -372,7 +347,7 @@ const detailSteps = [
     margin-top: 16px;
     line-height: 1.6;
   }
-  .setup-hint a {
+  .setup-hint :global(a) {
     color: var(--ac);
   }
 

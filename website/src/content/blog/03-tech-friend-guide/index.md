@@ -49,7 +49,7 @@ Following the installation, you can begin the deployment process:
 meridian deploy
 ```
 
-The tool will then prompt you for a few configuration details, such as a password for the administrative panel. Once you provide the necessary information, Meridian will proceed to install all the required software components, configure the firewall, set up automatic TLS certificates, and implement various security hardening measures. Within approximately five minutes, you will receive a confirmation that the deployment has been successfully completed, along with the connection details for your new proxy server. The full deployment process is covered in our [getting started documentation](https://getmeridian.org/docs/en/getting-started).
+The tool will then prompt you for a few configuration details, such as a password for the administrative panel. Once you provide the necessary information, Meridian will proceed to install all the required software components, configure the firewall, set up automatic TLS certificates, and implement various [security hardening measures](/blog/02-proxy-server-hardening-2026/). Within approximately five minutes, you will receive a confirmation that the deployment has been successfully completed, along with the connection details for your new proxy server. The full deployment process is covered in our [getting started documentation](https://getmeridian.org/docs/en/getting-started).
 
 ### Solving the handoff problem
 

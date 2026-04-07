@@ -66,7 +66,7 @@ This simplicity, however, is also their main limitation. These scripts are rigid
 
 ## Where Meridian fits: the orchestrator approach
 
-Meridian carves out a unique space for itself. It is not a panel, not a dedicated app, and not just a simple script. It is an **orchestrator**. A single `meridian deploy` command configures a suite of best-in-class open-source components—HAProxy, Caddy, Xray, and UFW—into a hardened, production-ready stack. It automates the complex process of tying these components together, a task that would otherwise require significant systems administration expertise. For more on this, see our post on [hardening a proxy server](/blog/02-proxy-server-hardening-2026/).
+Meridian carves out a unique space for itself. It is not a panel, not a dedicated app, and not just a simple script. It is an **orchestrator**. A single `meridian deploy` command configures nginx and Xray into a hardened, production-ready stack — with UFW firewall, SSH hardening, and automatic TLS certificates included. It automates the complex process of tying these components together, a task that would otherwise require significant systems administration expertise. For more on this, see our post on [hardening a proxy server](/blog/02-proxy-server-hardening-2026/).
 
 It is CLI-first by design, but it doesn't ignore the end-user experience. For sharing access, Meridian generates a secure, web-based connection page that provides one-click client configuration via QR codes and deep links. This hybrid approach gives the administrator the power and scriptability of a command-line tool while giving their users the simple experience of an app. This makes it ideal for the "tech friend" who manages access for their family and friends, a concept we explore in our [guide to sharing internet access](/blog/03-tech-friend-guide/).
 
@@ -113,7 +113,7 @@ Third, Meridian focuses exclusively on the [VLESS+Reality protocol](/blog/01-why
 
 Choosing the right self-hosted proxy tool depends entirely on your technical comfort level, your security needs, and who you are providing access for. 
 
-If you want a graphical interface above all else and are comfortable with manual security hardening, **3x-ui** is a powerful option. If you need to manage a large number of users and require an API for automation, **Marzban** is worth the steep learning curve. If you want the simplest possible user experience and are in a region where Shadowsocks is not blocked, **Outline** is unmatched.
+If you want a graphical interface above all else and are comfortable with manual security hardening, **3x-ui** is a powerful option. If you need to manage a large number of users and require an API for automation, **Marzban** is worth the steep learning curve. If you want the simplest possible user experience and are in a region where Shadowsocks is not blocked, **Outline** is unmatched. Whichever tool you choose, picking the right server matters — see our guide on [choosing a VPS for a proxy](/blog/06-choosing-vps/).
 
 If you are the designated "tech friend" for your circle and need a tool that is both powerful for you and simple for your users, we built **Meridian** for you. It automates the difficult parts of server administration while providing a seamless sharing experience, giving you a hardened, resilient proxy server with a single command. 
 

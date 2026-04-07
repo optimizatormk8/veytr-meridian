@@ -14,7 +14,7 @@ Most tutorials for setting up a self-hosted proxy end the moment the connection 
 
 This "it works" trap is particularly prevalent with popular, user-friendly management panels. While these tools make proxy administration accessible, they often prioritize ease of use over security out of the box. The result is a significant **attack surface**, which is the sum of all possible points an attacker could use to find and compromise a system. For a typical self-hosted proxy, this surface is surprisingly large. It includes not just the proxy port itself, but also the SSH port for server administration and any web-based management tools. Without deliberate hardening, each of these is a potential entry point for trouble.
 
-A prime example can be seen with 3x-ui, a widely used panel for managing Xray-core. Its convenience is undeniable, but its default settings can leave a server dangerously exposed. For years, it installed with the default credentials `admin:admin`, a fact known to every automated scanner on the web. The management panel itself often runs on an exposed, unencrypted HTTP port, sending login credentials in plain text. Furthermore, its Telegram bot integration has been a source of token leaks, where the secret key used to control the bot could be discovered by an attacker, giving them administrative control. These are not theoretical risks; they are documented vulnerabilities that have led to compromised servers, turning a tool for privacy into a liability.
+A prime example can be seen with 3x-ui, a widely used panel for managing Xray-core. Its convenience is undeniable, but its default settings can leave a server dangerously exposed. For a detailed comparison of how different tools handle security defaults, see our [proxy tools comparison](/blog/05-proxy-tools-comparison/). For years, it installed with the default credentials `admin:admin`, a fact known to every automated scanner on the web. The management panel itself often runs on an exposed, unencrypted HTTP port, sending login credentials in plain text. Furthermore, its Telegram bot integration has been a source of token leaks, where the secret key used to control the bot could be discovered by an attacker, giving them administrative control. These are not theoretical risks; they are documented vulnerabilities that have led to compromised servers, turning a tool for privacy into a liability.
 
 ```mermaid
 flowchart TD
@@ -39,10 +39,10 @@ flowchart TD
         InternetB(Internet) --> ExposedPortsB
         subgraph InternalServices["Internal Services (Not Exposed)"]
             direction TB
-            Caddy[Caddy Webserver]
+            Nginx[nginx Webserver]
             Xray[Xray Core]
         end
-        Port443 -->|SNI Routing| Caddy
+        Port443 -->|SNI Routing| Nginx
         Port443 -->|SNI Routing| Xray
     end
 
@@ -60,11 +60,11 @@ Every new virtual private server (VPS) comes with SSH access enabled, and almost
 
 ### TLS done right: the problem with self-signed shortcuts
 
-Transport Layer Security (TLS) is what encrypts your proxy traffic, making it look like normal HTTPS browsing. Many guides and one-click scripts suggest using self-signed certificates because they are quick and easy to generate. This is a critical mistake. While self-signed certificates do encrypt traffic, they are a major red flag for network observers and censorship systems. A real website has a certificate signed by a trusted Certificate Authority (CA) like Let's Encrypt or Cloudflare. A self-signed certificate is an anomaly that stands out, and in any high-scrutiny network environment, anomalies attract unwanted attention. The modern solution is to use **Let's Encrypt**, a free, automated, and trusted CA. Tools like the Caddy web server can integrate directly with Let's Encrypt to automatically obtain and renew valid TLS certificates, making your proxy's traffic cryptographically indistinguishable from that of any other secure website on the internet. This is not just about appearances; it's about blending in with the noise of the internet.
+Transport Layer Security (TLS) is what encrypts your proxy traffic, making it look like normal HTTPS browsing. Many guides and one-click scripts suggest using self-signed certificates because they are quick and easy to generate. This is a critical mistake. While self-signed certificates do encrypt traffic, they are a major red flag for network observers and censorship systems. A real website has a certificate signed by a trusted Certificate Authority (CA) like Let's Encrypt or Cloudflare. A self-signed certificate is an anomaly that stands out, and in any high-scrutiny network environment, anomalies attract unwanted attention. The modern solution is to use **Let's Encrypt**, a free, automated, and trusted CA. Tools like **acme.sh** can automatically obtain and renew valid TLS certificates, making your proxy's traffic cryptographically indistinguishable from that of any other secure website on the internet. This is not just about appearances; it's about blending in with the noise of the internet.
 
 ### The reverse proxy layer: hiding in plain sight
 
-This brings us to the core of a modern, hardened architecture: the reverse proxy. Instead of exposing your proxy core (like Xray) directly to the internet on its own port, you place a web server like HAProxy or Caddy in front of it. In the Meridian stack, we use both for a layered defense. **HAProxy** sits on the frontline at port 443 and acts as a smart traffic director. It inspects the incoming TLS connection's **Server Name Indication (SNI)** field, which indicates the hostname the client is trying to reach. Based on this SNI, it routes the traffic to the appropriate backend service. If it's a VLESS+Reality connection destined for the Reality SNI target (e.g., `www.microsoft.com`), it forwards the traffic directly to the Xray core. If it's any other HTTPS request, it passes it to **Caddy**, which serves a harmless decoy webpage. This setup means your proxy service doesn't occupy a suspicious, non-standard port; it's hidden behind the standard web port, sharing it with what appears to be a normal website. This makes it much harder for an observer to identify the server's true purpose. To any outside observer, your server looks like a regular website, not a proxy.
+This brings us to the core of a modern, hardened architecture: the reverse proxy. Instead of exposing your proxy core (like Xray) directly to the internet on its own port, you place a web server in front of it. In the Meridian stack, **nginx** handles all traffic. Its **stream module** sits on the frontline at port 443 and acts as a smart traffic director. It inspects the incoming TLS connection's **Server Name Indication (SNI)** field, which indicates the hostname the client is trying to reach. Based on this SNI, it routes the traffic to the appropriate backend service. If it's a VLESS+Reality connection destined for the Reality SNI target (e.g., `www.microsoft.com`), it forwards the traffic directly to the Xray core. If it's any other HTTPS request, it passes it to nginx's **http module**, which serves a harmless decoy webpage. This setup means your proxy service doesn't occupy a suspicious, non-standard port; it's hidden behind the standard web port, sharing it with what appears to be a normal website. This makes it much harder for an observer to identify the server's true purpose. To any outside observer, your server looks like a regular website, not a proxy.
 
 ### The free performance win nobody configures
 
@@ -100,8 +100,8 @@ graph TD
     end
 
     subgraph E_Details [Reverse Proxy Layer]
-        E1[HAProxy for SNI Routing]
-        E2["Caddy for Web & TLS"]
+        E1[nginx stream for SNI Routing]
+        E2["nginx http for Web & TLS"]
     end
 
     subgraph F_Details [Proxy Core]
@@ -121,6 +121,6 @@ graph TD
     G -- Implements --> G_Details;
 ```
 
-Manually configuring all these components—UFW, SSH, Let's Encrypt, HAProxy, Caddy, and BBR—requires dozens of steps and careful attention to detail. It's a significant undertaking, and a single misconfiguration in one component can undermine the security of the entire setup. This is precisely the problem Meridian was built to solve. The `meridian deploy` command automates this entire hardening process from start to finish. It implements the three-layer architecture, configures the firewall, hardens SSH, enables BBR, and sets up automatic TLS renewal without any manual intervention. It takes the established best practices for a secure and performant proxy and makes them the default, ensuring your server is locked down from the moment it goes online.
+Manually configuring all these components—UFW, SSH, Let's Encrypt, nginx, and BBR—requires dozens of steps and careful attention to detail. It's a significant undertaking, and a single misconfiguration in one component can undermine the security of the entire setup. This is precisely the problem Meridian was built to solve. The `meridian deploy` command automates this entire hardening process from start to finish. It configures nginx for SNI routing and web serving, sets up the firewall, hardens SSH, enables BBR, and sets up automatic TLS renewal without any manual intervention. It takes the established best practices for a secure and performant proxy and makes them the default, ensuring your server is locked down from the moment it goes online.
 
 To learn more about the specific security choices and architecture behind Meridian, check out our [Security](https://getmeridian.org/docs/en/security) and [Architecture](https://getmeridian.org/docs/en/architecture) documentation. If you're ready to deploy a hardened proxy in minutes, see our [Getting Started](https://getmeridian.org/docs/en/getting-started) guide.
