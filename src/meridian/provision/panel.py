@@ -369,7 +369,19 @@ def _apply_panel_settings(
     # Step 1: Wait for panel to be ready, then login with default credentials
     _wait_for_panel(conn, panel_port, "")
     panel = PanelClient(conn, panel_port=panel_port, web_base_path="")
-    panel.login("admin", "admin")
+    try:
+        panel.login("admin", "admin")
+    except PanelError:
+        # Stale container from a previous deployment with custom credentials.
+        # Reset DB and restart to get back to admin/admin defaults.
+        warn("Panel has non-default credentials — resetting to factory state")
+        conn.run("docker rm -f 3x-ui 2>/dev/null", timeout=30)
+        conn.run("rm -rf /opt/3x-ui/db 2>/dev/null", timeout=15)
+        conn.run("mkdir -p /opt/3x-ui/db", timeout=10)
+        conn.run("cd /opt/3x-ui && docker compose up -d", timeout=120)
+        _wait_for_panel(conn, panel_port, "")
+        panel = PanelClient(conn, panel_port=panel_port, web_base_path="")
+        panel.login("admin", "admin")
 
     # Step 2: Update panel settings (webBasePath, security, etc.)
     settings_body = {
