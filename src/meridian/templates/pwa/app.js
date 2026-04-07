@@ -488,8 +488,8 @@ function renderPage(config) {
   /* Server icon */
   var iconHtml = '';
   if (config.server_icon) {
-    if (config.server_icon.indexOf('data:') === 0) {
-      iconHtml = '<img class="server-icon" src="' + config.server_icon + '" alt="" width="48" height="48">';
+    if (config.server_icon.indexOf('data:image/') === 0) {
+      iconHtml = '<img class="server-icon" src="' + escapeHtml(config.server_icon) + '" alt="" width="48" height="48">';
     } else {
       iconHtml = '<span class="server-icon-emoji">' + escapeHtml(config.server_icon) + '</span>';
     }
@@ -700,8 +700,7 @@ function renderProtocolCard(proto, platform, opts) {
     var idx = iosButtonIndex++;
     html += '<a href="#" data-ios-idx="' + idx + '" data-url="' + escapeHtml(proto.url) + '" data-action="open-ios" class="open-btn" data-t="open">Open in App</a>';
   } else {
-    var openUrl = proto.url;
-    html += '<a href="' + escapeHtml(openUrl) + '" class="open-btn" data-t="open">Open in App</a>';
+    html += '<a href="' + escapeHtml(proto.url) + '" class="open-btn" data-t="open">Open in App</a>';
   }
   if (navigator.share) {
     html += '<button class="share-btn" data-action="share" data-url="' + escapeHtml(proto.url) + '" data-t="share">Share</button>';
