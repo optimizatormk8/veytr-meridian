@@ -628,7 +628,7 @@ function renderPage(config) {
   /* One-Tap Import + Subscription URL */
   var subUrl = getSubscriptionUrl();
   var serverLabel = config.server_name || 'Meridian';
-  html += renderImportCard(config.apps, subUrl, platform, serverLabel);
+  html += renderImportCard(config.apps, subUrl, platform, serverLabel, config.subscription_qr_b64);
 
   /* Clock warning only shown at top when skew is detected (clockStatus === 'bad') */
 
@@ -797,7 +797,7 @@ function renderProtocolCard(proto, platform, opts) {
   return html;
 }
 
-function renderImportCard(apps, subUrl, platform, serverName) {
+function renderImportCard(apps, subUrl, platform, serverName, subQrB64) {
   var osMap = {
     ios: 'iOS', android: 'Android',
     windows: 'Windows', macos: 'All platforms', linux: 'All platforms',
@@ -860,13 +860,26 @@ function renderImportCard(apps, subUrl, platform, serverName) {
     html += '</div></details>';
   }
 
-  /* Collapsed manual URL fallback */
-  html += '<details class="more-options" style="margin-top:8px">';
-  html += '<summary data-t="import.manual">Copy subscription URL</summary>';
-  html += '<div class="sub-url" style="margin-top:6px">';
-  html += '<div class="sub-url-value" tabindex="0" role="button" data-action="copy-text">' + escapeHtml(subUrl) + '</div>';
-  html += '</div>';
-  html += '</details>';
+  /* Subscription QR — scan to import all protocols at once */
+  if (subQrB64 && isValidBase64(subQrB64)) {
+    html += '<details class="more-options" style="margin-top:8px">';
+    html += '<summary data-t="sub.label">Subscription (auto-update)</summary>';
+    html += '<div style="margin-top:6px">';
+    html += '<p class="card-desc" data-t="sub.desc">Add this URL as a subscription in your app for automatic updates.</p>';
+    html += '<div class="qr" style="margin:8px auto"><img src="data:image/png;base64,' + subQrB64 + '" alt="Subscription QR" loading="lazy"></div>';
+    html += '<div class="sub-url">';
+    html += '<div class="sub-url-value" tabindex="0" role="button" data-action="copy-text">' + escapeHtml(subUrl) + '</div>';
+    html += '</div>';
+    html += '</div></details>';
+  } else {
+    /* Collapsed manual URL fallback */
+    html += '<details class="more-options" style="margin-top:8px">';
+    html += '<summary data-t="import.manual">Copy subscription URL</summary>';
+    html += '<div class="sub-url" style="margin-top:6px">';
+    html += '<div class="sub-url-value" tabindex="0" role="button" data-action="copy-text">' + escapeHtml(subUrl) + '</div>';
+    html += '</div>';
+    html += '</details>';
+  }
 
   html += '</div>';
   return html;

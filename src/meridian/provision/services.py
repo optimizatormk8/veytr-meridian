@@ -1105,6 +1105,9 @@ class DeployConnectionPage:
         # Generate and upload PWA per-client files
         from meridian.pwa import generate_client_files, upload_client_files
 
+        host = domain or self.server_ip
+        page_url = f"https://{host}/{info_page_path}/{reality_uuid}/"
+
         client_files = generate_client_files(
             page_urls,
             server_ip=self.server_ip,
@@ -1113,6 +1116,7 @@ class DeployConnectionPage:
             server_name=creds.branding.server_name,
             server_icon=creds.branding.icon,
             color=creds.branding.color,
+            page_url=page_url,
         )
 
         upload_error = upload_client_files(conn, reality_uuid, client_files)
@@ -1123,8 +1127,6 @@ class DeployConnectionPage:
                 detail=upload_error,
             )
 
-        host = domain or self.server_ip
-        page_url = f"https://{host}/{info_page_path}/{reality_uuid}/"
         ctx["hosted_page_url"] = page_url
 
         return StepResult(

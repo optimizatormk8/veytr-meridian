@@ -122,6 +122,9 @@ def _deploy_client_page(
     # Attach QR codes to protocol URLs
     urls_with_qr = [dc_replace(p, qr_b64=generate_qr_base64(p.url)) if p.url else p for p in protocol_urls]
 
+    host = domain or server_ip
+    page_url = f"https://{host}/{info_page_path}/{reality_uuid}/"
+
     client_files = generate_client_files(
         urls_with_qr,
         server_ip=server_ip,
@@ -131,6 +134,7 @@ def _deploy_client_page(
         server_name=creds.branding.server_name,
         server_icon=creds.branding.icon,
         color=creds.branding.color,
+        page_url=page_url,
     )
 
     conn = resolved.conn
@@ -139,8 +143,7 @@ def _deploy_client_page(
         warn(f"Could not deploy server-hosted connection page: {upload_error}")
         return ""
 
-    host = domain or server_ip
-    return f"https://{host}/{info_page_path}/{reality_uuid}/"
+    return page_url
 
 
 def _remove_client_page(

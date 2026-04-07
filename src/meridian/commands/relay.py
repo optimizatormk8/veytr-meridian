@@ -168,12 +168,16 @@ def _regenerate_client_pages(
 
             urls_with_qr = [dc_replace(p, qr_b64=generate_qr_base64(p.url)) if p.url else p for p in protocol_urls]
 
+            host = domain or server_ip
+            page_url = f"https://{host}/{creds.panel.info_page_path}/{client.reality_uuid}/"
+
             client_files = generate_client_files(
                 urls_with_qr,
                 server_ip=server_ip,
                 domain=domain,
                 client_name=client.name,
                 relay_entries=relay_url_sets,
+                page_url=page_url,
             )
             if not upload_client_files(resolved_exit.conn, client.reality_uuid, client_files):
                 from meridian.console import warn

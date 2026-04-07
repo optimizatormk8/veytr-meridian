@@ -233,6 +233,7 @@ def render_config_json(
     server_name: str = "",
     server_icon: str = "",
     color: str = "",
+    subscription_url: str = "",
 ) -> str:
     """Render per-client config.json for the PWA shell.
 
@@ -295,6 +296,11 @@ def render_config_json(
         config["server_icon"] = server_icon
     if color:
         config["color"] = color
+    if subscription_url:
+        from meridian.urls import generate_qr_base64
+
+        config["subscription_url"] = subscription_url
+        config["subscription_qr_b64"] = generate_qr_base64(subscription_url)
     return json.dumps(config, indent=2, ensure_ascii=False)
 
 

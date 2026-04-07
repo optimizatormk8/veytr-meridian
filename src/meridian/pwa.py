@@ -41,12 +41,14 @@ def generate_client_files(
     server_name: str = "",
     server_icon: str = "",
     color: str = "",
+    page_url: str = "",
 ) -> dict[str, str]:
     """Generate all per-client PWA files as a {filename: content} dict.
 
     Returns a dict with keys: ``index.html``, ``config.json``,
     ``manifest.webmanifest``, ``sub.txt``.
     """
+    subscription_url = f"{page_url}sub.txt" if page_url else ""
     return {
         "index.html": render_pwa_shell(client_name=client_name, server_name=server_name),
         "config.json": render_config_json(
@@ -58,6 +60,7 @@ def generate_client_files(
             server_name=server_name,
             server_icon=server_icon,
             color=color,
+            subscription_url=subscription_url,
         ),
         "manifest.webmanifest": render_manifest(client_name=client_name, server_name=server_name),
         "sub.txt": render_subscription(
