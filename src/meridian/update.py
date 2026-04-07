@@ -13,10 +13,17 @@ from pathlib import Path
 
 from packaging.version import Version
 
-from meridian.config import CACHE_DIR, PYPI_JSON_URL, PYPI_PACKAGE, UPDATE_CHECK_INTERVAL
+from meridian.config import (
+    CACHE_DIR,
+    GITHUB_REPO,
+    PYPI_JSON_URL,
+    PYPI_PACKAGE,
+    UPDATE_CHECK_INTERVAL,
+)
 from meridian.console import err_console, info, ok, warn
 
-_RELEASES_URL = "https://github.com/uburuntu/meridian/releases"
+_RELEASES_URL = f"{GITHUB_REPO}/releases"
+_INSTALL_CMD = "curl -sSf https://getmeridian.org/install.sh | bash"
 
 
 def get_pypi_latest() -> str | None:
@@ -169,8 +176,8 @@ def run_self_update() -> None:
 
     # Version-level context
     if current.major != remote.major:
-        warn(f"Major release v{latest} — some defaults or behavior may change.")
-        info(f"Review before redeploying: {_RELEASES_URL}")
+        warn(f"Major release v{latest} — review changes before redeploying:")
+        info(_RELEASES_URL)
     elif current.minor != remote.minor:
         info(f"v{latest} available. What's new: {_RELEASES_URL}")
 
@@ -179,4 +186,5 @@ def run_self_update() -> None:
         ok(f"Updated to v{latest}")
         info("Run `meridian deploy` to apply changes to your servers")
     else:
-        warn(f"Could not upgrade automatically. Try: uv tool upgrade {PYPI_PACKAGE}")
+        warn("Could not upgrade automatically. Try reinstalling:")
+        info(_INSTALL_CMD)
