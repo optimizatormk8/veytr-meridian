@@ -4,6 +4,15 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.11.1] - 2026-04-07
+
+### Fixed
+- **Docker credsStore on headless servers** — `docker compose pull` failed on old Ubuntu servers where Docker defaulted to the `secretservice` credential helper (D-Bus unavailable). Now stripped automatically after installation using `jq`. (#6, #7)
+- **Domain in connection page URLs** — share links and deploy output now use the configured domain instead of raw server IP. SNI target shown in deploy summary when non-default. (#2, #3)
+
+### Changed
+- **nginx auto-upgrade** — if the distro nginx is too old (< 1.16), Meridian adds the official nginx.org repo and upgrades automatically, mirroring the Docker installation pattern. Previously failed with a manual upgrade message. (#8)
+
 ## [3.11.0] - 2026-04-03
 
 ### Added
