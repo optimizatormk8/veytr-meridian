@@ -4,6 +4,25 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.12.0] - 2026-04-07
+
+### Added
+- **Server-side geo-blocking** — all deployments now block Russian traffic (`geosite:category-ru` + `geoip:ru`) at the Xray routing level via blackhole outbound. No manual panel configuration needed.
+- **Enhanced `meridian doctor`** — new diagnostic sections: Xray process status, nginx error log, TLS certificate expiry with warnings, geo-blocking verification, deployment context (mode, protocols, client count). Every remote section now shows the exact command that produced the output.
+- **Panel recovery in `client show`** — if a client is missing from local credentials (e.g. added from a different machine), `show` now recovers the data from the live panel automatically and syncs back.
+
+### Fixed
+- **`client show` missing XHTTP URLs** — console output skipped XHTTP connection links while the HTML share page worked. The `xhttp_path` in credentials is now the sole signal for XHTTP availability.
+- **`meridian doctor` PermissionError** — crashed when run as non-root on the server. Now handles permission errors gracefully.
+- **Stale container on deploy** — deploying to a server with a leftover 3x-ui container (custom credentials from a previous deployment) failed with "Empty response from login endpoint". Now resets the container DB and retries.
+- **First client missing from XHTTP/WSS** — the deploy-time client was only added to the Reality inbound, not XHTTP or WSS. Now added to all active protocol inbounds.
+- **UFW hard-failure on relay** — relay deployment crashed if `ufw` wasn't pre-installed. Now installs it automatically before configuring firewall rules.
+- **Probe false positive on relay nodes** — SNI consistency warning now clarifies that certificate variation is expected for relay nodes (TCP forwarders).
+
+### Changed
+- **CLI flag renames** — `--name` → `--client-name`, `--server-name` → `--display-name`. Branding flags grouped in `--help`. Removed `--email` and `--xhttp` (wizard handles these).
+- **Teardown output** — now suggests `meridian deploy IP` as a next step.
+
 ## [3.11.2] - 2026-04-07
 
 ### Added

@@ -15,6 +15,7 @@ from meridian.config import DEFAULT_SNI, SERVERS_FILE
 from meridian.console import err_console, line
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
+from meridian.ssh import ServerConnection
 
 
 def run(
@@ -189,11 +190,11 @@ def run(
         err_console.print("  [dim]Secrets (UUIDs, passwords, keys) are auto-redacted.[/dim]\n")
 
 
-def _check_cert_expiry(conn: object) -> str:
+def _check_cert_expiry(conn: ServerConnection) -> str:
     """Check TLS certificate expiry on the local nginx."""
     from datetime import datetime, timezone
 
-    result = conn.run(  # type: ignore[union-attr]
+    result = conn.run(
         "echo | openssl s_client -connect 127.0.0.1:8443 -servername localhost 2>/dev/null "
         "| openssl x509 -noout -enddate 2>/dev/null",
         timeout=10,
@@ -219,11 +220,11 @@ def _check_cert_expiry(conn: object) -> str:
         return f"raw: {date_str}"
 
 
-def _check_geo_blocking(conn: object) -> str:
+def _check_geo_blocking(conn: ServerConnection) -> str:
     """Check if Xray routing has geo-blocking rules configured."""
     import json
 
-    result = conn.run(  # type: ignore[union-attr]
+    result = conn.run(
         "docker exec 3x-ui cat /app/bin/config.json 2>/dev/null",
         timeout=10,
     )

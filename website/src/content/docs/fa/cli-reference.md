@@ -15,19 +15,19 @@ section: reference
 meridian deploy [IP] [flags]
 ```
 
-| پرچم | پیش‌فرض | توضیح |
+| پرچم | پیش‌فرض | توضیحات |
 |------|---------|-------------|
-| `--sni HOST` | www.microsoft.com | سایتی که Reality تقلب می‌کند |
-| `--domain DOMAIN` | (none) | فعال کردن حالت دامنه با fallback CDN |
-| `--email EMAIL` | (none) | ایمیل برای گواهینامه‌های TLS |
-| `--xhttp / --no-xhttp` | enabled | پروتکل انتقال XHTTP |
-| `--name NAME` | default | نام برای اولین کلاینت |
-| `--server-name NAME` | (none) | نام نمایشی در صفحات اتصال |
-| `--icon EMOJI_OR_URL` | (none) | آیکون سرور — emoji یا URL تصویر |
-| `--color PALETTE` | ocean | پالت رنگی (ocean/sunset/forest/lavender/rose/slate) |
+| `--sni HOST` | www.microsoft.com | هدف پوشش TLS |
+| `--domain DOMAIN` | (هیچ) | دامنه بازگشت CDN Cloudflare |
+| `--client-name NAME` | default | نام برای اولین کلاینت |
+| `--display-name NAME` | (هیچ) | برچسب برای صفحات اتصال |
+| `--icon EMOJI_OR_URL` | (هیچ) | آیکون صفحه — ایموجی یا URL تصویر |
+| `--color PALETTE` | ocean | تم رنگ صفحه (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | کاربر SSH |
-| `--decoy MODE` | none | پاسخ فریبنده برای مسیرهای ناشناخته (`none` / `403`) |
-| `--yes` | | رد کردن تأیید‌های پیش |
+| `--harden / --no-harden` | فعال | سخت‌سازی SSH + فایروال |
+| `--server NAME` | | سرور هدف (نام یا IP) |
+| `--decoy MODE` | none | پاسخ فریبنده (`none` / `403`) |
+| `--yes` | | رد شدن از درخواست‌های تأیید |
 
 ### meridian client
 

@@ -23,17 +23,15 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--sni HOST` | www.microsoft.com | Site that Reality impersonates |
-| `--domain DOMAIN` | (none) | Enable domain mode with CDN fallback |
-| `--email EMAIL` | (none) | Email for TLS certificates (optional) |
-| `--xhttp / --no-xhttp` | enabled | XHTTP transport (through port 443 via nginx) |
-| `--name NAME` | default | Name for the first client |
-| `--server-name NAME` | (none) | Display name on connection pages (e.g. "Alice's VPN") |
-| `--icon EMOJI_OR_URL` | (none) | Server icon — emoji or image URL |
-| `--color PALETTE` | ocean | Color palette (ocean/sunset/forest/lavender/rose/slate) |
+| `--sni HOST` | www.microsoft.com | TLS camouflage target |
+| `--domain DOMAIN` | (none) | Cloudflare CDN fallback domain |
+| `--client-name NAME` | default | Name for the first client |
+| `--display-name NAME` | (none) | Label for connection pages (e.g. "Alice's VPN") |
+| `--icon EMOJI_OR_URL` | (none) | Page icon — emoji or image URL |
+| `--color PALETTE` | ocean | Page color theme (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH user (non-root gets sudo automatically) |
-| `--harden / --no-harden` | enabled | Server hardening: SSH key-only + firewall (skip with `--no-harden` if other services run on the server) |
-| `--server NAME` | | Target a specific named server (for re-deploys) |
+| `--harden / --no-harden` | enabled | Harden SSH + firewall (disable with `--no-harden` if other services share the server) |
+| `--server NAME` | | Target server (name or IP) |
 | `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
 

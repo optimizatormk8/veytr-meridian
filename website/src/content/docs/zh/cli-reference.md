@@ -17,15 +17,15 @@ meridian deploy [IP] [flags]
 
 | 标志 | 默认值 | 描述 |
 |------|---------|-------------|
-| `--sni HOST` | www.microsoft.com | Reality 伪装的网站 |
-| `--domain DOMAIN` | (无) | 启用域名模式和 CDN 回退 |
-| `--email EMAIL` | (无) | TLS 证书的电子邮件 |
-| `--xhttp / --no-xhttp` | 启用 | XHTTP 传输 |
-| `--name NAME` | default | 第一个客户端的名称 |
-| `--server-name NAME` | (无) | 连接页面上的显示名称 |
-| `--icon EMOJI_OR_URL` | (无) | 服务器图标 — 表情或图像 URL |
-| `--color PALETTE` | ocean | 颜色调板(ocean/sunset/forest/lavender/rose/slate) |
+| `--sni HOST` | www.microsoft.com | TLS 伪装目标 |
+| `--domain DOMAIN` | (无) | Cloudflare CDN 回退域名 |
+| `--client-name NAME` | default | 第一个客户端的名称 |
+| `--display-name NAME` | (无) | 连接页面上的标签 |
+| `--icon EMOJI_OR_URL` | (无) | 页面图标 — 表情符号或图片 URL |
+| `--color PALETTE` | ocean | 页面颜色主题 (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH 用户 |
+| `--harden / --no-harden` | 启用 | SSH + 防火墙加固 |
+| `--server NAME` | | 目标服务器（名称或 IP） |
 | `--decoy MODE` | none | 诱饵响应模式 (`none` / `403`) |
 | `--yes` | | 跳过确认提示 |
 

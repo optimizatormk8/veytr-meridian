@@ -21,17 +21,15 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 
 | Флаг | По умолчанию | Описание |
 |------|---------|-------------|
-| `--sni HOST` | www.microsoft.com | Сайт, который Reality выдаёт за себя |
-| `--domain DOMAIN` | (нет) | Включить режим домена с резервным CDN |
-| `--email EMAIL` | (нет) | Email для TLS сертификатов (опционально) |
-| `--xhttp / --no-xhttp` | включено | Транспорт XHTTP (через порт 443 via nginx) |
-| `--name NAME` | default | Имя для первого клиента |
-| `--server-name NAME` | (нет) | Отображаемое имя на страницах подключения (напр. "VPN Алисы") |
-| `--icon EMOJI_OR_URL` | (нет) | Значок сервера — эмодзи или URL изображения |
-| `--color PALETTE` | ocean | Цветовая палитра (ocean/sunset/forest/lavender/rose/slate) |
+| `--sni HOST` | www.microsoft.com | Цель маскировки TLS |
+| `--domain DOMAIN` | (нет) | Домен для CDN-резерва через Cloudflare |
+| `--client-name NAME` | default | Имя для первого клиента |
+| `--display-name NAME` | (нет) | Надпись на страницах подключения (напр. "VPN Алисы") |
+| `--icon EMOJI_OR_URL` | (нет) | Иконка страницы — эмодзи или URL изображения |
+| `--color PALETTE` | ocean | Цветовая тема (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH пользователь (не-root получает sudo автоматически) |
-| `--harden / --no-harden` | включено | Закалка сервера: только SSH-ключи + firewall (пропустите с `--no-harden` если на сервере другие сервисы) |
-| `--server NAME` | | Указать конкретный сервер (для повторных deploy) |
+| `--harden / --no-harden` | включено | Закалка SSH + firewall (отключите если на сервере другие сервисы) |
+| `--server NAME` | | Указать сервер (имя или IP) |
 | `--decoy MODE` | none | Ответ-обманка для неизвестных путей (`none` / `403`) |
 | `--yes` | | Пропустить подтверждающие подсказки |
 

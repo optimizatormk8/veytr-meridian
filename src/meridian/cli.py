@@ -92,7 +92,9 @@ def deploy_cmd(
         rich_help_panel="Branding",
     ),
     icon: str = typer.Option("", "--icon", help="Page icon (emoji or image URL)", rich_help_panel="Branding"),
-    color: str = typer.Option("", "--color", help="Page color theme (ocean/sunset/forest/lavender/rose/slate)", rich_help_panel="Branding"),
+    color: str = typer.Option(
+        "", "--color", help="Page color theme (ocean/sunset/forest/lavender/rose/slate)", rich_help_panel="Branding"
+    ),
     decoy: str = typer.Option("", "--decoy", hidden=True, help="Deprecated: 403/404 is now always used"),
 ) -> None:
     """Deploy a VLESS+Reality proxy server. Interactive wizard if no IP provided.
