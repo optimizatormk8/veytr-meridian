@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 
 from meridian.config import REALM_SHA256, REALM_VERSION
+from meridian.provision.common import ConfigureBBR, InstallPackages
 from meridian.provision.relay import (
     ConfigureRealm,
-    ConfigureRelayBBR,
     InstallRealm,
-    InstallRelayPackages,
     RelayContext,
     VerifyRelay,
+    _RELAY_PACKAGES,
     build_relay_steps,
 )
 from tests.provision.conftest import MockConnection
@@ -69,7 +69,7 @@ class TestInstallRelayPackages:
     def test_all_present(self):
         conn = MockConnection()
         conn.when("dpkg-query", stdout="curl\nwget\nufw\nca-certificates\n")
-        result = InstallRelayPackages().run(conn, _make_ctx())
+        result = InstallPackages(packages=_RELAY_PACKAGES).run(conn, _make_ctx())
         assert result.status == "ok"
 
     def test_missing_triggers_install(self):
@@ -78,7 +78,7 @@ class TestInstallRelayPackages:
         conn.when("dpkg-query", stdout="curl\nwget\n")
         conn.when("apt-get update", stdout="")
         conn.when("apt-get install", stdout="")
-        result = InstallRelayPackages().run(conn, _make_ctx())
+        result = InstallPackages(packages=_RELAY_PACKAGES).run(conn, _make_ctx())
         assert result.status == "changed"
         conn.assert_called_with_pattern("apt-get install")
 
@@ -94,7 +94,7 @@ class TestInstallRelayPackages:
             ),
         )
 
-        result = InstallRelayPackages().run(conn, _make_ctx())
+        result = InstallPackages(packages=_RELAY_PACKAGES).run(conn, _make_ctx())
 
         assert result.status == "failed"
         assert "end-of-life" in result.detail
@@ -111,7 +111,7 @@ class TestConfigureRelayBBR:
         conn = MockConnection()
         conn.when("tcp_congestion_control", stdout="bbr")
         conn.when("default_qdisc", stdout="fq")
-        result = ConfigureRelayBBR().run(conn, _make_ctx())
+        result = ConfigureBBR().run(conn, _make_ctx())
         assert result.status == "ok"
 
 

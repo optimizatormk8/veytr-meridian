@@ -23,12 +23,6 @@ from meridian.ssh import ServerConnection
 # Minimal packages needed on a relay node
 _RELAY_PACKAGES = ["curl", "wget", "ufw", "ca-certificates"]
 
-# BBR sysctl settings (same as common.py)
-_BBR_SETTINGS = {
-    "net.core.default_qdisc": "fq",
-    "net.ipv4.tcp_congestion_control": "bbr",
-}
-
 # Realm systemd service template
 _SYSTEMD_UNIT = """\
 [Unit]
@@ -80,83 +74,6 @@ class RelayContext:
 # ---------------------------------------------------------------------------
 # Relay provisioning steps
 # ---------------------------------------------------------------------------
-
-
-class InstallRelayPackages:
-    """Install minimal system packages on relay node."""
-
-    name = "Install relay packages"
-
-    def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
-        check_cmd = "dpkg-query -W -f='${Package}\\n' " + " ".join(_RELAY_PACKAGES) + " 2>/dev/null"
-        result = conn.run(check_cmd, timeout=15)
-        installed = set(result.stdout.strip().splitlines()) if result.returncode == 0 else set()
-
-        missing = [p for p in _RELAY_PACKAGES if p not in installed]
-        if not missing:
-            return StepResult(name=self.name, status="ok", detail="all packages present")
-
-        update = conn.run("DEBIAN_FRONTEND=noninteractive apt-get update -qq", timeout=180)
-        if update.returncode != 0:
-            stderr = update.stderr.strip()
-            if "no longer has a Release file" in stderr:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=(
-                        "OS version is end-of-life — package repos have been removed. "
-                        "Reinstall with an Ubuntu LTS version"
-                    ),
-                )
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"apt-get update failed: {stderr[:200]}",
-            )
-
-        pkg_list = " ".join(missing)
-        install = conn.run(
-            f"DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {pkg_list}",
-            timeout=300,
-        )
-        if install.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"apt-get install failed: {install.stderr.strip()[:200]}",
-            )
-
-        return StepResult(name=self.name, status="changed", detail=f"installed {len(missing)} packages")
-
-
-class ConfigureRelayBBR:
-    """Enable BBR congestion control on relay node."""
-
-    name = "Enable BBR congestion control"
-
-    def run(self, conn: ServerConnection, ctx: RelayContext) -> StepResult:
-        check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=15)
-        if check.returncode == 0 and check.stdout.strip() == "bbr":
-            qdisc = conn.run("sysctl -n net.core.default_qdisc 2>/dev/null", timeout=15)
-            if qdisc.returncode == 0 and qdisc.stdout.strip() == "fq":
-                return StepResult(name=self.name, status="ok", detail="already enabled")
-
-        for key, value in _BBR_SETTINGS.items():
-            result = conn.run(f"sysctl -w {key}={value}", timeout=15)
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"sysctl {key} failed: {result.stderr.strip()[:200]}",
-                )
-
-        for key, value in _BBR_SETTINGS.items():
-            q_key = shlex.quote(key)
-            q_value = shlex.quote(value)
-            conn.run(f"sed -i '/^{key}/d' /etc/sysctl.conf", timeout=15)
-            conn.run(f"printf '%s = %s\\n' {q_key} {q_value} >> /etc/sysctl.conf", timeout=15)
-
-        return StepResult(name=self.name, status="changed")
 
 
 class ConfigureRelayFirewall:
@@ -415,9 +332,11 @@ class VerifyRelay:
 
 def build_relay_steps(ctx: RelayContext) -> list:
     """Assemble the relay deployment step pipeline."""
+    from meridian.provision.common import ConfigureBBR, InstallPackages
+
     return [
-        InstallRelayPackages(),
-        ConfigureRelayBBR(),
+        InstallPackages(packages=_RELAY_PACKAGES),
+        ConfigureBBR(),
         ConfigureRelayFirewall(),
         InstallRealm(),
         ConfigureRealm(),

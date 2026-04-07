@@ -71,13 +71,16 @@ class InstallPackages:
 
     name = "Install system packages"
 
+    def __init__(self, packages: list[str] | None = None) -> None:
+        self._packages = packages or REQUIRED_PACKAGES
+
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check which packages are already installed
-        check_cmd = "dpkg-query -W -f='${Package}\\n' " + " ".join(REQUIRED_PACKAGES) + " 2>/dev/null"
+        check_cmd = "dpkg-query -W -f='${Package}\\n' " + " ".join(self._packages) + " 2>/dev/null"
         result = conn.run(check_cmd, timeout=15)
         installed = set(result.stdout.strip().splitlines()) if result.returncode == 0 else set()
 
-        missing = [p for p in REQUIRED_PACKAGES if p not in installed]
+        missing = [p for p in self._packages if p not in installed]
         if not missing:
             return StepResult(name=self.name, status="ok", detail="all packages present")
 
