@@ -69,9 +69,17 @@ def check_for_update(current_version: str) -> None:
             ok(f"Auto-updated: v{current_version} → v{latest}")
             # Re-exec so new version runs
             os.execvp(sys.argv[0], sys.argv)
+    elif current.major != remote.major:
+        # Major: highlighted breaking change warning
+        err_console.print(f"\n  [bold red]Major update available:[/bold red] v{current_version} → v{latest}")
+        err_console.print("  [dim]This release may include breaking changes —")
+        err_console.print("  redeploy your servers after updating.[/dim]")
+        err_console.print("  Run: [bold]meridian update[/bold]\n")
     else:
-        # Minor/major: prompt
+        # Minor: new features, possible behavior changes
         err_console.print(f"\n  [warn]Update available:[/warn] v{current_version} → v{latest}")
+        err_console.print("  [dim]We maintain backwards compatibility, but with diverse server environments")
+        err_console.print("  some changes may require a redeploy.[/dim]")
         err_console.print("  Run: [bold]meridian update[/bold]\n")
 
 
@@ -155,6 +163,18 @@ def run_self_update() -> None:
     if remote <= current:
         ok(f"Already on the latest version (v{__version__})")
         return
+
+    # Version-level context
+    if current.major != remote.major:
+        warn(
+            f"Major version bump (v{__version__} → v{latest}) — "
+            "this may include breaking changes. Redeploy your servers after updating."
+        )
+    elif current.minor != remote.minor:
+        info(
+            f"New features in v{latest}. We maintain backwards compatibility, but with "
+            "diverse server environments some changes may require a redeploy."
+        )
 
     info(f"Updating v{__version__} → v{latest}...")
     if do_upgrade():
