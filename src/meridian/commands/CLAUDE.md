@@ -11,6 +11,12 @@
 
 **Version mismatch check** — `fetch_credentials()` compares `deployed_with` against running CLI. Warns once per server per session. Non-blocking.
 
+**CLI UX vision** — every command output is a guided experience, not a status dump:
+- **Educate** — explain *why*, not just what. A user who runs `deploy` should understand Reality camouflage without reading docs. Help text teaches; it doesn't just label flags.
+- **Unbreak paths** — every error and broken state must suggest the recovery protocol. Deployment failed? → `meridian preflight`. Server unreachable? → `meridian test`. Weird state? → `meridian teardown` + `meridian deploy`.
+- **Upsell the next step** — after `deploy`, suggest `test` and `client add`. After `client add`, suggest `client list` and `test`. Every command's output should make the user aware of what's possible next. The CLI is a guided tour, not a dead end.
+- **Cohesive flag language** — same flag means the same thing everywhere. No `--name` meaning three different things on three commands.
+
 **Wizard UX conventions** — the deploy wizard uses `console.py` helpers exclusively:
 - **`choose()`** for any decision with 2+ options. Never raw Y/n prompts. Shows numbered list, user picks a number. Default is always 1.
 - **`prompt()`** for free-text input (IP address, domain, server name). Show defaults in brackets.

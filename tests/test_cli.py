@@ -43,7 +43,6 @@ class TestSubcommandHelp:
         output = _strip_ansi(result.output)
         assert "--domain" in output
         assert "--sni" in output
-        assert "--xhttp" in output
 
     def test_client_help(self) -> None:
         result = runner.invoke(app, ["client", "--help"])

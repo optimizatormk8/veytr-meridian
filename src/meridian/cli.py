@@ -10,6 +10,7 @@ from meridian.console import banner
 app = typer.Typer(
     name="meridian",
     help="Censorship-resistant proxy server management",
+    epilog="[dim]Docs: https://getmeridian.org/docs[/dim]",
     add_completion=True,
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -67,36 +68,31 @@ def deploy_cmd(
         "",
         "--domain",
         "-d",
-        help="CDN fallback via Cloudflare (guide: getmeridian.org/docs/en/domain-mode/)",
+        help="Cloudflare CDN fallback domain",
     ),
-    email: str = typer.Option("", "--email", help="Email for TLS certificate notifications"),
     sni: str = typer.Option(
         "",
         "--sni",
         "-s",
-        help="Camouflage target (default: www.microsoft.com). Use 'meridian scan' for optimal",
+        help="TLS camouflage target (use 'meridian scan' to find best)",
     ),
-    xhttp: bool = typer.Option(
-        True,
-        "--xhttp/--no-xhttp",
-        help="XHTTP fallback transport (on by default, routed through port 443)",
-    ),
-    name: str = typer.Option("", "--name", help="Name for the first client (default: 'default')"),
-    user: str = typer.Option("root", "--user", "-u", help="SSH user on the server"),
+    client_name: str = typer.Option("", "--client-name", help="Name for the first client"),
+    user: str = typer.Option("root", "--user", "-u", help="SSH user"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip all prompts (use defaults)"),
     harden: bool = typer.Option(
         True,
         "--harden/--no-harden",
-        help="Server hardening: SSH key-only + firewall (skip if other services run on server)",
+        help="Harden SSH + firewall (disable if other services share the server)",
     ),
-    server: str = typer.Option("", "--server", help="Target server name or IP (for re-deploys)"),
-    server_name: str = typer.Option(
+    server: str = typer.Option("", "--server", help="Target server (name or IP)"),
+    display_name: str = typer.Option(
         "",
-        "--server-name",
-        help="Display name for connection pages (e.g. 'Alice\\'s VPN')",
+        "--display-name",
+        help="Label for connection pages (e.g. 'Alice\\'s VPN')",
+        rich_help_panel="Branding",
     ),
-    icon: str = typer.Option("", "--icon", help="Server icon — emoji or image URL"),
-    color: str = typer.Option("", "--color", help="Color palette (ocean/sunset/forest/lavender/rose/slate)"),
+    icon: str = typer.Option("", "--icon", help="Page icon (emoji or image URL)", rich_help_panel="Branding"),
+    color: str = typer.Option("", "--color", help="Page color theme (ocean/sunset/forest/lavender/rose/slate)", rich_help_panel="Branding"),
     decoy: str = typer.Option("", "--decoy", hidden=True, help="Deprecated: 403/404 is now always used"),
 ) -> None:
     """Deploy a VLESS+Reality proxy server. Interactive wizard if no IP provided.
@@ -112,15 +108,13 @@ def deploy_cmd(
     run(
         ip,
         domain,
-        email,
         sni,
-        xhttp,
-        name,
+        client_name,
         user,
         yes,
         harden,
         server,
-        server_name=server_name,
+        server_name=display_name,
         icon=icon,
         color=color,
         decoy=decoy,
@@ -136,9 +130,14 @@ def deploy_cmd(
 def client_add(
     name: str = typer.Argument(..., help="Client name"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
 ) -> None:
-    """Add a new client."""
+    """Add a new client.
+
+    [dim]Examples:[/dim]
+      [cyan]meridian client add alice[/cyan]
+      [cyan]meridian client add alice --server myserver[/cyan]
+    """
     from meridian.commands.client import run_add
 
     run_add(name, user, server)
@@ -148,9 +147,14 @@ def client_add(
 def client_show_cmd(
     name: str = typer.Argument(..., help="Client name"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
 ) -> None:
-    """Show connection info for an existing client."""
+    """Show connection info for an existing client.
+
+    [dim]Examples:[/dim]
+      [cyan]meridian client show alice[/cyan]
+      [cyan]meridian client show alice --server myserver[/cyan]
+    """
     from meridian.commands.client import run_show
 
     run_show(name, user, server)
@@ -159,7 +163,7 @@ def client_show_cmd(
 @client_app.command("list")
 def client_list_cmd(
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
 ) -> None:
     """List all clients."""
     from meridian.commands.client import run_list
@@ -171,7 +175,7 @@ def client_list_cmd(
 def client_remove(
     name: str = typer.Argument(..., help="Client name"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
 ) -> None:
     """Remove a client."""
     from meridian.commands.client import run_remove
@@ -206,12 +210,12 @@ def server_list_cmd() -> None:
 
 @server_app.command("remove")
 def server_remove_cmd(
-    query: str = typer.Argument(..., help="Server IP or name"),
+    server: str = typer.Argument(..., help="Server name or IP"),
 ) -> None:
     """Remove a known server."""
     from meridian.commands.server import run_remove
 
-    run_remove(query)
+    run_remove(server)
 
 
 # =============================================================================
@@ -224,8 +228,8 @@ def preflight_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
     domain: str = typer.Option("", "--domain", "-d", help="Domain to check"),
     sni: str = typer.Option("", "--sni", "-s", help="SNI target to verify"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
-    ai: bool = typer.Option(False, "--ai", help="Copy AI-ready prompt to clipboard for ChatGPT/Claude"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
+    ai: bool = typer.Option(False, "--ai", help="Copy diagnostic prompt to clipboard"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
     """Validate server compatibility (SNI, ports, DNS, OS, disk, ASN) before deploying."""
@@ -237,7 +241,7 @@ def preflight_cmd(
 @app.command("scan")
 def scan_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
     """Find optimal SNI targets via RealiTLScanner."""
@@ -279,8 +283,8 @@ def probe_cmd(
 def doctor_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
     sni: str = typer.Option("", "--sni", "-s", help="SNI target"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
-    ai: bool = typer.Option(False, "--ai", help="Copy AI-ready prompt to clipboard for ChatGPT/Claude"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
+    ai: bool = typer.Option(False, "--ai", help="Copy diagnostic prompt to clipboard"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
     """Collect system info for bug reports. Use --ai for ChatGPT/Claude prompt."""
@@ -294,8 +298,8 @@ def doctor_cmd(
 def rage_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
     sni: str = typer.Option("", "--sni", "-s", help="SNI target"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
-    ai: bool = typer.Option(False, "--ai", help="Copy AI-ready prompt to clipboard for ChatGPT/Claude"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
+    ai: bool = typer.Option(False, "--ai", help="Copy diagnostic prompt to clipboard"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
     """Alias for doctor."""
@@ -307,7 +311,7 @@ def rage_cmd(
 @app.command("teardown")
 def teardown_cmd(
     ip: str = typer.Argument("", help="Server IP address"),
-    user: str = typer.Option("", "--user", "-u", help="SSH user (default: from server registry)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),
 ) -> None:
@@ -334,7 +338,7 @@ def update_cmd() -> None:
 def relay_deploy_cmd(
     relay_ip: str = typer.Argument(..., help="Relay server IP address"),
     exit: str = typer.Option(..., "--exit", "-e", help="Exit server (IP or name)"),
-    user: str = typer.Option("root", "--user", "-u", help="SSH user on the relay"),
+    user: str = typer.Option("root", "--user", "-u", help="SSH user"),
     name: str = typer.Option("", "--name", help="Friendly name for the relay (e.g., ru-moscow)"),
     port: int = typer.Option(443, "--port", "-p", help="Relay listen port"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),

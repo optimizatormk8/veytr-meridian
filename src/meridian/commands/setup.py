@@ -24,10 +24,8 @@ from meridian.ssh import ServerConnection
 def run(
     ip: str = "",
     domain: str = "",
-    email: str = "",
     sni: str = "",
-    xhttp: bool = True,
-    name: str = "",
+    client_name: str = "",
     user: str = "root",
     yes: bool = False,
     harden: bool = True,
@@ -76,17 +74,16 @@ def run(
     if not server_ip:
         wizard_result = _interactive_wizard(
             sni=sni,
-            xhttp=xhttp,
             domain=domain,
-            email=email,
             harden=harden,
             yes=yes,
+            client_name=client_name,
             server_name=server_name,
             icon=icon,
             color=color,
         )
-        server_ip, ssh_user, sni, domain, email, xhttp, harden = wizard_result[:7]
-        server_name, icon, color = wizard_result[7:]
+        server_ip, ssh_user, sni, domain, harden = wizard_result[:5]
+        client_name, server_name, icon, color = wizard_result[5:]
 
     # Validate IP (skip for 'local' keyword — resolve_server handles it)
     if not is_local_keyword(server_ip) and not is_ipv4(server_ip):
@@ -135,9 +132,9 @@ def run(
                         sni = creds.server.scanned_sni
 
     # Route to legacy Ansible or new Python provisioner
-    if name and not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", name):
+    if client_name and not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", client_name):
         fail(
-            f"Client name '{name}' is invalid",
+            f"Client name '{client_name}' is invalid",
             hint="Use letters, numbers, hyphens, and underscores.",
             hint_type="user",
         )
@@ -156,13 +153,13 @@ def run(
             )
         creds.save(proxy_file)
 
-    _run_provisioner(resolved, domain, sni, name, xhttp, harden)
+    _run_provisioner(resolved, domain, sni, client_name, harden)
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
 
     # Success output
-    _print_success(resolved, name, domain)
+    _print_success(resolved, client_name, domain)
 
     # Offer relay setup
     _offer_relay(resolved, yes)
@@ -170,19 +167,18 @@ def run(
 
 def _interactive_wizard(
     sni: str,
-    xhttp: bool,
     domain: str,
-    email: str,
     harden: bool,
     yes: bool,
+    client_name: str = "",
     server_name: str = "",
     icon: str = "",
     color: str = "",
-) -> tuple[str, str, str, str, str, bool, bool, str, str, str]:
+) -> tuple[str, str, str, str, bool, str, str, str, str]:
     """Interactive deployment wizard.
 
-    Returns (ip, user, sni, domain, email, xhttp, harden,
-             server_name, icon, color).
+    Returns (ip, user, sni, domain, harden,
+             client_name, server_name, icon, color).
     """
     import os
 
@@ -426,12 +422,21 @@ def _interactive_wizard(
     if not color:
         color = "ocean"
 
+    # --- Client name ---
+    if not yes and not client_name:
+        err_console.print()
+        err_console.print("  [bold]First client[/bold]")
+        err_console.print("  [dim]Name for the first connection profile (you can add more later).[/dim]")
+        err_console.print()
+        client_name = prompt("Client name", default="default")
+
+    if not client_name:
+        client_name = "default"
+
     # --- Summary panel ---
     from rich.panel import Panel
 
-    protocol_line = "VLESS + Reality (TCP)"
-    if xhttp:
-        protocol_line += "\n           + XHTTP fallback (same port)"
+    protocol_line = "VLESS + Reality (TCP)\n           + XHTTP fallback (same port)"
     if domain:
         protocol_line += f"\n           + CDN fallback ({domain})"
 
@@ -454,6 +459,7 @@ def _interactive_wizard(
         f"Protocol:   {protocol_line}\n"
         f"Camouflage: {sni}\n"
         f"Hardening:  {harden_label}\n"
+        f"Client:     {client_name}\n"
         f"Mode:       {'Domain mode (best stealth + CDN fallback)' if domain else 'IP-only (works without a domain)'}"
         f"{branding_line}"
     )
@@ -470,15 +476,14 @@ def _interactive_wizard(
             confirm(f"Deploy to {ssh_user}@{server_ip}?")
     err_console.print()
 
-    return server_ip, ssh_user, sni, domain, email, xhttp, harden, server_name, icon, color
+    return server_ip, ssh_user, sni, domain, harden, client_name, server_name, icon, color
 
 
 def _run_provisioner(
     resolved: ResolvedServer,
     domain: str,
     sni: str,
-    name: str,
-    xhttp: bool,
+    client_name: str,
     harden: bool = True,
 ) -> None:
     """Run the Python provisioner pipeline."""
@@ -489,7 +494,7 @@ def _run_provisioner(
         user=resolved.user,
         domain=domain,
         sni=sni or DEFAULT_SNI,
-        xhttp_enabled=xhttp,
+        xhttp_enabled=True,
         hosted_page=True,  # always serve connection pages on server
         harden=harden,
         creds_dir=str(resolved.creds_dir),
@@ -527,7 +532,7 @@ def _run_provisioner(
                 ctx["xhttp_path"] = creds.xhttp.xhttp_path
 
     # First client name
-    ctx["first_client_name"] = name or "default"
+    ctx["first_client_name"] = client_name or "default"
 
     err_console.print()
     info(f"Configuring server at {ctx.ip}...")
@@ -535,8 +540,6 @@ def _run_provisioner(
         info(f"Domain: {domain}")
     if sni and sni != DEFAULT_SNI:
         info(f"SNI: {sni}")
-    if xhttp:
-        info("XHTTP: enabled (enhanced stealth)")
     err_console.print()
 
     steps = build_setup_steps(ctx)
@@ -561,9 +564,9 @@ def _run_provisioner(
     ok("All steps completed successfully")
 
 
-def _print_success(resolved: ResolvedServer, name: str, domain: str) -> None:
+def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> None:
     """Print success output after deployment."""
-    client_label = name or "default"
+    client_label = client_name or "default"
     creds_dir = resolved.creds_dir
     html_files = list(creds_dir.glob(f"*-{client_label}-connection-info.html"))
 

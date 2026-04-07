@@ -97,7 +97,7 @@ make ci          # lint + format + test + templates
 
 | What | Where | Propagated to |
 |---|---|---|
-| CLI commands | `cli.py` | README, website docs |
+| CLI commands & flags | `cli.py` | README, website docs, `CommandBuilder.astro` |
 | App download links | `apps.json` | template (CI-validated), `render.py`, `app.js` |
 | Version | `VERSION` | importlib, website, CHANGELOG |
 | Architecture | this file | website docs, README |

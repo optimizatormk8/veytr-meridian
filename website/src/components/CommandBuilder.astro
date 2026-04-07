@@ -74,24 +74,16 @@ const tabs = [
         <span class="builder__hint" data-t="builder.field.sni.hint">Site that Reality impersonates. Default: www.microsoft.com. Use <code>meridian scan</code> for optimal targets.</span>
       </div>
 
-      <div class="builder__field" id="row-xhttp">
-        <label class="builder__label builder__label--check">
-          <input id="f-xhttp" type="checkbox" checked class="builder__checkbox" />
-          <span data-t="builder.field.xhttp">XHTTP transport</span>
-        </label>
-        <span class="builder__hint" data-t="builder.field.xhttp.hint">Enabled by default. Routed through port 443 via nginx. Requires v2rayNG 1.9+ or Hiddify.</span>
-      </div>
-
       <div class="builder__field" id="row-name">
         <label class="builder__label" for="f-name" data-t="builder.field.name">Client name</label>
         <input id="f-name" type="text" placeholder="default" class="builder__input builder__input--short" />
         <span class="builder__hint" data-t="builder.field.name.hint">Name for the first client. Default: "default".</span>
       </div>
 
-      <div class="builder__field" id="row-server-name">
-        <label class="builder__label" for="f-server-name" data-t="builder.field.server-name">Server name</label>
-        <input id="f-server-name" type="text" placeholder="My VPN" class="builder__input builder__input--short" />
-        <span class="builder__hint" data-t="builder.field.server-name.hint">Display name on connection pages.</span>
+      <div class="builder__field" id="row-display-name">
+        <label class="builder__label" for="f-display-name" data-t="builder.field.display-name">Display name</label>
+        <input id="f-display-name" type="text" placeholder="My VPN" class="builder__input builder__input--short" />
+        <span class="builder__hint" data-t="builder.field.display-name.hint">Label shown on connection pages.</span>
       </div>
 
       <div class="builder__field" id="row-icon">
@@ -164,7 +156,7 @@ const tabs = [
   const TAB_CONFIG: Record<string, { desc: string; show: string[]; cmd: string; descKey: string }> = {
     install: {
       desc: 'Deploy VLESS+Reality proxy. Configures Docker, Xray, firewall, and TLS automatically.',
-      show: ['ip', 'user', 'domain', 'sni', 'xhttp', 'name', 'server-name', 'icon', 'color', 'yes'],
+      show: ['ip', 'user', 'domain', 'sni', 'name', 'display-name', 'icon', 'color', 'yes'],
       cmd: 'deploy',
       descKey: 'builder.desc.deploy',
     },
@@ -200,7 +192,7 @@ const tabs = [
     },
   };
 
-  const ALL_FIELDS = ['ip', 'user', 'exit', 'domain', 'sni', 'xhttp', 'name', 'server-name', 'icon', 'color', 'relay-name', 'port', 'ai', 'yes'];
+  const ALL_FIELDS = ['ip', 'user', 'exit', 'domain', 'sni', 'name', 'display-name', 'icon', 'color', 'relay-name', 'port', 'ai', 'yes'];
   let curTab = 'install';
 
   function $(id: string) {
@@ -237,9 +229,8 @@ const tabs = [
     const dom = ($('f-domain') as HTMLInputElement).value.trim();
     const sniOn = ($('f-sni-on') as HTMLInputElement).checked;
     const sni = ($('f-sni') as HTMLInputElement).value.trim();
-    const xhttp = ($('f-xhttp') as HTMLInputElement).checked;
     const clientName = ($('f-name') as HTMLInputElement).value.trim();
-    const serverNameVal = ($('f-server-name') as HTMLInputElement).value.trim();
+    const displayNameVal = ($('f-display-name') as HTMLInputElement).value.trim();
     const iconVal = ($('f-icon') as HTMLInputElement).value.trim();
     const colorVal = ($('f-color') as HTMLSelectElement).value;
     const exitServer = ($('f-exit') as HTMLInputElement).value.trim();
@@ -279,9 +270,8 @@ const tabs = [
     if (cfg.show.includes('exit') && exitServer) args.push('--exit ' + exitServer);
     if (cfg.show.includes('domain') && domOn && dom) args.push('--domain ' + dom);
     if (cfg.show.includes('sni') && sniOn && sni && sni !== 'www.microsoft.com') args.push('--sni ' + sni);
-    if (cfg.show.includes('xhttp') && !xhttp) args.push('--no-xhttp');
-    if (cfg.show.includes('name') && clientName && clientName !== 'default') args.push('--name ' + clientName);
-    if (cfg.show.includes('server-name') && serverNameVal) args.push('--server-name "' + serverNameVal + '"');
+    if (cfg.show.includes('name') && clientName && clientName !== 'default') args.push('--client-name ' + clientName);
+    if (cfg.show.includes('display-name') && displayNameVal) args.push('--display-name "' + displayNameVal + '"');
     if (cfg.show.includes('icon') && iconVal) args.push('--icon "' + iconVal + '"');
     if (cfg.show.includes('color') && colorVal) args.push('--color ' + colorVal);
     if (cfg.show.includes('relay-name') && relayName) args.push('--name ' + relayName);
@@ -309,7 +299,7 @@ const tabs = [
           status.className = 'builder__status';
         } else {
           const mode = domOn ? 'Reality + CDN fallback' : 'Reality-only';
-          status.textContent = 'Deploys ' + mode + (xhttp ? '' : ' (XHTTP disabled)') + '.';
+          status.textContent = 'Deploys ' + mode + '.';
           status.className = 'builder__status builder__status--ok';
         }
       }
@@ -355,9 +345,8 @@ const tabs = [
           dom: ($('f-domain') as HTMLInputElement).value.trim(),
           sniOn: ($('f-sni-on') as HTMLInputElement).checked,
           sni: ($('f-sni') as HTMLInputElement).value.trim(),
-          xhttp: ($('f-xhttp') as HTMLInputElement).checked,
           name: ($('f-name') as HTMLInputElement).value.trim(),
-          serverName: ($('f-server-name') as HTMLInputElement).value.trim(),
+          displayName: ($('f-display-name') as HTMLInputElement).value.trim(),
           icon: ($('f-icon') as HTMLInputElement).value.trim(),
           color: ($('f-color') as HTMLSelectElement).value,
           relayName: ($('f-relay-name') as HTMLInputElement).value.trim(),
@@ -380,9 +369,8 @@ const tabs = [
       if (saved.dom) ($('f-domain') as HTMLInputElement).value = saved.dom;
       if (saved.sniOn) ($('f-sni-on') as HTMLInputElement).checked = true;
       if (saved.sni) ($('f-sni') as HTMLInputElement).value = saved.sni;
-      if (saved.xhttp === false) ($('f-xhttp') as HTMLInputElement).checked = false;
       if (saved.name) ($('f-name') as HTMLInputElement).value = saved.name;
-      if (saved.serverName) ($('f-server-name') as HTMLInputElement).value = saved.serverName;
+      if (saved.displayName) ($('f-display-name') as HTMLInputElement).value = saved.displayName;
       if (saved.icon) ($('f-icon') as HTMLInputElement).value = saved.icon;
       if (saved.color) ($('f-color') as HTMLSelectElement).value = saved.color;
       if (saved.relayName) ($('f-relay-name') as HTMLInputElement).value = saved.relayName;
