@@ -337,3 +337,69 @@ class TestCreateInbound:
         conn = MockConnection()
         result = step.run(conn, ctx)
         assert result.status == "skipped"
+
+    def test_api_failure_returns_failed(self):
+        """Panel API returning success=False produces a failed result."""
+        from unittest.mock import MagicMock
+
+        from meridian.provision.xray import CreateInbound
+
+        step = CreateInbound(protocol_key="reality", port=443)
+        panel = MagicMock()
+        panel.find_inbound.return_value = None
+        panel.api_post_json.return_value = {"success": False, "msg": "duplicate remark"}
+
+        from meridian.provision.steps import ProvisionContext
+
+        ctx = ProvisionContext(ip="198.51.100.1", creds_dir="/tmp")
+        ctx["panel"] = panel
+
+        from tests.provision.conftest import MockConnection, make_credentials
+
+        ctx["credentials"] = make_credentials()
+        conn = MockConnection()
+        result = step.run(conn, ctx)
+        assert result.status == "failed"
+        assert "duplicate remark" in result.detail
+
+    def test_port_mismatch_without_flag_skips(self):
+        """When delete_on_port_mismatch=False, port mismatch still skips."""
+        from unittest.mock import MagicMock
+
+        from meridian.provision.xray import CreateInbound
+
+        step = CreateInbound(protocol_key="wss", port=28000, listen="127.0.0.1")
+        panel = MagicMock()
+        existing = MagicMock()
+        existing.port = 99999  # different port
+        existing.listen = "127.0.0.1"
+        panel.find_inbound.return_value = existing
+
+        from meridian.provision.steps import ProvisionContext
+
+        ctx = ProvisionContext(ip="198.51.100.1", creds_dir="/tmp")
+        ctx["panel"] = panel
+
+        from tests.provision.conftest import MockConnection, make_credentials
+
+        ctx["credentials"] = make_credentials()
+        conn = MockConnection()
+        result = step.run(conn, ctx)
+        assert result.status == "skipped"
+        panel.api_post_empty.assert_not_called()  # no delete
+
+    def test_wss_stream_settings_valid_json(self):
+        """WSS stream settings produce valid JSON with ws path."""
+        import json
+        from unittest.mock import MagicMock
+
+        from meridian.provision.xray import CreateInbound
+
+        step = CreateInbound(protocol_key="wss", port=28000)
+        creds = MagicMock()
+        creds.wss.ws_path = "ws789"
+        result = step._build_stream_settings(creds)
+        assert result is not None
+        data = json.loads(result)
+        assert data["network"] == "ws"
+        assert "/ws789" in data["wsSettings"]["path"]
