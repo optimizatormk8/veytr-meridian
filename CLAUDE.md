@@ -104,7 +104,23 @@ make ci          # lint + format + test + templates
 
 ## Versioning
 
-Patch: fixes/docs (auto). Minor: features (prompted). Major: breaking (prompted). Always bump after completing work — edit `VERSION` + `CHANGELOG.md`. One bump per session.
+Patch: fixes/docs (auto). Minor: features (prompted). Major: breaking (prompted). One bump per session.
+
+**Version bump protocol:**
+1. Push commits to main (direct push OK)
+2. Wait for GitHub Actions CI to pass
+3. Ask the user before bumping — never bump autonomously
+4. Bump `VERSION` + `CHANGELOG.md`, commit, push
+5. CI creates the GitHub release automatically — don't create releases manually
+
+## Community & public communication
+
+**Always ask before posting.** Show the exact text to the user and get approval before:
+- GitHub issue/PR comments
+- GitHub discussion replies
+- Any public-facing text posted on the user's behalf
+
+This applies to all `gh` commands that create or modify public content.
 
 ## Backlog
 
