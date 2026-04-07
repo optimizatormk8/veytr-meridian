@@ -65,7 +65,9 @@ class InstallDocker:
             compose_check = conn.run("docker compose version", timeout=15)
             if compose_check.returncode != 0:
                 conn.run(
-                    "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-compose-plugin 2>/dev/null; true",
+                    "DEBIAN_FRONTEND=noninteractive apt-get update -qq"
+                    " && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq"
+                    " docker-compose-plugin 2>/dev/null; true",
                     timeout=120,
                 )
                 # Verify it's now available
@@ -98,6 +100,13 @@ class InstallDocker:
             # Ensure Docker service is running
             conn.run("systemctl start docker", timeout=30)
             conn.run("systemctl enable docker", timeout=15)
+            # Verify compose plugin (might be missing if manually removed)
+            compose_check = conn.run("docker compose version", timeout=15)
+            if compose_check.returncode != 0:
+                conn.run(
+                    "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-compose-plugin 2>/dev/null; true",
+                    timeout=120,
+                )
             return StepResult(
                 name=self.name,
                 status="ok",
