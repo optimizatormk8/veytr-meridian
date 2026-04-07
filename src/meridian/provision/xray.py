@@ -469,13 +469,13 @@ class ConfigureGeoBlocking:
             return StepResult(name=self.name, status="ok", detail="Geo-blocking already configured")
 
         if not has_blocked:
-            outbounds.append(_BLOCKED_OUTBOUND)
+            outbounds.append(dict(_BLOCKED_OUTBOUND))
             template["outbounds"] = outbounds
 
         if not has_geo_rules:
             if "routing" not in template:
                 template["routing"] = {}
-            template["routing"]["rules"] = _GEO_BLOCK_RULES + rules
+            template["routing"]["rules"] = [dict(r) for r in _GEO_BLOCK_RULES] + rules
 
         updated_json = json.dumps(template)
         try:

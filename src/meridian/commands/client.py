@@ -402,6 +402,7 @@ def run_show(
             )
             creds.clients.append(client_entry)
             creds.save(resolved.creds_dir / "proxy.yml")
+            _sync_credentials_to_server(resolved)
             warn(f"Client '{name}' recovered from panel (credentials synced)")
 
     # Build protocol URLs
