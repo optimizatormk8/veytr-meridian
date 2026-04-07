@@ -16,6 +16,11 @@ venv/
 .DS_Store
 .claude/
 
+# Node (website deps live in website/, not root)
+node_modules/
+package.json
+package-lock.json
+
 # Environment
 .env
 *.log
