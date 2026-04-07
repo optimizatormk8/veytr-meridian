@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shlex
 
-from meridian.provision.steps import ProvisionContext, StepResult
+from meridian.provision.steps import ProvisionContext, StepContext, StepResult
 from meridian.ssh import ServerConnection
 
 # Minimum disk space required (in MB)
@@ -74,7 +74,7 @@ class InstallPackages:
     def __init__(self, packages: list[str] | None = None) -> None:
         self._packages = packages or REQUIRED_PACKAGES
 
-    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
+    def run(self, conn: ServerConnection, ctx: StepContext) -> StepResult:
         # Check which packages are already installed
         check_cmd = "dpkg-query -W -f='${Package}\\n' " + " ".join(self._packages) + " 2>/dev/null"
         result = conn.run(check_cmd, timeout=15)
@@ -268,7 +268,7 @@ class ConfigureBBR:
 
     name = "Enable BBR congestion control"
 
-    def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
+    def run(self, conn: ServerConnection, ctx: StepContext) -> StepResult:
         # Check if BBR is already enabled
         check = conn.run("sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null", timeout=15)
         if check.returncode == 0 and check.stdout.strip() == "bbr":
