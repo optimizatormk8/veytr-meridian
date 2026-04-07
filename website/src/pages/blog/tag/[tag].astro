@@ -39,17 +39,19 @@ const { tag, posts } = Astro.props;
           day: 'numeric',
         });
         return (
-          <a href={`/blog/${post.id}/`} class="blog-card" data-astro-prefetch>
+          <div class="blog-card">
             <div class="blog-card__top">
               <span class="blog-card__category">{post.data.category}</span>
               <span class="blog-card__time">{post.data.readingTime} min</span>
             </div>
-            <h2 class="blog-card__title">{post.data.title}</h2>
+            <h2 class="blog-card__title">
+              <a href={`/blog/${post.id}/`} data-astro-prefetch>{post.data.title}</a>
+            </h2>
             <p class="blog-card__desc">{post.data.description}</p>
             <time class="blog-card__date" datetime={post.data.date.toISOString().slice(0, 10)}>
               {formatted}
             </time>
-          </a>
+          </div>
         );
       })}
     </div>
@@ -103,8 +105,7 @@ const { tag, posts } = Astro.props;
     padding: 20px;
     border: 1px solid var(--b1);
     border-radius: var(--r);
-    text-decoration: none;
-    color: inherit;
+    position: relative;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .blog-card:hover {
@@ -137,6 +138,15 @@ const { tag, posts } = Astro.props;
     line-height: 1.35;
     color: var(--t1);
     margin-bottom: 8px;
+  }
+  .blog-card__title a {
+    text-decoration: none;
+    color: inherit;
+  }
+  .blog-card__title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
   }
   .blog-card__desc {
     font-size: 0.84rem;
