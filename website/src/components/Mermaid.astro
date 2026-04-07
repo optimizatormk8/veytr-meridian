@@ -39,7 +39,7 @@
       actorBkg: '#FFFFFF', actorBorder: '#D5CFC3',
     };
 
-    const nodes = document.querySelectorAll('pre.mermaid');
+    const nodes = document.querySelectorAll<HTMLElement>('pre.mermaid');
 
     const { default: mermaid } = await import('mermaid');
     mermaid.initialize({
