@@ -114,6 +114,10 @@ class ConfigurePanel:
                         creds.server.hosted_page = ctx.hosted_page
                         changed = True
 
+                    if creds.server.sni != self.sni:
+                        creds.server.sni = self.sni
+                        changed = True
+
                     from meridian import __version__
 
                     if creds.server.deployed_with != __version__:
