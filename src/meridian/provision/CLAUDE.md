@@ -16,7 +16,7 @@
 
 - **Credential lockout prevention** — save locally BEFORE changing remote password. If API fails, user has recovery data.
 - **`deployed_with` updated on re-deploy** — not just fresh deploys. Enables downstream version mismatch warnings.
-- **Mutable fields on redeploy** — `ConfigurePanel` skips credential generation on redeploy but updates `hosted_page`, `sni`, and `deployed_with`. Any user-facing field that can change between deploys must be in this block.
+- **Mutable fields on redeploy** — `ConfigurePanel` skips credential generation on redeploy but updates `ip`, `domain`, `hosted_page`, `sni`, `panel.url`, and `deployed_with`. Any user-facing field that can change between deploys must be in this block. Note: SNI change updates credentials but does NOT rebuild Xray inbounds (avoids disrupting active clients).
 - **`ufw limit` requires SSH multiplexing** — each `conn.run()` opens a separate SSH connection. `ufw limit 22/tcp` (6 connections/30s) would lock us out mid-deploy. Don't enable until `ControlMaster` multiplexing is added to `ServerConnection`.
 - **nginx = genuine identity** — the server IS nginx. No decoy headers, no fingerprinting leaks. `server_tokens off` is all that's needed.
 

@@ -110,12 +110,27 @@ class ConfigurePanel:
                 else:
                     # Update mutable fields even on re-runs (may have changed)
                     changed = False
+                    if creds.server.ip != self.server_ip:
+                        creds.server.ip = self.server_ip
+                        changed = True
+
+                    if creds.server.domain != self.domain:
+                        creds.server.domain = self.domain
+                        changed = True
+
                     if creds.server.hosted_page != ctx.hosted_page:
                         creds.server.hosted_page = ctx.hosted_page
                         changed = True
 
                     if creds.server.sni != self.sni:
                         creds.server.sni = self.sni
+                        changed = True
+
+                    # Refresh panel URL (domain or IP may have changed)
+                    host = self.domain or self.server_ip or creds.server.ip
+                    new_url = f"https://{host}/{web_base_path}/"
+                    if creds.panel.url != new_url:
+                        creds.panel.url = new_url
                         changed = True
 
                     from meridian import __version__
@@ -183,6 +198,8 @@ class ConfigurePanel:
         creds.panel.web_base_path = web_base_path
         creds.panel.info_page_path = info_page_path
         creds.panel.port = self.panel_port
+        host = self.domain or self.server_ip
+        creds.panel.url = f"https://{host}/{web_base_path}/"
         creds.server.ip = self.server_ip
         creds.server.domain = self.domain
         creds.server.sni = self.sni
