@@ -370,6 +370,9 @@ def _render_nginx_server_block(
 
 def _render_stats_script(panel_internal_port: int) -> str:
     """Render the stats update Python script."""
+    from meridian.protocols import INBOUND_TYPES
+
+    prefixes_repr = repr({it.email_prefix: key for key, it in INBOUND_TYPES.items()})
     return textwrap.dedent(f"""\
         #!/usr/bin/env python3
         \"\"\"Fetch per-client traffic stats from 3x-ui and write per-client JSON files.
@@ -382,6 +385,7 @@ def _render_stats_script(panel_internal_port: int) -> str:
 
         CREDS = '/etc/meridian/proxy.yml'
         STATS_DIR = '/var/www/private/stats'
+        PREFIXES = {prefixes_repr}
 
         def parse_creds():
             \"\"\"Parse v2 nested YAML credentials.\"\"\"
@@ -438,14 +442,14 @@ def _render_stats_script(panel_internal_port: int) -> str:
                 for client in settings.get('clients', []):
                     email = client['email']
                     uuid = client['id']
-                    if email.startswith('reality-'):
-                        name = email[8:]
-                        clients.setdefault(name, {{}})['reality_uuid'] = uuid
-                        clients[name].setdefault('emails', []).append(email)
-                    elif email.startswith('wss-'):
-                        name = email[4:]
-                        clients.setdefault(name, {{}})
-                        clients[name].setdefault('emails', []).append(email)
+                    for prefix, proto_key in PREFIXES.items():
+                        if email.startswith(prefix):
+                            name = email[len(prefix):]
+                            clients.setdefault(name, {{}})
+                            if proto_key == 'reality':
+                                clients[name]['reality_uuid'] = uuid
+                            clients[name].setdefault('emails', []).append(email)
+                            break
 
             os.makedirs(STATS_DIR, exist_ok=True)
 
