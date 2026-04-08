@@ -181,10 +181,11 @@ class RealityProtocol(Protocol):
         public_key = kwargs.get("public_key", "")
         short_id = kwargs.get("short_id", "")
         fingerprint = kwargs.get("fingerprint", DEFAULT_FINGERPRINT)
+        encryption = kwargs.get("encryption", "none")
         fragment = self._build_fragment(name, kwargs.get("server_name", ""))
         return (
             f"vless://{uuid}@{ip}:443"
-            f"?encryption=none&flow=xtls-rprx-vision"
+            f"?encryption={encryption}&flow=xtls-rprx-vision"
             f"&security=reality&sni={sni}&fp={fingerprint}"
             f"&pbk={public_key}&sid={short_id}"
             f"&type=tcp&headerType=none"

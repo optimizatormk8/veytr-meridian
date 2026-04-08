@@ -43,6 +43,7 @@ def build_protocol_urls(
     domain = creds.server.domain or ""
     ws_path = creds.wss.ws_path or ""
     xhttp_path = creds.xhttp.xhttp_path or ""
+    encryption = creds.reality.encryption_key or "none"
 
     # Shared kwargs for Reality-based protocols.
     reality_kwargs = {
@@ -50,6 +51,7 @@ def build_protocol_urls(
         "sni": sni,
         "public_key": public_key,
         "short_id": short_id,
+        "encryption": encryption,
     }
 
     result: list[ProtocolURL] = []
@@ -123,6 +125,7 @@ def build_relay_urls(
     domain = creds.server.domain or ""
     xhttp_path = creds.xhttp.xhttp_path or ""
     ws_path = creds.wss.ws_path or ""
+    encryption = creds.reality.encryption_key or "none"
 
     suffix = f"-via-{relay_name}" if relay_name else f"-via-{relay_ip}"
     relay_label = relay_name or relay_ip
@@ -132,7 +135,7 @@ def build_relay_urls(
     # Reality — end-to-end Reality handshake, relay is fully transparent
     url = (
         f"vless://{reality_uuid}@{relay_ip}:{relay_port}"
-        f"?encryption=none&flow=xtls-rprx-vision"
+        f"?encryption={encryption}&flow=xtls-rprx-vision"
         f"&security=reality&sni={sni}&fp={DEFAULT_FINGERPRINT}"
         f"&pbk={public_key}&sid={short_id}"
         f"&type=tcp&headerType=none"

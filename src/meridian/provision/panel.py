@@ -159,6 +159,12 @@ class ConfigurePanel:
         # -- Generate short_id (8 hex chars) --
         short_id = _random_hex(8)
 
+        # -- Generate PQ encryption keypair (if enabled) --
+        enc_private_key = ""
+        enc_public_key = ""
+        if ctx.pq_encryption:
+            enc_private_key, enc_public_key = _generate_vlessenc_keypair(conn, xray_bin)
+
         # -- Build and save credentials BEFORE changing panel password --
         if creds is None:
             creds = ServerCredentials()
@@ -181,6 +187,8 @@ class ConfigurePanel:
         creds.reality.private_key = private_key
         creds.reality.public_key = public_key
         creds.reality.short_id = short_id
+        creds.reality.encryption_key = enc_public_key or None
+        creds.reality.encryption_private_key = enc_private_key or None
         creds.wss.uuid = wss_uuid
         creds.wss.ws_path = ws_path
         creds.xhttp.xhttp_path = xhttp_path
@@ -353,6 +361,39 @@ def _generate_uuid(conn: ServerConnection, xray_bin: str) -> str:
     if not uuid:
         raise PanelError("Xray uuid command returned empty output")
     return uuid
+
+
+def _generate_vlessenc_keypair(conn: ServerConnection, xray_bin: str) -> tuple[str, str]:
+    """Generate a VLESS encryption keypair for post-quantum encryption.
+
+    Returns (private_key, public_key) where:
+    - private_key goes in server inbound ``decryption`` field
+    - public_key goes in client URL ``encryption=`` parameter
+
+    Both are prefixed with ``mlkem768x25519plus.native.0rtt.`` by Xray.
+    """
+    q_bin = shlex.quote(xray_bin)
+    cmd = f"docker exec 3x-ui {q_bin} vlessenc"
+    result = conn.run(cmd, timeout=15)
+    if result.returncode != 0:
+        raise PanelError(f"VLESS encryption key generation failed: {result.stderr.strip()}")
+
+    output = result.stdout
+    private_match = re.search(r"(?:PrivateKey|Private key):\s*(.+)", output)
+    public_match = re.search(r"Encryption:\s*(.+)", output)
+
+    if not private_match or not public_match:
+        raise PanelError(
+            f"Failed to parse vlessenc output. Xray version may not support VLESS encryption.\nOutput: {output}"
+        )
+
+    private_key = private_match.group(1).strip()
+    public_key = public_match.group(1).strip()
+
+    if not private_key or not public_key:
+        raise PanelError("vlessenc returned empty keys")
+
+    return private_key, public_key
 
 
 def _apply_panel_settings(

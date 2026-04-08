@@ -52,6 +52,24 @@ class TestClientSettings:
         data = json.loads(raw)
         assert data["clients"][0]["flow"] == ""
 
+    def test_client_settings_default_has_fallbacks(self):
+        """Default decryption=none includes fallbacks."""
+        raw = _client_settings(uuid=TEST_UUID, client_email="test")
+        data = json.loads(raw)
+        assert data["decryption"] == "none"
+        assert data["fallbacks"] == []
+
+    def test_client_settings_pq_encryption_omits_fallbacks(self):
+        """PQ encryption sets decryption and omits fallbacks."""
+        raw = _client_settings(
+            uuid=TEST_UUID,
+            client_email="test",
+            decryption="mlkem768x25519plus.native.0rtt.testkey",
+        )
+        data = json.loads(raw)
+        assert data["decryption"] == "mlkem768x25519plus.native.0rtt.testkey"
+        assert "fallbacks" not in data
+
 
 # ---------------------------------------------------------------------------
 # _reality_stream_settings

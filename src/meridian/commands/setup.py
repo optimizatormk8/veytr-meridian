@@ -35,6 +35,7 @@ def run(
     icon: str = "",
     color: str = "",
     decoy: str = "",
+    pq: bool = False,
 ) -> None:
     """Deploy a VLESS+Reality proxy server."""
     # --decoy is deprecated (403/404 is now always the default).
@@ -81,9 +82,10 @@ def run(
             server_name=server_name,
             icon=icon,
             color=color,
+            pq=pq,
         )
         server_ip, ssh_user, sni, domain, harden = wizard_result[:5]
-        client_name, server_name, icon, color = wizard_result[5:]
+        client_name, server_name, icon, color, pq = wizard_result[5:]
 
     # Validate IP (skip for 'local' keyword — resolve_server handles it)
     if not is_local_keyword(server_ip) and not is_ipv4(server_ip):
@@ -153,7 +155,7 @@ def run(
             )
         creds.save(proxy_file)
 
-    _run_provisioner(resolved, domain, sni, client_name, harden)
+    _run_provisioner(resolved, domain, sni, client_name, harden, pq=pq)
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
@@ -174,11 +176,12 @@ def _interactive_wizard(
     server_name: str = "",
     icon: str = "",
     color: str = "",
-) -> tuple[str, str, str, str, bool, str, str, str, str]:
+    pq: bool = False,
+) -> tuple[str, str, str, str, bool, str, str, str, str, bool]:
     """Interactive deployment wizard.
 
     Returns (ip, user, sni, domain, harden,
-             client_name, server_name, icon, color).
+             client_name, server_name, icon, color, pq).
     """
     import os
 
@@ -433,12 +436,33 @@ def _interactive_wizard(
     if not client_name:
         client_name = "default"
 
+    # --- Post-quantum encryption ---
+    if not yes and not pq:
+        err_console.print()
+        err_console.print("  [bold]Post-quantum encryption[/bold] [dim](experimental)[/dim]")
+        err_console.print("  [dim]Adds ML-KEM-768 hybrid encryption on top of Reality.[/dim]")
+        err_console.print("  [dim]Only tested with Happ and v2RayTun. Some apps may not connect.[/dim]")
+        err_console.print()
+        choice = choose(
+            "Choose",
+            [
+                "No \u2014 standard encryption [dim](all apps)[/dim]",
+                "Yes \u2014 post-quantum [dim](tested: Happ, v2RayTun)[/dim]",
+            ],
+        )
+        if choice == 2:
+            pq = True
+
     # --- Summary panel ---
     from rich.panel import Panel
 
     protocol_line = "VLESS + Reality (TCP)\n           + XHTTP fallback (same port)"
     if domain:
         protocol_line += f"\n           + CDN fallback ({domain})"
+
+    encryption_line = ""
+    if pq:
+        encryption_line = "\nEncryption: Post-quantum (ML-KEM-768 hybrid) [dim]experimental[/dim]"
 
     icon_display = icon if icon and not icon.startswith("data:") else ""
     branding_line = ""
@@ -461,6 +485,7 @@ def _interactive_wizard(
         f"Hardening:  {harden_label}\n"
         f"Client:     {client_name}\n"
         f"Mode:       {'Domain mode (best stealth + CDN fallback)' if domain else 'IP-only (works without a domain)'}"
+        f"{encryption_line}"
         f"{branding_line}"
     )
 
@@ -476,7 +501,7 @@ def _interactive_wizard(
             confirm(f"Deploy to {ssh_user}@{server_ip}?")
     err_console.print()
 
-    return server_ip, ssh_user, sni, domain, harden, client_name, server_name, icon, color
+    return server_ip, ssh_user, sni, domain, harden, client_name, server_name, icon, color, pq
 
 
 def _run_provisioner(
@@ -485,6 +510,8 @@ def _run_provisioner(
     sni: str,
     client_name: str,
     harden: bool = True,
+    *,
+    pq: bool = False,
 ) -> None:
     """Run the Python provisioner pipeline."""
     from meridian.provision import ProvisionContext, Provisioner, build_setup_steps
@@ -495,6 +522,7 @@ def _run_provisioner(
         domain=domain,
         sni=sni or DEFAULT_SNI,
         xhttp_enabled=True,
+        pq_encryption=pq,
         hosted_page=True,  # always serve connection pages on server
         harden=harden,
         creds_dir=str(resolved.creds_dir),
@@ -540,6 +568,8 @@ def _run_provisioner(
         info(f"Domain: {domain}")
     if sni and sni != DEFAULT_SNI:
         info(f"SNI: {sni}")
+    if pq:
+        info("Post-quantum encryption: enabled (experimental)")
     err_console.print()
 
     steps = build_setup_steps(ctx)

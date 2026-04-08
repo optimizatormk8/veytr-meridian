@@ -47,6 +47,8 @@ class RealityConfig:
     private_key: str | None = None
     public_key: str | None = None
     short_id: str | None = None
+    encryption_key: str | None = None  # PQ public key (client URL)
+    encryption_private_key: str | None = None  # PQ private key (server decryption)
 
 
 @dataclass
@@ -362,6 +364,8 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
             private_key=r.get("private_key"),
             public_key=r.get("public_key"),
             short_id=r.get("short_id"),
+            encryption_key=r.get("encryption_key"),
+            encryption_private_key=r.get("encryption_private_key"),
         )
     if "wss" in protos_data:
         w = protos_data["wss"]

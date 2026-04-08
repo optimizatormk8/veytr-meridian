@@ -44,32 +44,35 @@ def _client_settings(
     flow: str = "",
     client_limit_ip: int = 2,
     client_total_gb: int = 0,
+    decryption: str = "none",
 ) -> str:
     """Build client settings JSON string for 3x-ui API.
 
     For Reality, pass flow="xtls-rprx-vision".
     For XHTTP and WSS, pass flow="" (or omit -- defaults to "").
+    When decryption != "none", fallbacks must be omitted (Xray constraint).
     """
-    return json.dumps(
-        {
-            "clients": [
-                {
-                    "id": uuid,
-                    "flow": flow,
-                    "email": client_email,
-                    "limitIp": client_limit_ip,
-                    "totalGB": client_total_gb,
-                    "expiryTime": 0,
-                    "enable": True,
-                    "tgId": "",
-                    "subId": "",
-                    "reset": 0,
-                }
-            ],
-            "decryption": "none",
-            "fallbacks": [],
-        }
-    )
+    settings: dict = {
+        "clients": [
+            {
+                "id": uuid,
+                "flow": flow,
+                "email": client_email,
+                "limitIp": client_limit_ip,
+                "totalGB": client_total_gb,
+                "expiryTime": 0,
+                "enable": True,
+                "tgId": "",
+                "subId": "",
+                "reset": 0,
+            }
+        ],
+        "decryption": decryption,
+    }
+    # fallbacks conflicts with decryption — omit when PQ encryption is active
+    if decryption == "none":
+        settings["fallbacks"] = []
+    return json.dumps(settings)
 
 
 def _reality_stream_settings(
@@ -286,6 +289,11 @@ class CreateInbound:
                 detail=f"Missing config for {self.protocol_key} — ConfigurePanel may have failed",
             )
 
+        # Resolve PQ decryption for Reality inbound
+        decryption = "none"
+        if self.protocol_key == "reality" and creds.reality.encryption_private_key:
+            decryption = creds.reality.encryption_private_key
+
         email = f"{inbound_type.email_prefix}{self.first_client_name}"
         body: dict[str, Any] = {
             "remark": remark,
@@ -301,6 +309,7 @@ class CreateInbound:
                 flow=inbound_type.flow,
                 client_limit_ip=self.client_limit_ip,
                 client_total_gb=self.client_total_gb,
+                decryption=decryption,
             ),
             "streamSettings": stream_settings,
             "sniffing": SNIFFING_JSON,

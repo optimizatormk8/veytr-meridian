@@ -1050,9 +1050,10 @@ class DeployConnectionPage:
             )
 
         # Build connection URLs
+        encryption = creds.reality.encryption_key or "none"
         reality_url = (
             f"vless://{reality_uuid}@{self.server_ip}:443"
-            f"?encryption=none&flow=xtls-rprx-vision"
+            f"?encryption={encryption}&flow=xtls-rprx-vision"
             f"&security=reality&sni={sni}&fp={self.fingerprint}"
             f"&pbk={reality_public_key}&sid={reality_short_id}"
             f"&type=tcp&headerType=none#VLESS-Reality"
