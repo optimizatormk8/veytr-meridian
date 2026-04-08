@@ -133,6 +133,10 @@ class ConfigurePanel:
                         creds.panel.url = new_url
                         changed = True
 
+                    if creds.server.warp != ctx.warp:
+                        creds.server.warp = ctx.warp
+                        changed = True
+
                     from meridian import __version__
 
                     if creds.server.deployed_with != __version__:
@@ -192,6 +196,7 @@ class ConfigurePanel:
         from meridian import __version__
 
         creds.server.deployed_with = __version__
+        creds.server.warp = ctx.warp
 
         creds.panel.username = panel_username
         creds.panel.password = panel_password

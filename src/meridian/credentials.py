@@ -24,6 +24,7 @@ class PanelConfig:
     web_base_path: str | None = None
     info_page_path: str | None = None
     port: int = DEFAULT_PANEL_PORT
+    url: str = ""
 
 
 @dataclass
@@ -36,6 +37,7 @@ class ServerConfig:
     scanned_sni: str | None = None
     hosted_page: bool = False
     deployed_with: str = ""  # Meridian CLI version that last deployed this server
+    warp: bool = False  # outgoing traffic routed through Cloudflare WARP
     decoy: str = ""  # Decoy response: "" = silent drop, "403" = realistic nginx (403 root + 404 paths)
 
 
@@ -340,6 +342,7 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
         web_base_path=panel_data.get("web_base_path"),
         info_page_path=panel_data.get("info_page_path"),
         port=panel_data.get("port", DEFAULT_PANEL_PORT),
+        url=panel_data.get("url", ""),
     )
 
     # Server
@@ -351,6 +354,7 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
         scanned_sni=server_data.get("scanned_sni"),
         hosted_page=bool(server_data.get("hosted_page", False)),
         deployed_with=server_data.get("deployed_with", ""),
+        warp=bool(server_data.get("warp", False)),
         decoy=server_data.get("decoy", ""),
     )
 

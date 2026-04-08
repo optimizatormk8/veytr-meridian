@@ -34,6 +34,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--server NAME` | | Target server (name or IP) |
 | `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
+| `--warp / --no-warp` | disabled | Route outgoing traffic through Cloudflare WARP |
 
 ## Branding
 
@@ -51,9 +52,9 @@ These settings are stored in server credentials and apply to all client connecti
 
 ## Choosing an SNI target
 
-The SNI (Server Name Indication) target is the domain that Reality impersonates. The default (`www.microsoft.com`) works well for most cases.
+The SNI (Server Name Indication) target is the domain your server impersonates. This is **not** a domain you own — it's any popular website with TLS. When a censor probes your server, they see that real site's certificate, making your server indistinguishable from normal traffic.
 
-For optimal stealth, scan your server's network for same-ASN targets:
+The default (`www.microsoft.com`) works well for most cases. For optimal stealth, scan your server's network for same-ASN targets — these are harder to detect because the IP range matches:
 
 ```
 meridian scan 1.2.3.4
@@ -66,6 +67,15 @@ meridian scan 1.2.3.4
 - `github.com` — Fastly CDN, global
 
 **Avoid** `apple.com` and `icloud.com` — Apple controls its own ASN ranges, making the IP/ASN mismatch instantly detectable.
+
+### Camouflage target vs. domain
+
+These are two different things:
+
+- **Camouflage target** (`--sni`) — any popular website you **don't** own. Reality impersonates it so your traffic looks like normal HTTPS to that site. Censors probing see the real site's certificate.
+- **Domain** (`--domain`) — a domain you **do** own, pointed to your server via Cloudflare. Adds a CDN fallback connection path. See [Domain mode](/docs/en/domain-mode/).
+
+You can't use your own domain as a camouflage target — the certificate would match your server, not an unrelated site, which defeats the impersonation.
 
 ## Pre-flight check
 
@@ -110,6 +120,26 @@ meridian scan local
 
 Useful when SSH to self doesn't work (missing keys, firewall rules), for re-deploying on the same server, or in cloud-init startup scripts.
 
+## Cloudflare WARP
+
+WARP routes your server's outgoing traffic through Cloudflare's network. Destination websites see a Cloudflare IP address instead of your VPS IP.
+
+```
+meridian deploy 1.2.3.4 --warp
+```
+
+The interactive wizard also offers this option.
+
+**When WARP helps:**
+- Websites block your VPS provider's IP range (common with datacenter IPs on ChatGPT, Netflix, etc.)
+- You want to hide the VPS IP from destination sites
+
+**When you don't need WARP:**
+- Normal browsing works fine through the proxy — most sites don't block VPS IPs
+- You want maximum speed — WARP adds one extra hop (VPS → Cloudflare → destination)
+
+**How it works technically:** Meridian installs the `cloudflare-warp` client on the server in SOCKS5 proxy mode (listening on `127.0.0.1:40000`). Xray uses this as its default outbound — all proxy egress goes through Cloudflare. Incoming connections (SSH, nginx, Xray inbound) are completely unaffected. WARP is free and doesn't require a Cloudflare account.
+
 ## Adding a relay node
 
 After deploying your exit server, add a relay node for resilience when the exit IP gets blocked. See the [Relay guide](/docs/en/relay/) for full setup instructions.
@@ -135,9 +165,10 @@ panel:
   username: a1b2c3d4e5f6
   password: Xk9mP2qR7vW4nL8jF3hT6yBs
   web_base_path: n7kx2m9qp4wj8vh3rf6tby5e
+  url: https://198.51.100.1/n7kx2m9qp4wj8vh3rf6tby5e/
 ```
 
-Open `https://<your-server-ip>/<web_base_path>/` in your browser and log in with the username and password.
+Open the `url` in your browser and log in with the username and password.
 
 The panel path is randomized for security — treat it like a password. All `meridian` CLI commands use this same panel API under the hood, so anything you can do in the CLI is also visible in the panel.
 

@@ -306,6 +306,57 @@ class TestNginxXHTTPBlock:
 
 
 # ---------------------------------------------------------------------------
+# nginx config: panel proxy (WebSocket support for 3x-ui)
+# ---------------------------------------------------------------------------
+
+
+class TestNginxPanelProxy:
+    def _ip_config(self) -> str:
+        return _render_nginx_ip_config(
+            server_ip="198.51.100.1",
+            nginx_internal_port=8443,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def _domain_config(self) -> str:
+        return _render_nginx_http_config(
+            domain="example.com",
+            nginx_internal_port=8443,
+            ws_path="wspath",
+            wss_internal_port=28000,
+            panel_web_base_path="secretpanel",
+            panel_internal_port=2053,
+            info_page_path="connect",
+        )
+
+    def test_ip_panel_has_websocket_upgrade(self):
+        """3x-ui panel uses WebSocket — proxy must pass upgrade headers."""
+        cfg = self._ip_config()
+        panel_block = cfg[cfg.index("secretpanel") :]
+        assert "proxy_set_header Upgrade" in panel_block
+        assert "proxy_set_header Connection $connection_upgrade" in panel_block
+
+    def test_domain_panel_has_websocket_upgrade(self):
+        cfg = self._domain_config()
+        panel_block = cfg[cfg.index("secretpanel") :]
+        assert "proxy_set_header Upgrade" in panel_block
+        assert "proxy_set_header Connection $connection_upgrade" in panel_block
+
+    def test_panel_has_host_header(self):
+        cfg = self._ip_config()
+        panel_block = cfg[cfg.index("secretpanel") :]
+        assert "proxy_set_header Host $host" in panel_block
+
+    def test_panel_has_http11(self):
+        """HTTP/1.1 required for WebSocket upgrade."""
+        cfg = self._ip_config()
+        panel_block = cfg[cfg.index("secretpanel") :]
+        assert "proxy_http_version 1.1" in panel_block
+
+
+# ---------------------------------------------------------------------------
 # nginx config: location structure (connection pages)
 # ---------------------------------------------------------------------------
 
@@ -384,7 +435,7 @@ class TestNginxWSS:
         assert "proxy_pass http://127.0.0.1:28000" in cfg
 
     def test_ip_config_has_no_wss(self):
-        """IP mode should not have WSS location."""
+        """IP mode should not have WSS location block."""
         cfg = _render_nginx_ip_config(
             server_ip="198.51.100.1",
             nginx_internal_port=8443,
@@ -393,7 +444,6 @@ class TestNginxWSS:
             info_page_path="connect",
         )
         assert "VLESS+WSS" not in cfg
-        assert "proxy_set_header Upgrade" not in cfg
 
 
 # ---------------------------------------------------------------------------
