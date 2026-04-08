@@ -100,10 +100,12 @@ class ConfigureRelayFirewall:
         ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
-        # Allow SSH
-        result = conn.run("ufw allow 22/tcp", timeout=15)
+        # Rate-limit SSH (6 connections in 30s) — protects against brute-force
+        conn.run("ufw delete allow 22/tcp 2>/dev/null", timeout=15)
+        conn.run("ufw delete allow 22/tcp 2>/dev/null", timeout=15)  # v6 rule
+        result = conn.run("ufw limit 22/tcp", timeout=15)
         if result.returncode != 0:
-            return StepResult(name=self.name, status="failed", detail="failed to allow SSH")
+            return StepResult(name=self.name, status="failed", detail="failed to rate-limit SSH")
         if "Skipping" not in result.stdout:
             changed = True
 
