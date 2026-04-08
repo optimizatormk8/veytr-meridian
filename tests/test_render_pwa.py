@@ -245,6 +245,16 @@ class TestRenderManifest:
         assert icon["type"] == "image/svg+xml"
         assert icon["sizes"] == "any"
 
+    def test_special_chars_produce_valid_json(self) -> None:
+        result = render_manifest(client_name='test"quote')
+        parsed = json.loads(result)
+        assert "Test" in parsed["name"]
+
+    def test_server_name_special_chars(self) -> None:
+        result = render_manifest(server_name='My "Server"')
+        parsed = json.loads(result)
+        assert 'My "Server"' == parsed["name"]
+
 
 # ---------------------------------------------------------------------------
 # TestConfigJsonSchema — protocol entry field validation (Gap #4)

@@ -423,28 +423,29 @@ def _render_pwa_template(
         from importlib.resources import files
 
         template_text = (files("meridian") / "templates" / "pwa" / filename).read_text(encoding="utf-8")
-    except Exception as exc:
+    except (FileNotFoundError, OSError) as exc:
         logger.warning("Failed to load PWA template %s: %s", filename, exc)
         return ""
 
+    from jinja2 import BaseLoader, Environment, TemplateError
+
+    # HTML templates get autoescape; JSON manifests do not
+    use_autoescape = filename.endswith(".html.j2")
+    env = Environment(loader=BaseLoader(), autoescape=use_autoescape)
+
+    def default_filter(value: object, default_value: object = "") -> object:
+        if value is None or value == "":
+            return default_value
+        return value
+
+    env.filters["default"] = default_filter
+    env.filters["capitalize"] = lambda v: str(v).capitalize()
+    env.filters["tojson"] = lambda v: json.dumps(str(v), ensure_ascii=False)[1:-1]
+
     try:
-        from jinja2 import BaseLoader, Environment
-
-        # HTML templates get autoescape; JSON manifests do not
-        use_autoescape = filename.endswith(".html.j2")
-        env = Environment(loader=BaseLoader(), autoescape=use_autoescape)
-
-        def default_filter(value: object, default_value: object = "") -> object:
-            if value is None or value == "":
-                return default_value
-            return value
-
-        env.filters["default"] = default_filter
-        env.filters["capitalize"] = lambda v: str(v).capitalize()
-
         tmpl = env.from_string(template_text)
         return tmpl.render(**variables)
-    except Exception as exc:
+    except TemplateError as exc:
         logger.warning("Failed to render PWA template %s: %s", filename, exc)
         return ""
 
@@ -464,7 +465,7 @@ def _load_template_text() -> str | None:
 
         template_path = files("meridian") / "templates" / "connection-info.html.j2"
         return template_path.read_text(encoding="utf-8")
-    except Exception as exc:
+    except (FileNotFoundError, OSError) as exc:
         logger.warning("Failed to load connection-info template: %s", exc)
         return None
 
