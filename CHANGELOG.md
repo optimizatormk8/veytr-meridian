@@ -4,6 +4,21 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.14.0] - 2026-04-08
+
+### Added
+- **Cloudflare WARP outbound** — new `--warp` flag routes server egress through Cloudflare's network. Destination sites see a Cloudflare IP instead of the VPS IP. Useful when sites block datacenter IP ranges. Installs `cloudflare-warp` in SOCKS5 proxy mode; incoming connections (SSH, nginx) are unaffected. Connection failure is a warning, not a hard fail — WARP endpoints are blocked in some regions.
+- **Panel URL in credentials** — `proxy.yml` now includes a `panel.url` field with the full panel URL, so users don't have to assemble it from parts.
+- **Camouflage vs. domain explainer** — deploy docs (EN/RU) now have a "Camouflage target vs. domain" section explaining the difference and why you can't use your own domain for both.
+
+### Fixed
+- **Web panel proxy headers** — nginx panel location block was missing WebSocket upgrade headers needed by 3x-ui web UI. Added `proxy_http_version 1.1`, `Host`, `Upgrade`, and `Connection` headers.
+- **`meridian test` with WARP** — when WARP is enabled, exit IP check now expects a Cloudflare IP instead of the server IP.
+
+### Improved
+- **Wizard camouflage text** — expanded to explain it's any popular site you don't own, not a domain you control.
+- **Install location clarity** — getting-started docs (EN/RU) clarify that both local and VPS work, recommend local for `meridian test` and credential safety.
+
 ## [3.13.0] - 2026-04-08
 
 ### Added
