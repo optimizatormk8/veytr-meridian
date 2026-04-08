@@ -26,6 +26,7 @@ meridian deploy [IP] [flags]
 | `--user USER` | root | SSH user |
 | `--harden / --no-harden` | enabled | Harden SSH + firewall |
 | `--pq / --no-pq` | disabled | Post-quantum encryption — ML-KEM-768 hybrid (experimental) |
+| `--warp / --no-warp` | disabled | Route outgoing traffic through Cloudflare WARP |
 | `--server NAME` | | Target server (name or IP) |
 | `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
