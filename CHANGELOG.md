@@ -4,6 +4,15 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.13.0] - 2026-04-08
+
+### Added
+- **Post-quantum encryption** — opt-in ML-KEM-768 + X25519 hybrid encryption for the Reality protocol. Enable with `--pq` flag or interactive wizard. Generates keys via `xray vlessenc`. Only affects Reality; XHTTP and WSS use TLS and are unaffected.
+- **End-to-end connection testing** — `meridian test` now verifies actual proxy traffic, not just reachability. Downloads a local xray client, connects through the proxy for each active protocol (Reality, XHTTP, WSS), and confirms traffic flows end-to-end.
+- **Server name in URL fragments** — when `--display-name` is set, client app connection names show "alice @ My VPN" instead of just "alice". Applies to all protocols and relay URLs.
+- **OG meta tags** — PWA connection pages now include OpenGraph meta tags for social media link previews.
+- **Relay connectivity retry** — relay verification retries the service check up to 4 times with 2s delay, preventing false failures when Realm needs time to bind after start.
+
 ## [3.12.0] - 2026-04-07
 
 ### Added
