@@ -13,6 +13,7 @@ Called from:
 from __future__ import annotations
 
 import base64
+import hashlib
 import shlex
 from typing import TYPE_CHECKING
 
@@ -124,9 +125,24 @@ def upload_pwa_assets(conn: ServerConnection) -> str:
     Deploys app.js, styles.css, sw.js, and icon.svg. These are
     identical for all clients and shared across connection pages.
 
+    The service worker's ``CACHE_VERSION`` is replaced with a
+    content-derived hash so browsers automatically invalidate
+    stale caches when assets change.
+
     Returns empty string on success, error detail on failure.
     """
     assets = load_pwa_static_assets()
+
+    # Compute content hash from cacheable assets for SW cache busting
+    h = hashlib.sha256()
+    for name in ("app.js", "styles.css"):
+        if name in assets:
+            h.update(assets[name])
+    cache_version = f"pwa-{h.hexdigest()[:8]}"
+
+    # Inject dynamic cache version into sw.js
+    if "sw.js" in assets:
+        assets["sw.js"] = assets["sw.js"].replace(b"'pwa-v1'", f"'{cache_version}'".encode())
 
     result = conn.run("mkdir -p /var/www/private/pwa && chown www-data:www-data /var/www/private/pwa", timeout=30)
     if result.returncode != 0:

@@ -216,7 +216,25 @@ class TestUploadPWAAssets:
         b64_calls = [c for c in conn.calls if "base64 -d" in c]
         assert len(b64_calls) == 4
 
-    def test_chown_www_data_on_assets(self) -> None:
+    def test_sw_cache_version_is_content_hash(self) -> None:
+        """SW cache version is replaced with a content-derived hash at upload time."""
+        import base64
+
+        conn = _MockConnection()
+        upload_pwa_assets(conn)
+        # Find the sw.js upload call and decode its content
+        sw_calls = [c for c in conn.calls if "pwa/sw.js" in c]
+        assert len(sw_calls) == 1
+        # Extract base64 content between printf '%s' and | base64
+        call = sw_calls[0]
+        b64_start = call.index("printf '%s' ") + len("printf '%s' ")
+        b64_end = call.index(" | base64")
+        b64_content = call[b64_start:b64_end].strip("'")
+        sw_content = base64.b64decode(b64_content).decode()
+        # Should NOT contain the static 'pwa-v1' version
+        assert "'pwa-v1'" not in sw_content
+        # Should contain a dynamic hash version like 'pwa-abcd1234'
+        assert "pwa-" in sw_content
         conn = _MockConnection()
         upload_pwa_assets(conn)
         chown_calls = [c for c in conn.calls if "chown www-data:www-data" in c]
