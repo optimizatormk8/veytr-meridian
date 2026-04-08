@@ -19,13 +19,14 @@ meridian deploy [IP] [flags]
 |------|--------------|---------|
 | `--sni HOST` | www.microsoft.com | Сайт, который Reality маскирует |
 | `--domain DOMAIN` | (нет) | Включить режим домена с резервом CDN |
-| `--email EMAIL` | (нет) | Email для TLS сертификатов |
-| `--xhttp / --no-xhttp` | включен | Транспорт XHTTP |
-| `--name NAME` | default | Имя для первого клиента |
-| `--server-name NAME` | (нет) | Отображаемое имя на страницах подключения |
+| `--client-name NAME` | default | Имя для первого клиента |
+| `--display-name NAME` | (нет) | Отображаемое имя на страницах подключения |
 | `--icon EMOJI_OR_URL` | (нет) | Значок сервера — эмодзи или URL изображения |
 | `--color PALETTE` | ocean | Цветовая палитра (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH пользователь |
+| `--harden / --no-harden` | включен | Защита SSH + файрвол |
+| `--pq / --no-pq` | выключен | Постквантовое шифрование — ML-KEM-768 гибридное (экспериментально) |
+| `--server NAME` | | Целевой сервер (имя или IP) |
 | `--decoy MODE` | none | Ответ-обманка для неизвестных путей (`none` / `403`) |
 | `--yes` | | Пропустить подтверждающие диалоги |
 

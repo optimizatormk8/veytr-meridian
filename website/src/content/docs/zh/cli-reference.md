@@ -25,6 +25,7 @@ meridian deploy [IP] [flags]
 | `--color PALETTE` | ocean | 页面颜色主题 (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH 用户 |
 | `--harden / --no-harden` | 启用 | SSH + 防火墙加固 |
+| `--pq / --no-pq` | 禁用 | 后量子加密 — ML-KEM-768 混合模式（实验性） |
 | `--server NAME` | | 目标服务器（名称或 IP） |
 | `--decoy MODE` | none | 诱饵响应模式 (`none` / `403`) |
 | `--yes` | | 跳过确认提示 |

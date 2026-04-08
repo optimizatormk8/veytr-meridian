@@ -25,6 +25,7 @@ meridian deploy [IP] [flags]
 | `--color PALETTE` | ocean | تم رنگ صفحه (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | کاربر SSH |
 | `--harden / --no-harden` | فعال | سخت‌سازی SSH + فایروال |
+| `--pq / --no-pq` | غیرفعال | رمزنگاری پساکوانتومی — ML-KEM-768 ترکیبی (آزمایشی) |
 | `--server NAME` | | سرور هدف (نام یا IP) |
 | `--decoy MODE` | none | پاسخ فریبنده (`none` / `403`) |
 | `--yes` | | رد شدن از درخواست‌های تأیید |

@@ -25,6 +25,7 @@ meridian deploy [IP] [flags]
 | `--color PALETTE` | ocean | Page color theme (ocean/sunset/forest/lavender/rose/slate) |
 | `--user USER` | root | SSH user |
 | `--harden / --no-harden` | enabled | Harden SSH + firewall |
+| `--pq / --no-pq` | disabled | Post-quantum encryption — ML-KEM-768 hybrid (experimental) |
 | `--server NAME` | | Target server (name or IP) |
 | `--decoy MODE` | none | Decoy response for unknown paths (`none` / `403`) |
 | `--yes` | | Skip confirmation prompts |
