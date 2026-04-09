@@ -23,7 +23,7 @@
 - **3x-ui API**: login is form-urlencoded (not JSON). `settings`/`streamSettings` must be JSON **strings** (Go quirk). Remove clients by UUID, not email.
 - **Shell injection**: ALL `conn.run()` interpolated values MUST use `shlex.quote()`.
 - **XHTTP dual mode**: no `xtls-rprx-vision` flow (must be empty string). Runs either with Reality (direct) or with `security: none` behind nginx TLS reverse proxy — two distinct stream settings paths.
-- **Local mode**: IP detection via `curl ifconfig.me` fails in air-gapped networks. File check on `/etc/meridian/proxy.yml` is the fallback.
+- **Local mode**: detection is file-based only — `/etc/meridian/proxy.yml` readable (root) or `/etc/meridian/` dir exists (non-root). Never use IP matching (`curl ifconfig.me`) — it false-positives when the user is connected via TUN mode (VPN) since their outbound IP matches the server.
 - **Camouflage target**: never recommend apple.com (ASN mismatch with VPS providers).
 - **WARP egress**: Cloudflare WARP client for server outbound routing. SOCKS5 on `127.0.0.1:40000`. CLI syntax varies between warp-cli versions (old: `set-mode proxy` vs new: `mode proxy`).
 - **Post-quantum encryption**: ML-KEM-768 hybrid. When `decryption != "none"`, Xray fallbacks must be omitted — the two features are mutually exclusive in stream settings.

@@ -285,34 +285,32 @@ class ServerConnection:
     def detect_local_mode(self) -> bool:
         """Check if we're running on the target server itself.
 
-        Local mode requires root access to /etc/meridian/. If we detect we're
-        on the server but not root, we set needs_sudo=True and run commands
-        via sudo -n bash -c for privilege escalation.
+        Detection is file-based only: /etc/meridian/proxy.yml readable (root)
+        or /etc/meridian/ directory exists (non-root on deployed server).
+
+        Does NOT use public IP matching — that produces false positives when
+        the user is connected to the server via TUN mode (VPN), since their
+        outbound IP matches the server IP.
         """
         from meridian.config import SERVER_CREDS_DIR
 
-        # Check if /etc/meridian/proxy.yml is readable (root only)
         proxy = SERVER_CREDS_DIR / "proxy.yml"
         try:
             if proxy.is_file() and proxy.stat().st_size > 0:
                 self.local_mode = True
                 return True
         except (PermissionError, OSError):
-            # Non-root on server — use local mode with sudo for commands
-            if _is_on_server(self.ip):
-                warn("Running as non-root on the server. Using sudo for commands.")
-                self.local_mode = True
-                self.needs_sudo = True
-                return True
+            # Can't stat the file — check if /etc/meridian/ dir exists
+            # (non-root on a deployed server)
+            try:
+                if SERVER_CREDS_DIR.is_dir():
+                    warn("Running as non-root on the server. Using sudo for commands.")
+                    self.local_mode = True
+                    self.needs_sudo = True
+                    return True
+            except (PermissionError, OSError):
+                pass
             return False
-
-        # Check if our public IP matches the target (root without prior deploy)
-        if _is_on_server(self.ip):
-            self.local_mode = True
-            if self.user != "root":
-                self.needs_sudo = True
-                warn("Running as non-root on the server. Using sudo for commands.")
-            return True
 
         return False
 
@@ -391,25 +389,6 @@ class ServerConnection:
         except (PermissionError, OSError):
             pass
         return False
-
-
-def _is_on_server(ip: str) -> bool:
-    """Check if our public IP matches the target server's IP."""
-    flag = "-6" if ":" in ip else "-4"
-    for url in ("https://ifconfig.me", "https://api64.ipify.org"):
-        try:
-            result = subprocess.run(
-                ["curl", flag, "-s", "--max-time", "3", url],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                stdin=subprocess.DEVNULL,
-            )
-            if result.returncode == 0 and result.stdout.strip() == ip:
-                return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
-    return False
 
 
 def tcp_connect(host: str, port: int, timeout: int = 5) -> bool:

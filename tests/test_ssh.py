@@ -355,3 +355,68 @@ class TestVerifyHostKey:
         assert result is False
         known_hosts = ssh_dir / "known_hosts"
         assert not known_hosts.exists()
+
+
+class TestDetectLocalMode:
+    """Tests for detect_local_mode — file/directory-based server detection."""
+
+    def test_returns_true_when_proxy_yml_readable(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Root on deployed server: /etc/meridian/proxy.yml exists and is readable."""
+        creds_dir = tmp_path / "meridian"
+        creds_dir.mkdir()
+        proxy = creds_dir / "proxy.yml"
+        proxy.write_text("server:\n  ip: 198.51.100.1\n")
+
+        monkeypatch.setattr("meridian.config.SERVER_CREDS_DIR", creds_dir)
+        conn = ServerConnection(ip="198.51.100.1")
+        assert conn.detect_local_mode() is True
+        assert conn.local_mode is True
+        assert conn.needs_sudo is False
+
+    def test_returns_true_with_sudo_when_dir_exists_but_file_unreadable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-root on deployed server: directory exists but proxy.yml not readable."""
+        creds_dir = tmp_path / "meridian"
+        creds_dir.mkdir()
+        proxy = creds_dir / "proxy.yml"
+        proxy.write_text("server:\n  ip: 198.51.100.1\n")
+
+        monkeypatch.setattr("meridian.config.SERVER_CREDS_DIR", creds_dir)
+
+        # Simulate PermissionError on is_file (non-root can't stat)
+        original_is_file = Path.is_file
+
+        def fake_is_file(self: Path) -> bool:
+            if self == proxy:
+                raise PermissionError("Permission denied")
+            return original_is_file(self)
+
+        monkeypatch.setattr(Path, "is_file", fake_is_file)
+
+        conn = ServerConnection(ip="198.51.100.1")
+        assert conn.detect_local_mode() is True
+        assert conn.local_mode is True
+        assert conn.needs_sudo is True
+
+    def test_returns_false_when_nothing_exists(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Not on server (e.g. laptop, even via TUN mode): no /etc/meridian/ at all."""
+        creds_dir = tmp_path / "meridian"
+        # Don't create the directory — simulates a laptop
+        monkeypatch.setattr("meridian.config.SERVER_CREDS_DIR", creds_dir)
+
+        conn = ServerConnection(ip="198.51.100.1")
+        assert conn.detect_local_mode() is False
+        assert conn.local_mode is False
+        assert conn.needs_sudo is False
+
+    def test_returns_false_when_proxy_yml_empty(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Edge case: proxy.yml exists but is empty (incomplete deploy)."""
+        creds_dir = tmp_path / "meridian"
+        creds_dir.mkdir()
+        proxy = creds_dir / "proxy.yml"
+        proxy.write_text("")
+
+        monkeypatch.setattr("meridian.config.SERVER_CREDS_DIR", creds_dir)
+        conn = ServerConnection(ip="198.51.100.1")
+        assert conn.detect_local_mode() is False
