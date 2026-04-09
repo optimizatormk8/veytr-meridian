@@ -1040,6 +1040,12 @@ class DeployConnectionPage:
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Read credentials from context (populated by ConfigurePanel)
         creds = ctx.credentials
+        if creds is None:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail="No credentials available — ConfigurePanel may have failed",
+            )
         sni = creds.server.sni or ctx.sni
         domain = creds.server.domain or ctx.domain
         reality_uuid = creds.reality.uuid or ""

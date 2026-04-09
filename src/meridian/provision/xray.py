@@ -267,6 +267,12 @@ class CreateInbound:
         inbound_type = INBOUND_TYPES[self.protocol_key]
         remark = inbound_type.remark
         creds = ctx.credentials
+        if creds is None:
+            return StepResult(
+                name=self.name,
+                status="failed",
+                detail="No credentials available — ConfigurePanel may have failed",
+            )
 
         # Check if inbound already exists
         existing = panel.find_inbound(remark)
