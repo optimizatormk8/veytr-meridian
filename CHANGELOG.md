@@ -4,6 +4,26 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.14.2] - 2026-04-09
+
+### Fixed
+- **Socket leaks** — `tcp_connect()` and `_get_cert_der()` now use context managers to ensure cleanup on exception paths.
+- **nginx `return 444` in HTTP block** — invalid stream directive replaced with `return 403;` for IP-mode deployments.
+- **WARP deploy silent failures** — `systemctl enable`, `set-proxy-port`, and `warp-cli connect` return codes now checked; step fails instead of claiming success.
+- **Firewall policy silent failures** — `ufw default deny/allow` return codes now checked in both exit and relay firewall steps.
+- **Reality port conflict** — standalone mode now pre-checks port 443 availability before creating Xray inbound.
+- **SSRF in icon download** — `_process_image_url()` now blocks private/loopback/reserved IP addresses.
+- **IPv6 URL formatting** — protocol URL builders now wrap IPv6 addresses in brackets per RFC 3986.
+- **Fragile tmp_zip cleanup** — `ensure_xray_binary()` uses reliable `None` init instead of `"in dir()"` check.
+- **Broad exception handlers** — narrowed `except Exception` to specific types in QR generation, HTTP date parsing, and version checking.
+- **Redundant branding condition** — removed duplicate check in deploy setup.
+- **`SystemExit` catch anti-pattern** — added `try_resolve_server()` wrapper; uninstall command uses the safer pattern.
+- **E2E Docker image** — added missing `fail2ban` package that was breaking CI.
+
+### Improved
+- **Type annotations** — `_deploy_client_page()` now has typed `list[ProtocolURL]` and `list[RelayURLSet]` parameters.
+- **Test coverage** — added 80 new tests: branding module (37), xray_client module (35), render template content assertions (8). Total: 721 tests.
+
 ## [3.14.1] - 2026-04-08
 
 ### Improved
