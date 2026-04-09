@@ -188,7 +188,6 @@ body{
 {% endif %}
 
 {# -- Primary: Reality connection -- #}
-{# QR variable name differs: server-hosted uses reality_qr_b64, local uses reality_qr_b64_local #}
 <div class="card card-blue">
 {% if has_relays | default(false) | bool %}
   <div class="card-label"><i></i> <span data-t="primary">Primary</span></div>
@@ -198,10 +197,8 @@ body{
   <p class="card-desc" data-t="primary.desc">Recommended — fastest and most reliable connection. Use this first.</p>
 {% endif %}
   <a href="{{ vless_reality_url }}" class="open-btn" data-t="open">Open in App</a>
-{% if is_server_hosted | default(false) | bool %}
-  <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64.stdout }}" alt="QR code for connection" loading="lazy"></div>
-{% else %}
-  <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64_local.stdout }}" alt="QR code for connection" loading="lazy"></div>
+{% if reality_qr_b64 %}
+  <div class="qr"><img src="data:image/png;base64,{{ reality_qr_b64 }}" alt="QR code for connection" loading="lazy"></div>
 {% endif %}
   <div class="url" onclick="cp(this)" data-url="{{ vless_reality_url }}">{{ vless_reality_url }}<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
@@ -212,10 +209,8 @@ body{
   <div class="card-label"><i></i> XHTTP</div>
   <p class="card-desc" data-t="xhttp.desc">Alternative — use if Primary doesn't work. More hidden from censors.</p>
   <a href="{{ vless_xhttp_url }}" class="open-btn" data-t="open">Open in App</a>
-{% if is_server_hosted | default(false) | bool %}
-  <div class="qr"><img src="data:image/png;base64,{{ xhttp_qr_b64.stdout }}" alt="QR code for connection" loading="lazy"></div>
-{% else %}
-  <div class="qr"><img src="data:image/png;base64,{{ xhttp_qr_b64_local.stdout }}" alt="QR code for connection" loading="lazy"></div>
+{% if xhttp_qr_b64 %}
+  <div class="qr"><img src="data:image/png;base64,{{ xhttp_qr_b64 }}" alt="QR code for connection" loading="lazy"></div>
 {% endif %}
   <div class="url" onclick="cp(this)" data-url="{{ vless_xhttp_url }}">{{ vless_xhttp_url }}<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>
@@ -227,10 +222,8 @@ body{
   <div class="card-label"><i></i> <span data-t="backup">Backup</span></div>
   <p class="card-desc" data-t="backup.desc">Fallback — routes through CDN. Use only if both above fail.</p>
   <a href="{{ vless_wss_url }}" class="open-btn" data-t="open">Open in App</a>
-{% if is_server_hosted | default(false) | bool %}
-  <div class="qr"><img src="data:image/png;base64,{{ wss_qr_b64.stdout }}" alt="QR code for connection" loading="lazy"></div>
-{% else %}
-  <div class="qr"><img src="data:image/png;base64,{{ wss_qr_b64_local.stdout }}" alt="QR code for connection" loading="lazy"></div>
+{% if wss_qr_b64 %}
+  <div class="qr"><img src="data:image/png;base64,{{ wss_qr_b64 }}" alt="QR code for connection" loading="lazy"></div>
 {% endif %}
   <div class="url" onclick="cp(this)" data-url="{{ vless_wss_url }}">{{ vless_wss_url }}<span class="url-hint"><span data-t="copy.hint">tap to copy</span></span></div>
 </div>

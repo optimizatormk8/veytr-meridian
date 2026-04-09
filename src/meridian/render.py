@@ -6,7 +6,6 @@ import base64
 import html as html_mod
 import json
 import logging
-import types
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -492,10 +491,7 @@ def _build_template_variables(
 ) -> dict[str, object]:
     """Build the Jinja2 template variable dict.
 
-    Server-hosted pages use ``reality_qr_b64`` etc., while local-save pages
-    use ``reality_qr_b64_local`` etc.  Both variants wrap the base64 string
-    in a SimpleNamespace with a ``.stdout`` attribute (matching the template's
-    ``{{ var.stdout }}`` access pattern).
+    QR base64 strings are passed directly to the template as plain strings.
     """
     reality_url = _url_by_key(protocol_urls, "reality")
     xhttp_url = _url_by_key(protocol_urls, "xhttp")
@@ -508,6 +504,9 @@ def _build_template_variables(
         "vless_reality_url": reality_url,
         "vless_xhttp_url": xhttp_url,
         "vless_wss_url": wss_url,
+        "reality_qr_b64": reality_qr,
+        "xhttp_qr_b64": xhttp_qr,
+        "wss_qr_b64": wss_qr,
         "server_public_ip": server_ip,
         "domain": domain,
         "domain_mode": bool(domain),
@@ -516,15 +515,6 @@ def _build_template_variables(
         "client_name": client_name,
         "generated_at": {"iso8601": now},
     }
-
-    if is_server_hosted:
-        variables["reality_qr_b64"] = types.SimpleNamespace(stdout=reality_qr)
-        variables["xhttp_qr_b64"] = types.SimpleNamespace(stdout=xhttp_qr)
-        variables["wss_qr_b64"] = types.SimpleNamespace(stdout=wss_qr)
-    else:
-        variables["reality_qr_b64_local"] = types.SimpleNamespace(stdout=reality_qr)
-        variables["xhttp_qr_b64_local"] = types.SimpleNamespace(stdout=xhttp_qr)
-        variables["wss_qr_b64_local"] = types.SimpleNamespace(stdout=wss_qr)
 
     # Relay entries (if any)
     if relay_entries:
