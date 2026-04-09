@@ -52,6 +52,7 @@ def ensure_xray_binary() -> Path | None:
     url = f"{XRAY_GITHUB_URL}/v{XRAY_VERSION}/{asset_name}"
     dgst_url = f"{url}.dgst"
 
+    tmp_zip = None
     try:
         # Download digest file for SHA256 verification
         dgst_result = subprocess.run(
@@ -102,7 +103,8 @@ def ensure_xray_binary() -> Path | None:
     except (subprocess.TimeoutExpired, FileNotFoundError, zipfile.BadZipFile, OSError):
         return None
     finally:
-        Path(tmp_zip).unlink(missing_ok=True) if "tmp_zip" in dir() else None
+        if tmp_zip:
+            Path(tmp_zip).unlink(missing_ok=True)
 
 
 def _parse_dgst(content: str) -> str:
