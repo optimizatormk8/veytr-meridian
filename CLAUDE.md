@@ -108,10 +108,13 @@ Patch: fixes/docs (auto). Minor: features (prompted). Major: breaking (prompted)
 
 **Version bump protocol:**
 1. Push commits to main (direct push OK)
-2. Wait for GitHub Actions CI to pass
-3. Ask the user before bumping — never bump autonomously
-4. Bump `VERSION` + `CHANGELOG.md`, commit, push
-5. CI creates the GitHub release automatically — don't create releases manually
+2. Wait for GitHub Actions CI to pass (lint + unit tests + E2E)
+3. Optional: manual smoke test on a real server (especially after provisioner/deploy changes):
+   - Re-deploy over existing → `meridian test` → teardown → fresh deploy → `meridian test`
+   - This catches regressions that mocked E2E can't (real SSH, real Docker, real networking)
+4. Ask the user before bumping — never bump autonomously
+5. Bump `VERSION` + `CHANGELOG.md`, commit, push
+6. Wait for CI to pass again, then CI creates the GitHub release automatically — don't create releases manually
 
 **Update UX tone:** don't push users to update. If their server works, there's no urgency. Link to GitHub releases so they can decide. CLI update is local-only — always remind that `meridian deploy` is needed to apply changes to servers. Servers and Linux environments are diverse; update + redeploy is for people ready to address a potentially broken state.
 
