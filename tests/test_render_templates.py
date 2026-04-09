@@ -194,3 +194,161 @@ def test_template_renders(template_path: Path) -> None:
 def test_templates_discovered() -> None:
     """Sanity check that template auto-discovery finds at least a few templates."""
     assert len(_TEMPLATES) >= 1, f"Expected at least 1 template under {_TEMPLATES_DIR}, found {len(_TEMPLATES)}"
+
+
+# ---------------------------------------------------------------------------
+# Content-level tests — verify rendered HTML contains the right data
+# ---------------------------------------------------------------------------
+
+from unittest.mock import patch
+
+from meridian.models import ProtocolURL, RelayURLSet
+from meridian.render import render_hosted_html, _generate_minimal_html, _render_template
+
+
+# Shared test fixtures (RFC 5737 IPs)
+_TEST_REALITY_URL = (
+    "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443"
+    "?security=reality&sni=www.example.com#TestClient"
+)
+_TEST_WSS_URL = (
+    "vless://660e8400-e29b-41d4-a716-446655440000@example.com:443"
+    "?security=tls&type=ws#TestClient-WSS"
+)
+_TEST_QR_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+
+
+def _make_protocol_urls(
+    *, include_wss: bool = False, qr_b64: str = _TEST_QR_B64
+) -> list[ProtocolURL]:
+    """Build a minimal list of ProtocolURL objects for testing."""
+    urls = [
+        ProtocolURL(key="reality", label="Primary", url=_TEST_REALITY_URL, qr_b64=qr_b64),
+    ]
+    if include_wss:
+        urls.append(
+            ProtocolURL(key="wss", label="CDN Backup", url=_TEST_WSS_URL, qr_b64=qr_b64),
+        )
+    return urls
+
+
+def _make_relay_entries() -> list[RelayURLSet]:
+    """Build relay entries for testing."""
+    relay_url = (
+        "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.50:443"
+        "?security=reality&sni=www.example.com#TestClient-Relay"
+    )
+    return [
+        RelayURLSet(
+            relay_ip="198.51.100.50",
+            relay_name="ru-moscow",
+            urls=[
+                ProtocolURL(
+                    key="reality",
+                    label="Primary (via relay)",
+                    url=relay_url,
+                    qr_b64=_TEST_QR_B64,
+                ),
+            ],
+        ),
+    ]
+
+
+class TestRenderedHtmlContent:
+    """Verify rendered HTML actually contains expected data, not just that it doesn't crash."""
+
+    def test_rendered_html_contains_qr_data(self) -> None:
+        """QR base64 string appears in the rendered HTML output."""
+        urls = _make_protocol_urls(qr_b64=_TEST_QR_B64)
+        html = render_hosted_html(urls, "198.51.100.1", client_name="alice")
+        assert _TEST_QR_B64 in html
+
+    def test_rendered_html_contains_vless_url(self) -> None:
+        """VLESS Reality URL appears in the rendered HTML output."""
+        urls = _make_protocol_urls()
+        html = render_hosted_html(urls, "198.51.100.1", client_name="alice")
+        assert _TEST_REALITY_URL in html or "550e8400-e29b-41d4-a716-446655440000" in html
+
+    def test_rendered_html_escapes_client_name(self) -> None:
+        """XSS payload in client_name is HTML-escaped, not rendered raw."""
+        urls = _make_protocol_urls()
+        html = render_hosted_html(
+            urls, "198.51.100.1", client_name="<script>alert(1)</script>"
+        )
+        # Raw <script> must NOT appear — it should be escaped
+        assert "<script>alert(1)</script>" not in html
+        # The escaped form should be present
+        assert "&lt;script&gt;" in html or "&#" in html
+
+    def test_rendered_html_contains_relay_data(self) -> None:
+        """Relay IP and name appear in the rendered HTML when relay entries are provided."""
+        urls = _make_protocol_urls()
+        relay_entries = _make_relay_entries()
+        html = render_hosted_html(
+            urls, "198.51.100.1", client_name="alice", relay_entries=relay_entries
+        )
+        assert "198.51.100.50" in html
+        assert "ru-moscow" in html
+
+    def test_minimal_html_fallback(self) -> None:
+        """_generate_minimal_html produces valid HTML with URL data when template is unavailable."""
+        urls = _make_protocol_urls()
+        qr_map = {p.key: p.qr_b64 for p in urls if p.qr_b64}
+        html = _generate_minimal_html(
+            "alice", urls, qr_map, "198.51.100.1", "", "2026-01-01T00:00:00Z"
+        )
+        assert "<!DOCTYPE html>" in html
+        assert "</html>" in html
+        assert "550e8400-e29b-41d4-a716-446655440000" in html
+        assert _TEST_QR_B64 in html
+        assert "alice" in html
+
+    def test_minimal_html_via_render_template_none(self) -> None:
+        """_render_template falls back to minimal HTML when template_text is None."""
+        urls = _make_protocol_urls()
+        variables = {
+            "vless_reality_url": _TEST_REALITY_URL,
+            "vless_xhttp_url": "",
+            "vless_wss_url": "",
+            "server_public_ip": "198.51.100.1",
+            "domain": "",
+            "domain_mode": False,
+            "is_server_hosted": True,
+            "client_name": "alice",
+            "generated_at": {"iso8601": "2026-01-01T00:00:00Z"},
+            "relays": [],
+            "has_relays": False,
+        }
+        html = _render_template(
+            template_text=None,
+            variables=variables,
+            protocol_urls=urls,
+            server_ip="198.51.100.1",
+            domain="",
+            client_name="alice",
+            now="2026-01-01T00:00:00Z",
+        )
+        assert "<!DOCTYPE html>" in html
+        assert "550e8400-e29b-41d4-a716-446655440000" in html
+
+    def test_domain_mode_shows_wss(self) -> None:
+        """When domain is set, WSS/Backup section appears in the rendered HTML."""
+        urls = _make_protocol_urls(include_wss=True)
+        html = render_hosted_html(
+            urls, "198.51.100.1", domain="example.com", client_name="alice"
+        )
+        # WSS card uses "Backup" label and the amber color class in the template
+        assert "Backup" in html or "card-amber" in html
+        # The WSS URL should be present
+        assert "660e8400-e29b-41d4-a716-446655440000" in html
+
+    def test_ip_mode_hides_wss(self) -> None:
+        """Without a domain, the WSS/Backup section is absent from the rendered HTML."""
+        urls = _make_protocol_urls()
+        html = render_hosted_html(urls, "198.51.100.1", client_name="alice")
+        # The WSS URL should not appear
+        assert _TEST_WSS_URL not in html
+        # The "Backup" label div (actual WSS card content) should not be rendered
+        # Note: "card-amber" appears in CSS definitions regardless, so we check
+        # for the actual WSS card markup: <div class="card card-amber">
+        assert '<div class="card card-amber">' not in html
