@@ -149,12 +149,11 @@ def run(
 
         proxy_file = resolved.creds_dir / "proxy.yml"
         creds = ServerCredentials.load(proxy_file) if proxy_file.exists() else ServerCredentials()
-        if server_name or icon or color:
-            creds.branding = BrandingConfig(
-                server_name=server_name,
-                icon=icon,
-                color=color,
-            )
+        creds.branding = BrandingConfig(
+            server_name=server_name,
+            icon=icon,
+            color=color,
+        )
         creds.save(proxy_file)
 
     _run_provisioner(resolved, domain, sni, client_name, harden, pq=pq, warp=warp)

@@ -27,6 +27,7 @@ from meridian.urls import build_all_relay_urls, build_protocol_urls
 
 if TYPE_CHECKING:
     from meridian.commands.resolve import ResolvedServer
+    from meridian.models import ProtocolURL, RelayURLSet
     from meridian.ssh import ServerConnection
 
 # -- Helpers --
@@ -103,10 +104,10 @@ def _sync_credentials_to_server(resolved: ResolvedServer) -> None:
 def _deploy_client_page(
     resolved: ResolvedServer,
     creds: ServerCredentials,
-    protocol_urls: list,
+    protocol_urls: list[ProtocolURL],
     client_name: str,
     reality_uuid: str,
-    relay_entries: list | None = None,
+    relay_entries: list[RelayURLSet] | None = None,
 ) -> str:
     """Render and upload PWA connection page files for a client.
 
