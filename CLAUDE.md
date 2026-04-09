@@ -55,9 +55,12 @@ src/meridian/                      — protocol registry, credentials, SSH, API 
   templates/pwa/                   — vanilla JS rationale, security model, CSS lessons
 tests/                             — testing philosophy, MockConnection, fixtures
   provision/                       — mock boundary, idempotency dual-path testing
-  e2e/                             — Docker lifecycle, PID namespace limitations
+  e2e/                             — Docker lifecycle, shell-script E2E, PID namespace
 website/                           — Astro rationale, i18n strategy, CLI relationship
   src/components/                  — composition pattern, Accordion CSS lesson
+  src/content/docs/                — locale parity, frontmatter schema, machine-readable
+  src/i18n/                        — asymmetric i18n, detection cascade, translation keys
+  src/layouts/                     — Base/Docs/BlogPost shells, locale bridge, RTL
   src/styles/                      — token system, warm light-first palette
   src/pages/                       — dynamic routing, machine-readable endpoints
   src/pages/blog/                  — blog index, post route, English-only linear reads
@@ -96,12 +99,14 @@ make ci          # lint + format + test + templates
 
 ## Source of truth
 
-| What | Where | Propagated to |
-|---|---|---|
-| CLI commands & flags | `cli.py` | README, website docs, `CommandBuilder.astro` |
-| App download links | `apps.json` | template (CI-validated), `render.py`, `app.js` |
-| Version | `VERSION` | importlib, website, CHANGELOG |
-| Architecture | this file | website docs, README |
+| What | SOT | Propagated to | CI-validated? |
+|---|---|---|---|
+| CLI commands & flags | `cli.py` | cli-reference.md, deploy.md, README, CommandBuilder | Yes (all commands) |
+| App download links | `apps.json` | template, `render.py` `_PWA_APPS` | Yes (both) |
+| Version | `VERSION` | importlib, CHANGELOG, website, PyPI | Yes |
+| AI reference | en/ docs | `ai-reference.md` (via `make ai-docs`, gitignored) | Generated at build |
+| Protocol definitions | `protocols.py` | provisioning, URLs, rendering | Yes (unit tests) |
+| Architecture | this file | website docs, README | No (manual) |
 
 ## Versioning
 
