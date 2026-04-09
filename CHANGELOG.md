@@ -4,6 +4,14 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.15.2] - 2026-04-10
+
+### Fixed
+- **False local mode detection via TUN** — users connected to a VPN server via TUN mode had their public IP match the server IP, causing `_is_on_server()` to wrongly activate local mode. This made `client add` fail with "No credentials found" and `teardown` run destructively on the local machine. Detection now uses file/directory checks (`/etc/meridian/`) instead of IP matching.
+
+### Added
+- **`--geo-block` / `--no-geo-block` flag** — geo-blocking is now optional. Use `--no-geo-block` to skip country-based firewall rules during deploy.
+
 ## [3.15.1] - 2026-04-09
 
 ### Added
