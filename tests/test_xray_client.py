@@ -12,7 +12,6 @@ from meridian.xray_client import (
     build_xhttp_config,
 )
 
-
 # ---------------------------------------------------------------------------
 # _parse_dgst
 # ---------------------------------------------------------------------------
@@ -32,12 +31,7 @@ class TestParseDgst:
         assert _parse_dgst("SHA2-256") == ""
 
     def test_multiple_lines_extracts_correct_hash(self) -> None:
-        content = (
-            "MD5=somethingelse\n"
-            "SHA1=anotherhash\n"
-            "SHA2-256=correcthash789\n"
-            "SHA2-512=longhash\n"
-        )
+        content = "MD5=somethingelse\nSHA1=anotherhash\nSHA2-256=correcthash789\nSHA2-512=longhash\n"
         assert _parse_dgst(content) == "correcthash789"
 
     def test_hash_with_whitespace_is_stripped(self) -> None:
@@ -353,8 +347,8 @@ class TestBuildTestConfigs:
         labels = [label for label, _, _ in configs]
         assert "WSS (CDN)" in labels
         # WSS CDN never expects IP match
-        wss_config = next(c for l, c, _ in configs if l == "WSS (CDN)")
-        wss_match = next(m for l, _, m in configs if l == "WSS (CDN)")
+        wss_config = next(c for lbl, c, _ in configs if lbl == "WSS (CDN)")
+        wss_match = next(m for lbl, _, m in configs if lbl == "WSS (CDN)")
         assert wss_match is False
         assert wss_config["outbounds"][0]["streamSettings"]["network"] == "ws"
 
@@ -380,7 +374,7 @@ class TestBuildTestConfigs:
         configs = build_test_configs(creds)
         labels = [label for label, _, _ in configs]
         assert "XHTTP" in labels
-        xhttp_config = next(c for l, c, _ in configs if l == "XHTTP")
+        xhttp_config = next(c for lbl, c, _ in configs if lbl == "XHTTP")
         assert xhttp_config["outbounds"][0]["streamSettings"]["network"] == "xhttp"
 
     def test_xhttp_domain_mode_no_ip_match(self) -> None:
@@ -392,7 +386,7 @@ class TestBuildTestConfigs:
             domain="example.com",
         )
         configs = build_test_configs(creds)
-        xhttp_match = next(m for l, _, m in configs if l == "XHTTP")
+        xhttp_match = next(m for lbl, _, m in configs if lbl == "XHTTP")
         assert xhttp_match is False
 
     def test_xhttp_ip_mode_expects_match(self) -> None:
@@ -403,7 +397,7 @@ class TestBuildTestConfigs:
             xhttp_path="xhttppath",
         )
         configs = build_test_configs(creds)
-        xhttp_match = next(m for l, _, m in configs if l == "XHTTP")
+        xhttp_match = next(m for lbl, _, m in configs if lbl == "XHTTP")
         assert xhttp_match is True
 
     def test_all_protocols_active(self) -> None:

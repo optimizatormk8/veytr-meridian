@@ -16,6 +16,9 @@ from pathlib import Path
 import pytest
 from jinja2 import Environment, FileSystemLoader, Undefined
 
+from meridian.models import ProtocolURL, RelayURLSet
+from meridian.render import _generate_minimal_html, _render_template, render_hosted_html
+
 # ---------------------------------------------------------------------------
 # Mock infrastructure (mirrors render_templates.py)
 # ---------------------------------------------------------------------------
@@ -200,27 +203,16 @@ def test_templates_discovered() -> None:
 # Content-level tests — verify rendered HTML contains the right data
 # ---------------------------------------------------------------------------
 
-from unittest.mock import patch
-
-from meridian.models import ProtocolURL, RelayURLSet
-from meridian.render import render_hosted_html, _generate_minimal_html, _render_template
-
 
 # Shared test fixtures (RFC 5737 IPs)
 _TEST_REALITY_URL = (
-    "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443"
-    "?security=reality&sni=www.example.com#TestClient"
+    "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443?security=reality&sni=www.example.com#TestClient"
 )
-_TEST_WSS_URL = (
-    "vless://660e8400-e29b-41d4-a716-446655440000@example.com:443"
-    "?security=tls&type=ws#TestClient-WSS"
-)
+_TEST_WSS_URL = "vless://660e8400-e29b-41d4-a716-446655440000@example.com:443?security=tls&type=ws#TestClient-WSS"
 _TEST_QR_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
 
 
-def _make_protocol_urls(
-    *, include_wss: bool = False, qr_b64: str = _TEST_QR_B64
-) -> list[ProtocolURL]:
+def _make_protocol_urls(*, include_wss: bool = False, qr_b64: str = _TEST_QR_B64) -> list[ProtocolURL]:
     """Build a minimal list of ProtocolURL objects for testing."""
     urls = [
         ProtocolURL(key="reality", label="Primary", url=_TEST_REALITY_URL, qr_b64=qr_b64),
@@ -272,9 +264,7 @@ class TestRenderedHtmlContent:
     def test_rendered_html_escapes_client_name(self) -> None:
         """XSS payload in client_name is HTML-escaped, not rendered raw."""
         urls = _make_protocol_urls()
-        html = render_hosted_html(
-            urls, "198.51.100.1", client_name="<script>alert(1)</script>"
-        )
+        html = render_hosted_html(urls, "198.51.100.1", client_name="<script>alert(1)</script>")
         # Raw <script> must NOT appear — it should be escaped
         assert "<script>alert(1)</script>" not in html
         # The escaped form should be present
@@ -284,9 +274,7 @@ class TestRenderedHtmlContent:
         """Relay IP and name appear in the rendered HTML when relay entries are provided."""
         urls = _make_protocol_urls()
         relay_entries = _make_relay_entries()
-        html = render_hosted_html(
-            urls, "198.51.100.1", client_name="alice", relay_entries=relay_entries
-        )
+        html = render_hosted_html(urls, "198.51.100.1", client_name="alice", relay_entries=relay_entries)
         assert "198.51.100.50" in html
         assert "ru-moscow" in html
 
@@ -294,9 +282,7 @@ class TestRenderedHtmlContent:
         """_generate_minimal_html produces valid HTML with URL data when template is unavailable."""
         urls = _make_protocol_urls()
         qr_map = {p.key: p.qr_b64 for p in urls if p.qr_b64}
-        html = _generate_minimal_html(
-            "alice", urls, qr_map, "198.51.100.1", "", "2026-01-01T00:00:00Z"
-        )
+        html = _generate_minimal_html("alice", urls, qr_map, "198.51.100.1", "", "2026-01-01T00:00:00Z")
         assert "<!DOCTYPE html>" in html
         assert "</html>" in html
         assert "550e8400-e29b-41d4-a716-446655440000" in html
@@ -334,9 +320,7 @@ class TestRenderedHtmlContent:
     def test_domain_mode_shows_wss(self) -> None:
         """When domain is set, WSS/Backup section appears in the rendered HTML."""
         urls = _make_protocol_urls(include_wss=True)
-        html = render_hosted_html(
-            urls, "198.51.100.1", domain="example.com", client_name="alice"
-        )
+        html = render_hosted_html(urls, "198.51.100.1", domain="example.com", client_name="alice")
         # WSS card uses "Backup" label and the amber color class in the template
         assert "Backup" in html or "card-amber" in html
         # The WSS URL should be present

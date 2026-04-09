@@ -18,7 +18,6 @@ from meridian.branding import (
     validate_color,
 )
 
-
 # ---------------------------------------------------------------------------
 # validate_color
 # ---------------------------------------------------------------------------
@@ -170,9 +169,7 @@ def _make_minimal_png() -> bytes:
 class TestProcessImageUrl:
     @patch("meridian.branding._is_private_ip", return_value=False)
     @patch("urllib.request.urlopen")
-    def test_successful_download_returns_data_uri(
-        self, mock_urlopen: MagicMock, mock_private: MagicMock
-    ) -> None:
+    def test_successful_download_returns_data_uri(self, mock_urlopen: MagicMock, mock_private: MagicMock) -> None:
         png_data = _make_minimal_png()
         mock_response = MagicMock()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
@@ -191,18 +188,14 @@ class TestProcessImageUrl:
 
     @patch("meridian.branding._is_private_ip", return_value=False)
     @patch("urllib.request.urlopen")
-    def test_download_timeout_returns_empty(
-        self, mock_urlopen: MagicMock, mock_private: MagicMock
-    ) -> None:
+    def test_download_timeout_returns_empty(self, mock_urlopen: MagicMock, mock_private: MagicMock) -> None:
         mock_urlopen.side_effect = urllib.error.URLError(OSError("timed out"))
         result = _process_image_url("https://198.51.100.1/icon.png")
         assert result == ""
 
     @patch("meridian.branding._is_private_ip", return_value=False)
     @patch("urllib.request.urlopen")
-    def test_oversized_response_truncates(
-        self, mock_urlopen: MagicMock, mock_private: MagicMock
-    ) -> None:
+    def test_oversized_response_truncates(self, mock_urlopen: MagicMock, mock_private: MagicMock) -> None:
         # Return data larger than _MAX_DOWNLOAD (10 MB)
         oversized_data = b"\x89PNG\r\n\x1a\n" + (b"\x00" * (10 * 1024 * 1024 + 100))
         mock_response = MagicMock()
@@ -223,11 +216,7 @@ class TestProcessImageUrl:
 
     @patch("meridian.branding._is_private_ip", return_value=False)
     @patch("urllib.request.urlopen")
-    def test_http_error_returns_empty(
-        self, mock_urlopen: MagicMock, mock_private: MagicMock
-    ) -> None:
-        mock_urlopen.side_effect = urllib.error.HTTPError(
-            "https://198.51.100.1/icon.png", 404, "Not Found", {}, None
-        )
+    def test_http_error_returns_empty(self, mock_urlopen: MagicMock, mock_private: MagicMock) -> None:
+        mock_urlopen.side_effect = urllib.error.HTTPError("https://198.51.100.1/icon.png", 404, "Not Found", {}, None)
         result = _process_image_url("https://198.51.100.1/icon.png")
         assert result == ""
