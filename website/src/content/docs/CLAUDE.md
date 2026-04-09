@@ -13,3 +13,4 @@
 - **Locale parity** — all four locale directories must have the same filenames. A missing file means that locale won't have that doc page, and the sidebar will show a gap.
 - **AI reference is English-only** — `make ai-docs` reads only from `en/`. Translations don't affect the AI-facing docs.
 - **Order + section drive sidebar** — changing `order` or `section` in frontmatter reshuffles the sidebar for that locale. Keep values consistent across locales to avoid navigation mismatches.
+- **This CLAUDE.md lives inside a content collection** — `content.config.ts` uses `**/[a-z]*.md` glob to exclude it. All doc filenames must stay lowercase.
