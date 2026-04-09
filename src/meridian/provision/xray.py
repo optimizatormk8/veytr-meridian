@@ -260,13 +260,13 @@ class CreateInbound:
             return None
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        panel: PanelClient | None = ctx.get("panel")
+        panel = ctx.panel
         if panel is None:
             return StepResult(name=self.name, status="failed", detail="No panel client in context")
 
         inbound_type = INBOUND_TYPES[self.protocol_key]
         remark = inbound_type.remark
-        creds = ctx["credentials"]
+        creds = ctx.credentials
 
         # Check if inbound already exists
         existing = panel.find_inbound(remark)
@@ -376,7 +376,7 @@ class DisableXrayLogs:
     name = "Disable Xray logs"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        panel: PanelClient = ctx["panel"]
+        panel = ctx.panel
 
         # Fetch current Xray config template
         try:
@@ -457,7 +457,7 @@ class ConfigureGeoBlocking:
     name = "Configure geo-blocking"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        panel: PanelClient = ctx["panel"]
+        panel = ctx.panel
 
         try:
             data = panel.api_post_empty("/panel/xray/")
@@ -545,10 +545,10 @@ class VerifyXray:
         logs_result = conn.run("docker logs 3x-ui --tail 30", timeout=15)
         logs = logs_result.stdout.strip() if logs_result.returncode == 0 else "(no logs)"
 
-        server_ip = ctx.get("credentials", None)
+        creds_obj = ctx.credentials
         ip_hint = ""
-        if server_ip and hasattr(server_ip, "server") and server_ip.server.ip:
-            ip_hint = f" {server_ip.server.ip}"
+        if creds_obj and creds_obj.server.ip:
+            ip_hint = f" {creds_obj.server.ip}"
 
         return StepResult(
             name=self.name,

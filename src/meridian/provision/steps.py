@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from typing import Protocol as TypingProtocol
 
 from rich.console import Console
@@ -12,6 +12,10 @@ from rich.status import Status
 
 from meridian.config import DEFAULT_PANEL_PORT, DEFAULT_SNI
 from meridian.ssh import ServerConnection
+
+if TYPE_CHECKING:
+    from meridian.credentials import ServerCredentials
+    from meridian.panel import PanelClient
 
 StepStatus = Literal["ok", "changed", "skipped", "failed"]
 
@@ -80,6 +84,27 @@ class ProvisionContext:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._state.get(key, default)
+
+    # --- Typed accessors for key inter-step state ---
+    # These document the implicit schema and catch typos at development time.
+
+    @property
+    def panel(self) -> PanelClient | None:
+        """Logged-in PanelClient, set by LoginToPanel."""
+        return self._state.get("panel")
+
+    @panel.setter
+    def panel(self, value: PanelClient) -> None:
+        self._state["panel"] = value
+
+    @property
+    def credentials(self) -> ServerCredentials | None:
+        """ServerCredentials, set by ConfigurePanel."""
+        return self._state.get("credentials")
+
+    @credentials.setter
+    def credentials(self, value: ServerCredentials) -> None:
+        self._state["credentials"] = value
 
 
 class StepContext(TypingProtocol):

@@ -137,9 +137,9 @@ class ConfigureWarpOutbound:
     name = "Configure WARP outbound"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        from meridian.panel import PanelClient, PanelError
+        from meridian.panel import PanelError
 
-        panel: PanelClient = ctx["panel"]
+        panel = ctx.panel
 
         try:
             data = panel.api_post_empty("/panel/xray/")

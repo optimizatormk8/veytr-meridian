@@ -85,7 +85,7 @@ class ConfigurePanel:
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Check if already configured
-        creds = ctx.get("credentials")
+        creds = ctx.credentials
         if creds is not None and ctx.get("panel_configured"):
             # Verify saved credentials actually work (catches partial deploys
             # where creds were saved but panel settings weren't fully applied)
@@ -145,7 +145,7 @@ class ConfigurePanel:
 
                     if changed:
                         creds.save(self.creds_path)
-                        ctx["credentials"] = creds
+                        ctx.credentials = creds
                     return StepResult(
                         name=self.name,
                         status="skipped",
@@ -251,7 +251,7 @@ class ConfigurePanel:
             )
 
         # Update context for subsequent steps
-        ctx["credentials"] = creds
+        ctx.credentials = creds
         ctx["panel_configured"] = True
         ctx["panel_username"] = panel_username
         ctx["panel_password"] = panel_password
@@ -287,7 +287,7 @@ class LoginToPanel:
     name = "Log in to panel"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
-        creds: ServerCredentials | None = ctx.get("credentials")
+        creds = ctx.credentials
         if creds is None or not creds.has_credentials:
             return StepResult(
                 name=self.name,
@@ -314,7 +314,7 @@ class LoginToPanel:
                 detail=f"Panel login failed: {e}",
             )
 
-        ctx["panel"] = panel
+        ctx.panel = panel
         return StepResult(
             name=self.name,
             status="ok",

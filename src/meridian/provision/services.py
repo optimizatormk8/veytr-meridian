@@ -1039,7 +1039,7 @@ class DeployConnectionPage:
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         # Read credentials from context (populated by ConfigurePanel)
-        creds = ctx["credentials"]
+        creds = ctx.credentials
         sni = creds.server.sni or ctx.sni
         domain = creds.server.domain or ctx.domain
         reality_uuid = creds.reality.uuid or ""
