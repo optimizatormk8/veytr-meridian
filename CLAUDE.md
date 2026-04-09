@@ -78,6 +78,7 @@ make ci          # lint + format + test + templates
 
 - **Shell injection**: `shlex.quote()` on ALL `conn.run()` interpolated values
 - **Demo data**: RFC 5737 IPs (`198.51.100.x`), never real server IPs
+- **Privacy**: never reference real people's names, server IPs, or domains in commits, code, or docs unless explicitly asked. User may share feedback from others — keep sources anonymous
 - **Self-hosted everything**: zero external requests (fonts, JS, CSS). Target regions block CDNs
 - **Commit per change**: each logical change gets its own commit
 - **Translations**: use Haiku model agents (`model: "haiku"`) for fast i18n
@@ -110,6 +111,7 @@ Patch: fixes/docs (auto). Minor: features (prompted). Major: breaking (prompted)
 1. Push commits to main (direct push OK)
 2. Wait for GitHub Actions CI to pass (lint + unit tests + E2E)
 3. Optional: manual smoke test on a real server (especially after provisioner/deploy changes):
+   - Ask the user for a test server if none is in context
    - Re-deploy over existing → `meridian test` → teardown → fresh deploy → `meridian test`
    - This catches regressions that mocked E2E can't (real SSH, real Docker, real networking)
 4. Ask the user before bumping — never bump autonomously
