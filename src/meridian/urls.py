@@ -7,7 +7,6 @@ import io
 
 import segno
 
-from meridian.config import DEFAULT_FINGERPRINT, DEFAULT_SNI
 from meridian.credentials import ServerCredentials
 from meridian.models import ProtocolURL, RelayURLSet
 from meridian.protocols import PROTOCOLS
@@ -36,53 +35,11 @@ def build_protocol_urls(
     Returns:
         Ordered list of ``ProtocolURL`` objects, one per active protocol.
     """
-    ip = creds.server.ip or ""
-    sni = creds.server.sni or DEFAULT_SNI
-    public_key = creds.reality.public_key or ""
-    short_id = creds.reality.short_id or ""
-    domain = creds.server.domain or ""
-    ws_path = creds.wss.ws_path or ""
-    xhttp_path = creds.xhttp.xhttp_path or ""
-    encryption = creds.reality.encryption_key or "none"
-
-    # Shared kwargs for Reality-based protocols.
-    reality_kwargs = {
-        "ip": ip,
-        "sni": sni,
-        "public_key": public_key,
-        "short_id": short_id,
-        "encryption": encryption,
-    }
-
     result: list[ProtocolURL] = []
-
     for proto in PROTOCOLS.values():
-        key = proto.key
-        label = proto.display_label
-        url = ""
-
-        if key == "reality":
-            url = proto.build_url(reality_uuid, name, server_name=server_name, **reality_kwargs)
-        elif key == "xhttp":
-            if xhttp_path:
-                url = proto.build_url(
-                    reality_uuid,
-                    name,
-                    server_name=server_name,
-                    ip=ip,
-                    xhttp_path=xhttp_path,
-                    domain=domain,
-                )
-        elif key == "wss":
-            if domain and wss_uuid:
-                url = proto.build_url(wss_uuid, name, server_name=server_name, domain=domain, ws_path=ws_path)
-        else:
-            # Generic fallback for future protocols — skip if we can't build.
-            continue
-
+        url = proto.build_url_from_creds(reality_uuid, wss_uuid, creds, name, server_name=server_name)
         if url:
-            result.append(ProtocolURL(key=key, label=label, url=url))
-
+            result.append(ProtocolURL(key=proto.key, label=proto.display_label, url=url))
     return result
 
 
@@ -121,54 +78,24 @@ def build_relay_urls(
     Returns:
         A ``RelayURLSet`` with all active protocol URLs via this relay.
     """
-    exit_ip = creds.server.ip or ""
-    sni = creds.server.sni or DEFAULT_SNI
-    # Use relay-specific SNI for Reality when available; XHTTP/WSS keep exit's SNI
-    reality_sni = relay_sni or sni
-    public_key = creds.reality.public_key or ""
-    short_id = creds.reality.short_id or ""
-    domain = creds.server.domain or ""
-    xhttp_path = creds.xhttp.xhttp_path or ""
-    ws_path = creds.wss.ws_path or ""
-    encryption = creds.reality.encryption_key or "none"
-
-    suffix = f"-via-{relay_name}" if relay_name else f"-via-{relay_ip}"
     relay_label = relay_name or relay_ip
-    fragment_base = f"{name} @ {server_name}" if server_name else name
     urls: list[ProtocolURL] = []
 
-    # Reality — end-to-end Reality handshake, relay is fully transparent.
-    # Uses relay-specific SNI so traffic looks plausible from relay's geography.
-    url = (
-        f"vless://{reality_uuid}@{relay_ip}:{relay_port}"
-        f"?encryption={encryption}&flow=xtls-rprx-vision"
-        f"&security=reality&sni={reality_sni}&fp={DEFAULT_FINGERPRINT}"
-        f"&pbk={public_key}&sid={short_id}"
-        f"&type=tcp&headerType=none"
-        f"#{fragment_base}{suffix}"
-    )
-    urls.append(ProtocolURL(key="reality", label=f"Primary (via {relay_label})", url=url))
-
-    # XHTTP — TLS goes to exit, explicit sni= makes nginx cert match
-    if xhttp_path:
-        xhttp_sni = domain or exit_ip
-        xhttp_url = (
-            f"vless://{reality_uuid}@{relay_ip}:{relay_port}"
-            f"?encryption=none&security=tls&sni={xhttp_sni}&fp={DEFAULT_FINGERPRINT}"
-            f"&type=xhttp&path=%2F{xhttp_path}"
-            f"#{fragment_base}{suffix}-XHTTP"
+    for proto in PROTOCOLS.values():
+        url = proto.build_relay_url(
+            reality_uuid,
+            wss_uuid,
+            creds,
+            name,
+            relay_ip,
+            relay_port,
+            relay_sni=relay_sni,
+            relay_name=relay_name,
+            server_name=server_name,
         )
-        urls.append(ProtocolURL(key="xhttp", label=f"XHTTP (via {relay_label})", url=xhttp_url))
-
-    # WSS — domain mode only, TLS sni+host must match domain cert
-    if domain and wss_uuid and ws_path:
-        wss_url = (
-            f"vless://{wss_uuid}@{relay_ip}:{relay_port}"
-            f"?encryption=none&security=tls&sni={domain}"
-            f"&type=ws&host={domain}&path=%2F{ws_path}"
-            f"#{fragment_base}{suffix}-WSS"
-        )
-        urls.append(ProtocolURL(key="wss", label=f"WSS (via {relay_label})", url=wss_url))
+        if url:
+            label = f"{proto.display_label} (via {relay_label})"
+            urls.append(ProtocolURL(key=proto.key, label=label, url=url))
 
     return RelayURLSet(relay_ip=relay_ip, relay_name=relay_name, urls=urls)
 
