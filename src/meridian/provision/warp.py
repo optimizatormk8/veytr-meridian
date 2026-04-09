@@ -59,7 +59,9 @@ class InstallWarp:
                 return StepResult(name=self.name, status="failed", detail="Failed to install cloudflare-warp")
 
         # Ensure service is running
-        conn.run("systemctl enable --now warp-svc", timeout=30)
+        svc = conn.run("systemctl enable --now warp-svc", timeout=30)
+        if svc.returncode != 0:
+            return StepResult(name=self.name, status="failed", detail=f"Failed to start warp-svc: {svc.stderr.strip()}")
 
         # Register (--accept-tos required for non-TTY, idempotent)
         reg = conn.run("warp-cli --accept-tos registration new 2>/dev/null", timeout=30)
@@ -81,10 +83,16 @@ class InstallWarp:
 
         port_result = conn.run(f"warp-cli --accept-tos proxy port {WARP_PROXY_PORT}", timeout=10)
         if port_result.returncode != 0:
-            conn.run(f"warp-cli --accept-tos set-proxy-port {WARP_PROXY_PORT}", timeout=10)
+            fallback_port = conn.run(f"warp-cli --accept-tos set-proxy-port {WARP_PROXY_PORT}", timeout=10)
+            if fallback_port.returncode != 0:
+                detail = f"Failed to set proxy port: {fallback_port.stderr.strip()}"
+                return StepResult(name=self.name, status="failed", detail=detail)
 
         # Connect
-        conn.run("warp-cli --accept-tos connect", timeout=30)
+        connect_result = conn.run("warp-cli --accept-tos connect", timeout=30)
+        if connect_result.returncode != 0:
+            detail = f"Failed to connect WARP: {connect_result.stderr.strip()}"
+            return StepResult(name=self.name, status="failed", detail=detail)
 
         # Wait briefly for connection to establish
         import time
