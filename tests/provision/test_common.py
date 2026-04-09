@@ -165,17 +165,15 @@ class TestHardenSSH:
 
 class TestConfigureFail2ban:
     def test_already_running_returns_ok(self, mock_conn: MockConnection, base_ctx):
-        """When fail2ban is installed and active, status is ok without restart."""
-        mock_conn.when("which fail2ban-server", rc=0)
+        """When fail2ban is active, status is ok without restart."""
         mock_conn.when("systemctl is-active fail2ban", stdout="active")
 
         result = ConfigureFail2ban().run(mock_conn, base_ctx)
 
         assert result.status == "ok"
 
-    def test_installed_but_stopped_restarts(self, mock_conn: MockConnection, base_ctx):
-        """When fail2ban is installed but not running, it is restarted."""
-        mock_conn.when("which fail2ban-server", rc=0)
+    def test_stopped_restarts(self, mock_conn: MockConnection, base_ctx):
+        """When fail2ban is not running, it is enabled and restarted."""
         mock_conn.when("systemctl is-active fail2ban", rc=3, stdout="inactive")
         mock_conn.when("systemctl enable fail2ban", rc=0)
         mock_conn.when("systemctl restart fail2ban", rc=0)
@@ -184,31 +182,8 @@ class TestConfigureFail2ban:
 
         assert result.status == "changed"
 
-    def test_installs_when_missing_returns_changed(self, mock_conn: MockConnection, base_ctx):
-        """When fail2ban is not installed, it is installed and started."""
-        mock_conn.when("which fail2ban-server", rc=1)
-        mock_conn.when("apt-get install", rc=0)
-        mock_conn.when("systemctl enable fail2ban", rc=0)
-        mock_conn.when("systemctl restart fail2ban", rc=0)
-
-        result = ConfigureFail2ban().run(mock_conn, base_ctx)
-
-        assert result.status == "changed"
-        mock_conn.assert_called_with_pattern("apt-get install")
-
-    def test_install_failure_returns_failed(self, mock_conn: MockConnection, base_ctx):
-        """When apt-get install fails, status is failed."""
-        mock_conn.when("which fail2ban-server", rc=1)
-        mock_conn.when("apt-get install", rc=1, stderr="E: Unable to locate package")
-
-        result = ConfigureFail2ban().run(mock_conn, base_ctx)
-
-        assert result.status == "failed"
-        assert "apt-get install failed" in result.detail
-
     def test_enable_failure_returns_failed(self, mock_conn: MockConnection, base_ctx):
         """When systemctl enable fails, status is failed."""
-        mock_conn.when("which fail2ban-server", rc=0)
         mock_conn.when("systemctl is-active fail2ban", rc=3, stdout="inactive")
         mock_conn.when("systemctl enable fail2ban", rc=1, stderr="Failed to enable")
 
@@ -219,7 +194,6 @@ class TestConfigureFail2ban:
 
     def test_service_start_failure_returns_failed(self, mock_conn: MockConnection, base_ctx):
         """When systemctl restart fails, status is failed."""
-        mock_conn.when("which fail2ban-server", rc=0)
         mock_conn.when("systemctl is-active fail2ban", rc=3, stdout="inactive")
         mock_conn.when("systemctl enable fail2ban", rc=0)
         mock_conn.when("systemctl restart fail2ban", rc=1, stderr="Unit not found")

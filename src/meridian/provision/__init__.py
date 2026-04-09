@@ -32,6 +32,7 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
         EnsurePort443,
         HardenSSH,
         InstallPackages,
+        REQUIRED_PACKAGES,
         SetTimezone,
     )
     from meridian.provision.docker import Deploy3xui, InstallDocker
@@ -50,7 +51,7 @@ def build_setup_steps(ctx: ProvisionContext) -> list[Step]:
         # -- Pre-flight --
         CheckDiskSpace(),
         # -- Common (OS-level setup) --
-        InstallPackages(),
+        InstallPackages(REQUIRED_PACKAGES + ["fail2ban"] if ctx.harden else None),
         EnableAutoUpgrades(),
         SetTimezone(),
     ]

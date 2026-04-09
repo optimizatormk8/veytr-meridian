@@ -264,31 +264,17 @@ class HardenSSH:
 
 
 class ConfigureFail2ban:
-    """Install and enable fail2ban with sshd jail for brute-force protection."""
+    """Enable fail2ban with sshd jail for brute-force protection.
+
+    Assumes fail2ban is already installed by InstallPackages.
+    """
 
     name = "Configure fail2ban"
 
     def run(self, conn: ServerConnection, ctx: StepContext) -> StepResult:
-        check = conn.run("which fail2ban-server 2>/dev/null", timeout=15)
-        installed = check.returncode == 0
-
-        if installed:
-            # Already installed — verify it's running
-            active = conn.run("systemctl is-active fail2ban", timeout=15)
-            if active.returncode == 0 and active.stdout.strip() == "active":
-                return StepResult(name=self.name, status="ok", detail="already running")
-
-        if not installed:
-            result = conn.run(
-                "DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fail2ban",
-                timeout=120,
-            )
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"apt-get install failed: {result.stderr.strip()[:200]}",
-                )
+        active = conn.run("systemctl is-active fail2ban", timeout=15)
+        if active.returncode == 0 and active.stdout.strip() == "active":
+            return StepResult(name=self.name, status="ok", detail="already running")
 
         # Enable and start service
         enable = conn.run("systemctl enable fail2ban", timeout=15)
@@ -306,7 +292,7 @@ class ConfigureFail2ban:
                 detail=f"failed to start fail2ban: {start.stderr.strip()[:200]}",
             )
 
-        return StepResult(name=self.name, status="changed", detail="installed and started")
+        return StepResult(name=self.name, status="changed", detail="enabled and started")
 
 
 class ConfigureBBR:
