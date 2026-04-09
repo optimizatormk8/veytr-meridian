@@ -200,7 +200,7 @@ def generate_qr_terminal(url: str) -> str:
         buf = io.StringIO()
         qr.terminal(out=buf, compact=True)
         return buf.getvalue()
-    except Exception:
+    except (ValueError, OSError):
         return ""
 
 
@@ -211,5 +211,5 @@ def generate_qr_base64(url: str) -> str:
         buf = io.BytesIO()
         qr.save(buf, kind="png", scale=12)
         return base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:
+    except (ValueError, OSError):
         return ""

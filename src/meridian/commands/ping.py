@@ -238,6 +238,6 @@ def _parse_http_date(date_str: str) -> int | None:
         parsed = email.utils.parsedate(date_str)
         if parsed:
             return int(calendar.timegm(parsed))
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         pass
     return None

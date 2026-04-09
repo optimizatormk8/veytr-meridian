@@ -11,7 +11,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from meridian.config import (
     CACHE_DIR,
@@ -33,7 +33,7 @@ def get_pypi_latest() -> str | None:
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read())
             return data["info"]["version"]
-    except Exception:
+    except (OSError, ValueError, KeyError):
         return None
 
 
@@ -66,7 +66,7 @@ def check_for_update(current_version: str) -> None:
     try:
         current = Version(current_version)
         remote = Version(latest)
-    except Exception:
+    except InvalidVersion:
         return
 
     if remote <= current:
@@ -166,7 +166,7 @@ def run_self_update() -> None:
     try:
         current = Version(__version__)
         remote = Version(latest)
-    except Exception:
+    except InvalidVersion:
         warn("Could not parse version numbers")
         return
 
