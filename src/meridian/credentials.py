@@ -25,6 +25,7 @@ class PanelConfig:
     info_page_path: str | None = None
     port: int = DEFAULT_PANEL_PORT
     url: str = ""
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -40,6 +41,7 @@ class ServerConfig:
     warp: bool = False  # outgoing traffic routed through Cloudflare WARP
     geo_block: bool = True  # block Russian domains/IPs at Xray routing level
     decoy: str = ""  # Decoy response: "" = silent drop, "403" = realistic nginx (403 root + 404 paths)
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -52,6 +54,7 @@ class RealityConfig:
     short_id: str | None = None
     encryption_key: str | None = None  # PQ public key (client URL)
     encryption_private_key: str | None = None  # PQ private key (server decryption)
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -60,6 +63,7 @@ class WSSConfig:
 
     uuid: str | None = None
     ws_path: str | None = None
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -68,6 +72,7 @@ class XHTTPConfig:
 
     uuid: str | None = None
     xhttp_path: str | None = None
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -78,6 +83,7 @@ class ClientEntry:
     added: str = ""
     reality_uuid: str = ""
     wss_uuid: str = ""
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -89,6 +95,7 @@ class RelayEntry:
     port: int = 443  # relay listen port
     added: str = ""  # ISO8601 timestamp
     sni: str = ""  # relay-specific SNI target for Reality camouflage
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -98,6 +105,7 @@ class BrandingConfig:
     server_name: str = ""  # display name (e.g., "Alice's VPN")
     icon: str = ""  # emoji or data URI (e.g., "🛡️" or "data:image/png;base64,...")
     color: str = ""  # palette name (ocean, sunset, forest, lavender, rose, slate)
+    _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -147,12 +155,12 @@ class ServerCredentials:
         out: dict[str, Any] = {"version": 2}
 
         # Panel
-        panel_dict = _strip_none(asdict(self.panel))
+        panel_dict = _serialize_dataclass(self.panel)
         if panel_dict:
             out["panel"] = panel_dict
 
         # Server
-        server_dict = _strip_none(asdict(self.server))
+        server_dict = _serialize_dataclass(self.server)
         if server_dict:
             out["server"] = server_dict
 
@@ -161,9 +169,9 @@ class ServerCredentials:
             protos: dict[str, Any] = {}
             for name, proto in self.protocols.items():
                 if hasattr(proto, "__dataclass_fields__"):
-                    proto_dict = _strip_none(asdict(proto))
+                    proto_dict = _serialize_dataclass(proto)
                 elif isinstance(proto, dict):
-                    proto_dict = {k: v for k, v in proto.items() if v is not None}
+                    proto_dict = _strip_none(proto)
                 else:
                     proto_dict = proto
                 if proto_dict:
@@ -173,14 +181,14 @@ class ServerCredentials:
 
         # Clients
         if self.clients:
-            out["clients"] = [_strip_none(asdict(c)) for c in self.clients]
+            out["clients"] = [_serialize_dataclass(c) for c in self.clients]
 
         # Relays
         if self.relays:
-            out["relays"] = [_strip_none(asdict(r)) for r in self.relays]
+            out["relays"] = [_serialize_dataclass(r) for r in self.relays]
 
         # Branding
-        branding_dict = _strip_none(asdict(self.branding))
+        branding_dict = _serialize_dataclass(self.branding)
         # Strip empty strings too — only store non-empty branding values
         branding_dict = {k: v for k, v in branding_dict.items() if v}
         if branding_dict:
@@ -226,7 +234,11 @@ class ServerCredentials:
             self.protocols["reality"] = RealityConfig()
         proto = self.protocols["reality"]
         if isinstance(proto, dict):
-            self.protocols["reality"] = RealityConfig(**proto)
+            self.protocols["reality"] = _load_known_dataclass(
+                proto,
+                RealityConfig,
+                {"uuid", "private_key", "public_key", "short_id", "encryption_key", "encryption_private_key"},
+            )
             return self.protocols["reality"]
         return proto
 
@@ -237,7 +249,7 @@ class ServerCredentials:
             self.protocols["wss"] = WSSConfig()
         proto = self.protocols["wss"]
         if isinstance(proto, dict):
-            self.protocols["wss"] = WSSConfig(**proto)
+            self.protocols["wss"] = _load_known_dataclass(proto, WSSConfig, {"uuid", "ws_path"})
             return self.protocols["wss"]
         return proto
 
@@ -248,7 +260,7 @@ class ServerCredentials:
             self.protocols["xhttp"] = XHTTPConfig()
         proto = self.protocols["xhttp"]
         if isinstance(proto, dict):
-            self.protocols["xhttp"] = XHTTPConfig(**proto)
+            self.protocols["xhttp"] = _load_known_dataclass(proto, XHTTPConfig, {"uuid", "xhttp_path"})
             return self.protocols["xhttp"]
         return proto
 
@@ -340,64 +352,49 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
     """Load a v2 format YAML dict into ServerCredentials."""
     # Panel
     panel_data = data.get("panel", {})
-    panel = PanelConfig(
-        username=panel_data.get("username"),
-        password=panel_data.get("password"),
-        web_base_path=panel_data.get("web_base_path"),
-        info_page_path=panel_data.get("info_page_path"),
-        port=panel_data.get("port", DEFAULT_PANEL_PORT),
-        url=panel_data.get("url", ""),
+    panel = _load_known_dataclass(
+        panel_data,
+        PanelConfig,
+        {"username", "password", "web_base_path", "info_page_path", "port", "url"},
+        defaults={"port": DEFAULT_PANEL_PORT, "url": ""},
     )
 
     # Server
     server_data = data.get("server", {})
-    server = ServerConfig(
-        ip=server_data.get("ip"),
-        domain=server_data.get("domain"),
-        sni=server_data.get("sni"),
-        scanned_sni=server_data.get("scanned_sni"),
-        hosted_page=bool(server_data.get("hosted_page", False)),
-        deployed_with=server_data.get("deployed_with", ""),
-        warp=bool(server_data.get("warp", False)),
-        geo_block=bool(server_data.get("geo_block", True)),
-        decoy=server_data.get("decoy", ""),
+    server = _load_known_dataclass(
+        server_data,
+        ServerConfig,
+        {"ip", "domain", "sni", "scanned_sni", "hosted_page", "deployed_with", "warp", "geo_block", "decoy"},
+        transforms={"hosted_page": bool, "warp": bool, "geo_block": bool},
+        defaults={"hosted_page": False, "deployed_with": "", "warp": False, "geo_block": True, "decoy": ""},
     )
 
     # Protocols
     protocols: dict[str, Any] = {}
     protos_data = data.get("protocols", {})
-    if "reality" in protos_data:
-        r = protos_data["reality"]
-        protocols["reality"] = RealityConfig(
-            uuid=r.get("uuid"),
-            private_key=r.get("private_key"),
-            public_key=r.get("public_key"),
-            short_id=r.get("short_id"),
-            encryption_key=r.get("encryption_key"),
-            encryption_private_key=r.get("encryption_private_key"),
-        )
-    if "wss" in protos_data:
-        w = protos_data["wss"]
-        protocols["wss"] = WSSConfig(
-            uuid=w.get("uuid"),
-            ws_path=w.get("ws_path"),
-        )
-    if "xhttp" in protos_data:
-        x = protos_data["xhttp"]
-        protocols["xhttp"] = XHTTPConfig(
-            uuid=x.get("uuid"),
-            xhttp_path=x.get("xhttp_path"),
-        )
+    for proto_name, proto_data in protos_data.items():
+        if proto_name == "reality":
+            protocols["reality"] = _load_known_dataclass(
+                proto_data,
+                RealityConfig,
+                {"uuid", "private_key", "public_key", "short_id", "encryption_key", "encryption_private_key"},
+            )
+        elif proto_name == "wss":
+            protocols["wss"] = _load_known_dataclass(proto_data, WSSConfig, {"uuid", "ws_path"})
+        elif proto_name == "xhttp":
+            protocols["xhttp"] = _load_known_dataclass(proto_data, XHTTPConfig, {"uuid", "xhttp_path"})
+        else:
+            protocols[proto_name] = proto_data
 
     # Clients
     clients: list[ClientEntry] = []
     for c in data.get("clients", []):
         clients.append(
-            ClientEntry(
-                name=c.get("name", ""),
-                added=c.get("added", ""),
-                reality_uuid=c.get("reality_uuid", ""),
-                wss_uuid=c.get("wss_uuid", ""),
+            _load_known_dataclass(
+                c,
+                ClientEntry,
+                {"name", "added", "reality_uuid", "wss_uuid"},
+                defaults={"name": "", "added": "", "reality_uuid": "", "wss_uuid": ""},
             )
         )
 
@@ -405,12 +402,11 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
     relays: list[RelayEntry] = []
     for r in data.get("relays", []):
         relays.append(
-            RelayEntry(
-                ip=r.get("ip", ""),
-                name=r.get("name", ""),
-                port=r.get("port", 443),
-                added=r.get("added", ""),
-                sni=r.get("sni", ""),
+            _load_known_dataclass(
+                r,
+                RelayEntry,
+                {"ip", "name", "port", "added", "sni"},
+                defaults={"ip": "", "name": "", "port": 443, "added": "", "sni": ""},
             )
         )
 
@@ -420,10 +416,11 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
 
     # Branding
     branding_data = data.get("branding", {})
-    branding = BrandingConfig(
-        server_name=branding_data.get("server_name", ""),
-        icon=branding_data.get("icon", ""),
-        color=branding_data.get("color", ""),
+    branding = _load_known_dataclass(
+        branding_data,
+        BrandingConfig,
+        {"server_name", "icon", "color"},
+        defaults={"server_name": "", "icon": "", "color": ""},
     )
 
     return ServerCredentials(
@@ -441,6 +438,45 @@ def _load_v2(data: dict[str, Any]) -> ServerCredentials:
 def _strip_none(d: dict[str, Any]) -> dict[str, Any]:
     """Remove keys with None values from a dict."""
     return {k: v for k, v in d.items() if v is not None}
+
+
+def _serialize_dataclass(obj: Any) -> dict[str, Any]:
+    """Serialize a dataclass and merge preserved unknown fields back in."""
+    data = _strip_none({k: v for k, v in asdict(obj).items() if k != "_extra"})
+    extra = getattr(obj, "_extra", {})
+    if isinstance(extra, dict):
+        for k, v in extra.items():
+            if k not in data:
+                data[k] = v
+    return data
+
+
+def _load_known_dataclass(
+    raw: Any,
+    cls: type[Any],
+    known_fields: set[str],
+    *,
+    defaults: dict[str, Any] | None = None,
+    transforms: dict[str, Any] | None = None,
+) -> Any:
+    """Load known fields into a dataclass while preserving unknown nested ones."""
+    if not isinstance(raw, dict):
+        raw = {}
+    defaults = defaults or {}
+    transforms = transforms or {}
+    values: dict[str, Any] = {}
+    for field_name in known_fields:
+        if field_name in raw:
+            value = raw[field_name]
+        elif field_name in defaults:
+            value = defaults[field_name]
+        else:
+            continue
+        if field_name in transforms:
+            value = transforms[field_name](value)
+        values[field_name] = value
+    extra = {k: v for k, v in raw.items() if k not in known_fields}
+    return cls(**values, _extra=extra)
 
 
 def merge_clients_file(creds: ServerCredentials, clients_path: Path) -> bool:
