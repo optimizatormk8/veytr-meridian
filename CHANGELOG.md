@@ -4,6 +4,13 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.15.0] - 2026-04-09
+
+### Added
+- **Per-relay SNI** — each relay gets its own geographically-appropriate SNI target with a dedicated Xray Reality inbound on the exit server. Passive observation sees plausible domestic traffic; active probes get the correct certificate. Use `--sni` to specify manually or let the scanner pick one automatically.
+- **`meridian test` relay support** — ping section checks relay TCP reachability, connection section tests Reality + XHTTP through each relay end-to-end.
+- **PWA SNI indicator** — connection cards now show "Appears as: domain" so users understand what their traffic looks like to censors.
+
 ## [3.14.4] - 2026-04-09
 
 ### Fixed
