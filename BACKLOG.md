@@ -45,15 +45,15 @@ Things that require human action outside the codebase.
 ### Product
 
 - [ ] **Client migration for rebuilds** — `meridian rebuild NEW_IP --from OLD_IP` or `meridian client migrate`
-- [ ] **Eliminate state split-brain between local cache and server** — local `proxy.yml` currently becomes authoritative once present, causing stale overwrites across multiple machines and non-root on-server divergence between `~/.meridian` and `/etc/meridian`. Define a single source of truth, refresh before mutation, and make sync failures blocking for write commands
+- [ ] **Eliminate state split-brain between local cache and server** — local `proxy.yml` currently becomes authoritative once present because `fetch_credentials()` stops at any cached file, causing stale overwrites across multiple machines and non-root on-server divergence between `~/.meridian` and `/etc/meridian`. Define a single source of truth, force refresh before all write commands including relay lifecycle commands, and make sync failures blocking before handoff files/pages are published
 - [ ] **Redeploy must update live state before publishing new handoff state** — fix paths where redeploy updates saved credentials/pages without updating the live server: Reality SNI changes, relay SNI routing failures, and other config drift cases. Never hand out URLs/pages the server is not actually serving
-- [ ] **Partial panel recovery must preserve existing clients and relays** — `ConfigurePanel` recovery currently nukes 3x-ui state and recreates only baseline inbounds. Recovery should reconstruct all known clients, relay inbounds, and hosted pages from credentials instead of silently deleting working access
+- [ ] **Partial panel recovery must preserve existing clients and relays** — `ConfigurePanel` recovery currently nukes 3x-ui state and recreates only baseline inbounds. Recovery should reconstruct all known clients, relay-specific inbounds, and hosted pages from credentials instead of silently deleting working access
 
 ### Security / Supply Chain
 
-- [ ] **Pin release artifacts to the CI-passed commit** — `release.yml` triggered by `workflow_run` must checkout `github.event.workflow_run.head_sha` for Pages, tags, and PyPI publishing so a newer untested `main` commit cannot be released
-- [ ] **Replace mutable install/update trust chain with pinned, verified artifacts** — stop relying on branch-tip `curl | bash`, raw GitHub fallback, and silent patch auto-upgrades. Tie install/update to release artifacts with checksum verification, and make upgrades explicit instead of auto-exec during normal CLI use
-- [ ] **Stop executing unsigned remote scanner binaries as root** — `meridian scan` should use a pinned release plus cryptographic verification, or vendor the scanner. Current ELF/size checks are not enough for a hardening tool
+- [x] **Pin release artifacts to the CI-passed commit** — `release.yml` now checks out `github.event.workflow_run.head_sha` in all release jobs (Pages, tag/release creation, PyPI publish)
+- [ ] **Replace mutable install/update trust chain with pinned, verified artifacts** — stop relying on branch-tip `curl | bash` and raw GitHub fallback. Silent patch auto-upgrades were removed from normal CLI use; remaining work is to tie install/update to release artifacts with checksum verification and keep upgrades explicit
+- [ ] **Stop executing unsigned remote scanner binaries as root** — `meridian scan` should use a pinned release plus cryptographic verification, or vendor the scanner. `releases/latest` plus ELF/size checks are not enough for a hardening tool
 
 ---
 
@@ -61,7 +61,7 @@ Things that require human action outside the codebase.
 
 ### Security
 
-- [ ] **SSH password auth not hardened during provisioning** — cloud-init drops `PasswordAuthentication yes` in `/etc/ssh/sshd_config.d/`, overriding main config. Provisioner should disable password auth and restart sshd after confirming key access works
+- [x] **SSH password auth not hardened during provisioning** — provisioning now writes an authoritative Meridian drop-in under `/etc/ssh/sshd_config.d/99-meridian.conf` and validates the effective config with `sshd -T`
 - [ ] **Firewall cleanup deletes user's custom rules** — `ConfigureFirewall` removes ALL TCP ports not in `{22, 443, 80}`, silently deleting alternate SSH ports, monitoring, or relay listen ports. Should only delete Meridian-managed ports or warn before removing unexpected rules (`common.py:441-458`)
 - [ ] **Remove public 3x-ui management from the shared 443 identity** — hiding the panel behind a random path is weaker than removing it from the public nginx identity entirely. Move management off the main camouflage surface or require an explicit operator-only access path
 
@@ -83,25 +83,26 @@ Things that require human action outside the codebase.
 - [ ] **`client disable`/`client enable`** — panel API supports it, just needs CLI exposure
 - [ ] **Proactive IP block detection** — server self-checks via ping endpoint, notifies via webhook/Telegram
 - [ ] **Rebuild state transfer** — `meridian deploy NEW_IP --from OLD_IP` copies SNI, domain, clients
-- [ ] **Make destructive mutations transactional** — `client remove`, `relay remove`, and teardown should not delete local state or print success after partial remote failures. Either complete remote cleanup or stop and leave state unchanged with a recovery path
-- [ ] **Require explicit server identity for risky commands** — enforce unique server aliases, separate deployer aliasing from recipient-facing branding, and add clearer target confirmation for destructive/stateful commands. Current implicit auto-select/local-mode behavior is too easy to mis-target
+- [ ] **Make destructive mutations transactional** — `client remove`, `relay deploy`, `relay remove`, and teardown should not delete local state, registry entries, hosted pages, or print success after partial remote failures. Either complete remote cleanup or stop and leave state unchanged with a recovery path
+- [ ] **Require explicit server identity for risky commands** — enforce unique server aliases, separate deployer aliasing from recipient-facing branding, and add clearer target confirmation for destructive/stateful commands. Implicit local-mode detection and single-server auto-select are acceptable for read-only commands at most; mutating commands are too easy to mis-target today
+- [ ] **Make server aliases unique and trustworthy** — reject duplicate names, show host+user in confirmations/output, and require confirmation before `server remove` deletes cached credentials
 - [ ] **Regenerate all hosted client pages when shared server state changes** — branding, domain, SNI, relay topology, and other handoff-affecting redeploy changes must update every existing hosted page/subscription, not just the first/default client
 - [ ] **Unify deployer-facing and recipient-facing naming** — `--display-name` and `--server` currently model different identities but docs and UX blur them together. Either unify them or expose the distinction clearly in commands and docs
-- [ ] **Hosted connection page must stay self-hosted in recovery flows** — remove `getmeridian.org/ping` dependence and external App Store fallback from the critical handoff path so troubleshooting/import does not leak server metadata to a third-party domain
+- [ ] **Hosted connection page must stay self-hosted in recovery flows** — remove `getmeridian.org/ping` dependence from the PWA, legacy hosted HTML, and CLI guidance; remove App Store fallback redirects and other third-party install/troubleshooting dependencies from the critical handoff path so import/recovery does not leak server metadata externally
 
 ### Reliability
 
 - [ ] **WARP must be health-gated and reversible** — only insert WARP as the default outbound once it is actually connected, support full rollback on `--no-warp`, and avoid leaving users in a false-success state where clients connect but outbound traffic is dead
 - [ ] **Domain mode must support safe steady-state redeploys behind orange-cloud** — current redeploy logic expects the DNS record to point directly at the server IP, conflicting with the docs' normal post-deploy Cloudflare setup
-- [ ] **Persist relay SSH user across lifecycle commands** — `relay check` and `relay remove` should reuse the stored relay user by default so non-root relay deploys remain manageable
-- [ ] **Preserve forward-compatible nested credential fields** — `_extra` currently only protects unknown top-level YAML keys. Unknown nested fields under server/panel/protocols/clients/relays/branding should round-trip cleanly across CLI versions
+- [x] **Persist relay SSH user across lifecycle commands** — `relay check` and `relay remove` now reuse the stored relay registry user by default, with tests
+- [x] **Preserve forward-compatible nested credential fields** — nested unknown fields under server/panel/protocols/clients/relays/branding now round-trip via per-dataclass `_extra` preservation, with tests. Remaining follow-up: auxiliary ingestion paths like `merge_clients_file()` should preserve future per-client fields too
 
 ### Testing
 
-- [ ] **Make E2E fail on idempotency and redeploy regressions** — the current shell E2E run explicitly tolerates failures in the repo's core promise: safe re-run and clean redeploy. These paths should be hard failures in CI
+- [ ] **Make E2E fail on idempotency and redeploy regressions** — the current shell E2E run explicitly tolerates failures in the repo's core promise: safe re-run and clean redeploy, converting them into warnings in `tests/e2e/run-e2e.sh`. These paths should be hard failures in CI
 - [ ] **Add real-host coverage for production-sensitive branches** — current E2E bypasses cert issuance, systemd management, nginx bootstrap, and other documented sharp edges. Add coverage that exercises the real operational branches instead of the stubs
 - [ ] **Add end-to-end coverage for domain mode, WARP, and relay migration** — these features are currently validated mostly via mocks/render tests, which is not enough for deployment-changing behavior
-- [ ] **Add dedicated tests for recovery and migration paths** — especially `ConfigurePanel` partial recovery, relay nginx migration for pre-existing servers, and stale-state conflict resolution
+- [ ] **Add dedicated tests for recovery and migration paths** — especially `ConfigurePanel` partial recovery, relay nginx migration for pre-existing servers, stale-state conflict resolution, repeated protocol round-trips (`reality`/`wss`/`xhttp`), merged client-file paths, and write-command behavior under failed refresh/sync
 
 ---
 
@@ -140,14 +141,14 @@ Things that require human action outside the codebase.
 - [ ] **`index.html` not in SW precache** — first offline visit fails
 - [ ] **`apple-touch-icon` uses SVG** — iOS needs PNG
 - [ ] **Wizard `_confirm_scan()` fails silently on WSL**
-- [ ] **Use canonical `subscription_url` in the PWA** — frontend currently reconstructs `sub.txt` from `location.pathname` instead of honoring the server-provided canonical URL, which is brittle under alternate routing or proxy setups
+- [x] **Use canonical `subscription_url` in the PWA** — `app.js` now prefers `config.subscription_url`, with fallback only when the field is absent. Remaining follow-up: treat missing `subscription_url` as a rendering/config bug instead of silently masking routing drift
 
 ### Website
 
 - [ ] **Live GitHub stars in trust bar** — shields.io badge or API fetch
 - [ ] **Dark mode toggle** — system-preference only, no manual override
 - [ ] **Docs sidebar on mobile** — no nav below 860px
-- [ ] **Validate executable docs examples, not just flag tables** — CI currently misses broken README/deploy-guide commands and translated-doc drift. Add validation for high-traffic command examples and behavior claims across docs surfaces
+- [ ] **Validate executable docs examples, not just flag tables** — CI currently misses broken README/deploy/recovery/domain-mode commands and behavior drift. Add validation for high-traffic command examples and claims across docs surfaces
 
 ---
 
@@ -169,6 +170,7 @@ Things that require human action outside the codebase.
 Collapsed — see [CHANGELOG.md](CHANGELOG.md) for details.
 
 - **3.14** — `client show`, WARP flag, stats script fix, `--sni` plumbing, docker pull on re-deploy
+- **Review loop (worktree)** — release workflow pinned to CI-passed SHA, nested credential field round-tripping preserved, PWA honors canonical `subscription_url`, client + relay remove paths fail closed on refresh/sync, silent patch auto-upgrade removed, sshd hardening moved to an authoritative drop-in with `sshd -T` validation, relay lifecycle commands reuse stored relay SSH users
 - **3.8.1** — Deploy version tracking, SECURITY.md, CODE_OF_CONDUCT, PWA sub-url toggle + clock warning, trust bar cleanup
 - **3.8.0** — PWA security/a11y/i18n (40 tests), landing page, install.sh, architecture SVG, reduced-motion
 - **3.7** — Local mode, security hardening (19 items), Caddy/HAProxy fixes, website, provisioner hardening
