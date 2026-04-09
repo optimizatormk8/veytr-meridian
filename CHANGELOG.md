@@ -4,6 +4,14 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.15.1] - 2026-04-09
+
+### Added
+- **IPv6 support** — deploy to IPv6-only or dual-stack servers with `meridian deploy 2001:db8::1`. IPv6 addresses are accepted everywhere: deploy, relay, probe, ping, server commands. Connection URLs bracket IPv6 per RFC 3986. Credential directories use sanitized paths. SCP, TCP connectivity, and public IP detection all handle IPv6 natively.
+
+### Fixed
+- **mypy type errors** — `ProvisionContext.credentials` nullable access now guarded in `CreateInbound` and `DeployConnectionPage` steps.
+
 ## [3.15.0] - 2026-04-09
 
 ### Added
