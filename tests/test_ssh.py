@@ -8,9 +8,8 @@ from typing import Any
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-import typer
 
-from meridian.ssh import ServerConnection, _verify_host_key, tcp_connect
+from meridian.ssh import SSHError, ServerConnection, _verify_host_key, tcp_connect
 
 
 class TestServerConnectionInit:
@@ -146,28 +145,28 @@ class TestCheckSSH:
             mock_run.return_value = subprocess.CompletedProcess(
                 args=[], returncode=255, stdout="", stderr="Permission denied"
             )
-            with pytest.raises(typer.Exit):
+            with pytest.raises(SSHError):
                 conn.check_ssh()
 
     @patch("meridian.ssh._host_key_known", return_value=True)
     def test_ssh_timeout_exits(self, _mock_hk: Any) -> None:
         conn = ServerConnection(ip="1.2.3.4")
         with patch.object(conn, "run", side_effect=subprocess.TimeoutExpired(cmd="ssh", timeout=10)):
-            with pytest.raises(typer.Exit):
+            with pytest.raises(SSHError):
                 conn.check_ssh()
 
     @patch("meridian.ssh._host_key_known", return_value=True)
     def test_ssh_not_found_exits(self, _mock_hk: Any) -> None:
         conn = ServerConnection(ip="1.2.3.4")
         with patch.object(conn, "run", side_effect=FileNotFoundError):
-            with pytest.raises(typer.Exit):
+            with pytest.raises(SSHError):
                 conn.check_ssh()
 
     @patch("meridian.ssh._verify_host_key", return_value=False)
     @patch("meridian.ssh._host_key_known", return_value=False)
     def test_unknown_host_key_rejected_exits(self, _mock_hk: Any, _mock_vhk: Any) -> None:
         conn = ServerConnection(ip="1.2.3.4")
-        with pytest.raises(typer.Exit):
+        with pytest.raises(SSHError):
             conn.check_ssh()
 
     @patch("meridian.ssh._verify_host_key", return_value=True)
@@ -307,9 +306,8 @@ class TestVerifyHostKey:
             patch("meridian.ssh.subprocess.run", side_effect=mock_run),
             patch("builtins.open", side_effect=patched_open),
         ):
-            with pytest.raises(typer.Exit) as exc_info:
+            with pytest.raises(SSHError, match="no terminal available"):
                 _verify_host_key("1.2.3.4")
-            assert exc_info.value.exit_code == 1
 
     def test_user_rejects_key_returns_false(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """User answering 'n' should return False without writing anything."""

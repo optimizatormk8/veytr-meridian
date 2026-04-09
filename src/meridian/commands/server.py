@@ -7,7 +7,7 @@ import shutil
 from meridian.config import CREDS_BASE, SERVERS_FILE
 from meridian.console import err_console, fail, info, line, ok, warn
 from meridian.servers import ServerEntry, ServerRegistry
-from meridian.ssh import ServerConnection
+from meridian.ssh import SSHError, ServerConnection
 
 
 def run_add(ip: str, name: str = "", user: str = "root") -> None:
@@ -19,7 +19,10 @@ def run_add(ip: str, name: str = "", user: str = "root") -> None:
     conn = ServerConnection(ip=ip, user=user, local_mode=False)
 
     info(f"Connecting to {ip}...")
-    conn.check_ssh()
+    try:
+        conn.check_ssh()
+    except SSHError as exc:
+        fail(str(exc), hint=exc.hint, hint_type=exc.hint_type)
 
     # Fetch credentials from server
     creds_dir = CREDS_BASE / ip

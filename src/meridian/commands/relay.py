@@ -22,7 +22,7 @@ from meridian.config import CREDS_BASE, RELAY_SERVICE_NAME, SERVER_CREDS_DIR, SE
 from meridian.console import confirm, err_console, fail, info, line, ok, warn
 from meridian.credentials import RelayEntry, ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
-from meridian.ssh import SSH_OPTS, ServerConnection
+from meridian.ssh import SSH_OPTS, SSHError, ServerConnection
 
 # ---------------------------------------------------------------------------
 # Relay inbound helpers
@@ -498,7 +498,10 @@ def run_deploy(
     # Connect to relay server
     info(f"Connecting to relay server: {relay_ip}")
     relay_conn = ServerConnection(ip=relay_ip, user=user)
-    relay_conn.check_ssh()
+    try:
+        relay_conn.check_ssh()
+    except SSHError as exc:
+        fail(str(exc), hint=exc.hint, hint_type=exc.hint_type)
     ok("SSH connection to relay established")
 
     # Check if relay port is already in use

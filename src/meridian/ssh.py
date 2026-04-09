@@ -7,7 +7,21 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from meridian.console import err_console, fail, info, ok, warn
+from meridian.console import err_console, info, ok, warn
+
+
+class SSHError(Exception):
+    """Raised when an SSH operation fails.
+
+    Attributes:
+        hint: Optional recovery suggestion for the user.
+        hint_type: Error category — "user", "system", or "bug".
+    """
+
+    def __init__(self, msg: str, *, hint: str = "", hint_type: str = "system") -> None:
+        super().__init__(msg)
+        self.hint = hint
+        self.hint_type = hint_type
 
 SSH_OPTS: list[str] = [
     "-o",
@@ -110,7 +124,7 @@ def _verify_host_key(ip: str) -> bool:
             answer = tty.readline().strip().lower()
     except OSError:
         # No TTY — refuse to accept host key silently (MitM risk)
-        fail(
+        raise SSHError(
             f"Cannot verify host key for {ip} (no terminal available)",
             hint="Run interactively, or pre-add the key: ssh-keyscan IP >> ~/.ssh/known_hosts",
             hint_type="user",
@@ -218,7 +232,7 @@ class ServerConnection:
         # Verify host key on first connection
         if not _host_key_known(self.ip):
             if not _verify_host_key(self.ip):
-                fail(
+                raise SSHError(
                     f"Host key for {self.ip} not accepted",
                     hint="Verify the fingerprint matches your VPS provider's console.",
                     hint_type="user",
@@ -234,10 +248,10 @@ class ServerConnection:
                     err_console.print("  [warn]This could indicate a network attack (MitM).[/warn]")
                     err_console.print("  [dim]If you recently rebuilt this server, remove the old key:[/dim]")
                     err_console.print(f"  [dim]  ssh-keygen -R {self.ip}[/dim]")
-                    fail(f"Host key verification failed for {self.ip}", hint_type="system")
+                    raise SSHError(f"Host key verification failed for {self.ip}", hint_type="system")
                 # sudo not found — non-root user on a system without sudo
                 if self.user != "root" and ("sudo" in stderr and ("not found" in stderr or "No such file" in stderr)):
-                    fail(
+                    raise SSHError(
                         f"sudo is not installed on {self.ip}",
                         hint=f"Install it as root: ssh root@{self.ip} 'apt-get install -y sudo'",
                         hint_type="system",
@@ -246,12 +260,14 @@ class ServerConnection:
                 err_console.print(f"  [dim]1. Copy your SSH key:  ssh-copy-id {self.user}@{self.ip}[/dim]")
                 err_console.print(f"  [dim]2. Test manually:      ssh {self.user}@{self.ip}[/dim]")
                 err_console.print("  [dim]3. Different user:     meridian deploy IP --user ubuntu[/dim]")
-                fail(f"SSH connection failed to {self.user}@{self.ip}", hint_type="system")
+                raise SSHError(f"SSH connection failed to {self.user}@{self.ip}", hint_type="system")
             ok("SSH connection successful")
+        except SSHError:
+            raise
         except subprocess.TimeoutExpired:
-            fail(f"SSH connection timed out (10s) to {self.user}@{self.ip}", hint_type="system")
+            raise SSHError(f"SSH connection timed out (10s) to {self.user}@{self.ip}", hint_type="system")
         except FileNotFoundError:
-            fail("ssh command not found. Please install OpenSSH client.", hint_type="system")
+            raise SSHError("ssh command not found. Please install OpenSSH client.", hint_type="system")
 
     def detect_local_mode(self) -> bool:
         """Check if we're running on the target server itself.
