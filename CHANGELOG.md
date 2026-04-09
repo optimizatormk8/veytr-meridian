@@ -4,6 +4,12 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.14.3] - 2026-04-09
+
+### Fixed
+- **Relay not found in local mode** — `relay list`, `relay check`, and `relay remove` now find relays when running on the exit server itself (`deploy local`). Previously they only checked `~/.meridian/credentials/` and missed `/etc/meridian/` where local-mode credentials are stored. (#9)
+- **False client page warnings during relay deploy** — `upload_client_files()` returns empty string on success, but the check was inverted (`if not result`), causing every successful upload to show "Could not update connection page". (#9)
+
 ## [3.14.2] - 2026-04-09
 
 ### Fixed
