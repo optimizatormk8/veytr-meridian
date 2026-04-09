@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import base64
 import io
+import ipaddress
 import logging
+import socket
 import unicodedata
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +134,29 @@ def _is_emoji_codepoint(cp: int) -> bool:
     )
 
 
+def _is_private_ip(hostname: str) -> bool:
+    """Check if hostname resolves to a private/loopback IP."""
+    try:
+        addr = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        for family, _, _, _, sockaddr in addr:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return True
+    except (socket.gaierror, ValueError):
+        return False
+    return False
+
+
 def _process_image_url(url: str) -> str:
     """Download an image URL, resize, and convert to data URI.
 
     Never raises — returns empty string on failure with a logged warning.
     """
+    parsed = urlparse(url)
+    if parsed.hostname and _is_private_ip(parsed.hostname):
+        logger.warning("Icon URL points to private/internal address, skipping")
+        return ""
+
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Meridian/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
