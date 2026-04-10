@@ -144,7 +144,10 @@ class TestRunWithExplicitIP:
 
         # Server has no /etc/meridian/proxy.yml (rc=1 from test -s)
         resolved.conn.run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="",
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="",
         )
 
         with (
@@ -176,7 +179,10 @@ class TestRunWithExplicitIP:
 
         # Server HAS /etc/meridian/proxy.yml (rc=0 from test -s)
         resolved.conn.run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr="",
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
         )
 
         with (
@@ -429,17 +435,34 @@ class TestBuildRedeployCommand:
     def test_minimal_defaults(self) -> None:
         resolved = SimpleNamespace(ip="1.2.3.4", user="root")
         cmd = _build_redeploy_command(
-            resolved, sni="", domain="", client_name="default", harden=True,
-            server_name="", icon="", color="", pq=False, warp=False, geo_block=True,
+            resolved,
+            sni="",
+            domain="",
+            client_name="default",
+            harden=True,
+            server_name="",
+            icon="",
+            color="",
+            pq=False,
+            warp=False,
+            geo_block=True,
         )
         assert cmd == "meridian deploy 1.2.3.4 --yes"
 
     def test_full_options(self) -> None:
         resolved = SimpleNamespace(ip="198.51.100.1", user="armenqa")
         cmd = _build_redeploy_command(
-            resolved, sni="cdn.example.net", domain="vpn.example.com",
-            client_name="ARMIK", harden=False, server_name="My VPN", icon="🛡️",
-            color="sunset", pq=True, warp=True, geo_block=False,
+            resolved,
+            sni="cdn.example.net",
+            domain="vpn.example.com",
+            client_name="ARMIK",
+            harden=False,
+            server_name="My VPN",
+            icon="🛡️",
+            color="sunset",
+            pq=True,
+            warp=True,
+            geo_block=False,
         )
         assert "198.51.100.1" in cmd
         assert "--user armenqa" in cmd
@@ -459,8 +482,17 @@ class TestBuildRedeployCommand:
 
         resolved = SimpleNamespace(ip="1.2.3.4", user="root")
         cmd = _build_redeploy_command(
-            resolved, sni=DEFAULT_SNI, domain="", client_name="", harden=True,
-            server_name="", icon="", color="ocean", pq=False, warp=False, geo_block=True,
+            resolved,
+            sni=DEFAULT_SNI,
+            domain="",
+            client_name="",
+            harden=True,
+            server_name="",
+            icon="",
+            color="ocean",
+            pq=False,
+            warp=False,
+            geo_block=True,
         )
         assert "--sni" not in cmd
         assert "--color" not in cmd

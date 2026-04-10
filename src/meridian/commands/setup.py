@@ -87,9 +87,7 @@ def _refresh_credentials_before_deploy(resolved: ResolvedServer) -> None:
             hint=(
                 "This server was deployed from another machine. Fetch credentials first:\n"
                 "  scp {user}@{ip}:/etc/meridian/proxy.yml {creds_dir}/proxy.yml\n"
-                "Then re-run deploy.".format(
-                    user=resolved.user, ip=resolved.ip, creds_dir=resolved.creds_dir
-                )
+                "Then re-run deploy.".format(user=resolved.user, ip=resolved.ip, creds_dir=resolved.creds_dir)
             ),
             hint_type="system",
         )
