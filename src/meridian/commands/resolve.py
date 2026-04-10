@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ip, sanitize_ip_for_path
+from meridian.config import SERVER_CREDS_DIR, creds_dir_for, is_ip
 from meridian.console import err_console, fail, info, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerRegistry
@@ -198,13 +197,7 @@ def resolve_server(
         )
 
     # Determine creds_dir
-    if local_mode:
-        if os.geteuid() == 0:
-            creds_dir = SERVER_CREDS_DIR
-        else:
-            creds_dir = CREDS_BASE / sanitize_ip_for_path(ip)
-    else:
-        creds_dir = CREDS_BASE / sanitize_ip_for_path(ip)
+    creds_dir = creds_dir_for(ip, local_mode=local_mode)
 
     conn = ServerConnection(ip=ip, user=resolved_user, local_mode=local_mode)
 
@@ -241,17 +234,11 @@ def ensure_server_connection(resolved: ResolvedServer) -> ResolvedServer:
     """
     if not resolved.local_mode:
         if resolved.conn.detect_local_mode():
-            if not resolved.conn.needs_sudo:
-                # Root on server — read /etc/meridian/ directly
-                new_creds_dir = SERVER_CREDS_DIR
-            else:
-                # Non-root on server — use user-local creds dir
-                new_creds_dir = CREDS_BASE / sanitize_ip_for_path(resolved.ip)
             resolved = ResolvedServer(
                 ip=resolved.ip,
                 user=resolved.user,
                 local_mode=True,
-                creds_dir=new_creds_dir,
+                creds_dir=creds_dir_for(resolved.ip, local_mode=True),
                 conn=resolved.conn,
             )
     try:

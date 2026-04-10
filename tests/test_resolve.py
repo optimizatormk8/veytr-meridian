@@ -15,7 +15,7 @@ from meridian.commands.resolve import (
     is_local_keyword,
     resolve_server,
 )
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR
+from meridian.config import SERVER_CREDS_DIR
 from meridian.servers import ServerEntry, ServerRegistry
 
 
@@ -49,7 +49,7 @@ class TestExplicitIP:
     def test_explicit_ip_creds_dir(self, tmp_home: Path, servers_file: Path) -> None:
         reg = ServerRegistry(servers_file)
         result = resolve_server(reg, explicit_ip="5.6.7.8")
-        assert result.creds_dir == CREDS_BASE / "5.6.7.8"
+        assert result.creds_dir == tmp_home / "credentials" / "5.6.7.8"
 
 
 class TestServerFlag:
@@ -143,7 +143,7 @@ class TestLocalMode:
             "meridian.commands.resolve._detect_local_mode_from_creds",
             lambda: "10.0.0.1",
         )
-        monkeypatch.setattr("meridian.commands.resolve.os.geteuid", lambda: 0)
+        monkeypatch.setattr("meridian.config.os.geteuid", lambda: 0)
         reg = ServerRegistry(servers_file)
         result = resolve_server(reg)
         assert result.ip == "10.0.0.1"
@@ -155,7 +155,7 @@ class TestLocalMode:
             "meridian.commands.resolve._detect_local_mode_from_creds",
             lambda: "10.0.0.1",
         )
-        monkeypatch.setattr("meridian.commands.resolve.os.geteuid", lambda: 1000)
+        monkeypatch.setattr("meridian.config.os.geteuid", lambda: 1000)
         reg = ServerRegistry(servers_file)
         result = resolve_server(reg)
         assert result.ip == "10.0.0.1"
@@ -180,7 +180,7 @@ class TestLocalKeyword:
             "meridian.commands.resolve.detect_public_ip",
             lambda: "203.0.113.10",
         )
-        monkeypatch.setattr("meridian.commands.resolve.os.geteuid", lambda: 0)
+        monkeypatch.setattr("meridian.config.os.geteuid", lambda: 0)
         reg = ServerRegistry(servers_file)
         result = resolve_server(reg, explicit_ip="local")
         assert result.ip == "203.0.113.10"

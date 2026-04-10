@@ -15,13 +15,11 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import (
-    CREDS_BASE,
     DEFAULT_PANEL_PORT,
     DEFAULT_SNI,
-    SERVER_CREDS_DIR,
     SERVERS_FILE,
+    creds_dir_for,
     is_ip,
-    sanitize_ip_for_path,
 )
 from meridian.console import choose, confirm, err_console, fail, info, line, ok, prompt, warn
 from meridian.credentials import ServerCredentials
@@ -283,10 +281,7 @@ def _interactive_wizard(
 
         # Check for previously scanned SNI
         saved_scanned_sni = ""
-        if is_local:
-            creds_dir = SERVER_CREDS_DIR
-        else:
-            creds_dir = CREDS_BASE / sanitize_ip_for_path(server_ip)
+        creds_dir = creds_dir_for(server_ip, local_mode=is_local)
         if (creds_dir / "proxy.yml").exists():
             saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
             saved_scanned_sni = saved_creds.server.scanned_sni or ""
@@ -367,10 +362,7 @@ def _interactive_wizard(
     # Suggest domain from saved credentials
     suggested_domain = domain
     if not suggested_domain:
-        if is_local:
-            domain_creds_dir = SERVER_CREDS_DIR
-        else:
-            domain_creds_dir = CREDS_BASE / sanitize_ip_for_path(server_ip)
+        domain_creds_dir = creds_dir_for(server_ip, local_mode=is_local)
         if (domain_creds_dir / "proxy.yml").exists():
             saved_creds = ServerCredentials.load(domain_creds_dir / "proxy.yml")
             suggested_domain = saved_creds.server.domain or ""
