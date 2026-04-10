@@ -75,3 +75,14 @@ def sanitize_ip_for_path(ip: str) -> str:
     if ":" in ip:
         return ip.replace(":", "-")
     return ip
+
+
+def creds_dir_for(ip: str, *, local_mode: bool) -> Path:
+    """Determine the local credential directory for a server.
+
+    Root in local mode reads/writes /etc/meridian directly.
+    Everything else uses ~/.meridian/credentials/<ip>.
+    """
+    if local_mode and os.geteuid() == 0:
+        return SERVER_CREDS_DIR
+    return CREDS_BASE / sanitize_ip_for_path(ip)

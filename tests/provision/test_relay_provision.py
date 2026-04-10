@@ -171,6 +171,20 @@ class TestConfigureRelayFirewall:
 
         assert result.status == "ok"
 
+    def test_allows_detected_custom_ssh_port(self):
+        conn = MockConnection()
+        conn.when("which ufw", rc=0)
+        conn.when("sshd -T", stdout="2222\n")
+        conn.when("ufw status", stdout="Status: active")
+        conn.when("ufw allow", stdout="Skipping adding existing rule")
+        conn.when("ufw default", rc=0)
+        conn.when("ufw reload", rc=0)
+
+        ConfigureRelayFirewall().run(conn, _make_ctx())
+
+        conn.assert_called_with_pattern("ufw allow 2222/tcp")
+        conn.assert_not_called_with_pattern("ufw allow 22/tcp")
+
 
 # ---------------------------------------------------------------------------
 # InstallRealm

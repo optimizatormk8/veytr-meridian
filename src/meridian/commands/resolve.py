@@ -7,10 +7,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from meridian.config import CREDS_BASE, SERVER_CREDS_DIR, is_ip, sanitize_ip_for_path
+from meridian.config import SERVER_CREDS_DIR, creds_dir_for, is_ip
 from meridian.console import err_console, fail, info, warn
 from meridian.credentials import ServerCredentials
-from meridian.servers import ServerRegistry
+from meridian.servers import SERVER_ROLE_RELAY, ServerEntry, ServerRegistry
 from meridian.ssh import ServerConnection, SSHError
 
 LOCAL_KEYWORDS = ("local", "locally")
@@ -93,6 +93,77 @@ def _detect_local_mode_from_creds() -> str | None:
         return None
 
 
+def _find_proxy_file(host: str) -> Path | None:
+    """Find locally cached credentials for a host, if present."""
+    from meridian import config as cfg
+
+    remote = cfg.CREDS_BASE / cfg.sanitize_ip_for_path(host) / "proxy.yml"
+    if remote.is_file():
+        return remote
+
+    local = cfg.SERVER_CREDS_DIR / "proxy.yml"
+    try:
+        if local.is_file():
+            creds = ServerCredentials.load(local)
+            if creds.server.ip == host:
+                return local
+    except (PermissionError, OSError):
+        return None
+
+    return None
+
+
+def _find_relay_file(host: str) -> Path | None:
+    """Find locally cached relay metadata for a host, if present."""
+    from meridian import config as cfg
+
+    relay = cfg.CREDS_BASE / cfg.sanitize_ip_for_path(host) / "relay.yml"
+    if relay.is_file():
+        return relay
+    return None
+
+
+def _cached_relay_hosts(entries: list[ServerEntry]) -> set[str]:
+    """Infer legacy relay entries from locally cached exit credentials."""
+    relay_hosts: set[str] = set()
+    for entry in entries:
+        proxy_file = _find_proxy_file(entry.host)
+        if proxy_file is None:
+            continue
+        try:
+            creds = ServerCredentials.load(proxy_file)
+        except (PermissionError, OSError):
+            continue
+        relay_hosts.update(relay.ip for relay in creds.relays if relay.ip)
+    return relay_hosts
+
+
+def _is_relay_entry(entry: ServerEntry, cached_relay_hosts: set[str]) -> bool:
+    """Determine whether a registry entry is a relay rather than an exit."""
+    if entry.role == SERVER_ROLE_RELAY:
+        return True
+    if _find_relay_file(entry.host) is not None:
+        return True
+    return entry.host in cached_relay_hosts
+
+
+def _auto_selectable_entries(registry: ServerRegistry) -> list[ServerEntry]:
+    """Return the best registry subset for implicit server selection.
+
+    Relay nodes share the registry with exit servers. New relay entries are
+    tagged explicitly; older ones are inferred from local relay metadata or
+    from cached exit credentials that mention them.
+    """
+    entries = registry.list()
+    cached_relay_hosts = _cached_relay_hosts(entries)
+    exit_entries = [entry for entry in entries if not _is_relay_entry(entry, cached_relay_hosts)]
+    if exit_entries:
+        return exit_entries
+    if cached_relay_hosts or any(entry.role == SERVER_ROLE_RELAY or _find_relay_file(entry.host) for entry in entries):
+        return []
+    return entries
+
+
 def resolve_server(
     registry: ServerRegistry,
     requested_server: str = "",
@@ -167,24 +238,29 @@ def resolve_server(
             local_mode = True
 
         # 4. Single server auto-select
-        elif registry.count() == 1:
-            entries = registry.list()
-            entry = entries[0]
-            ip = entry.host
-            registry_user = entry.user
-            label = f"{entry.name} ({ip})" if entry.name else ip
-            info(f"Using server: {label}")
-
-        elif registry.count() > 1:
-            err_console.print("\n  Multiple servers. Use [bold]--server NAME[/bold]:\n")
-            for entry in registry.list():
-                label = entry.name or entry.host
-                err_console.print(f"    [info]{label:<15s}[/info]  {entry.host}  ({entry.user})")
-            err_console.print()
-            fail("Specify a server with --server", hint="Example: meridian <command> --server NAME", hint_type="user")
-
         else:
-            fail("No servers configured", hint="Deploy a server first: meridian deploy IP", hint_type="user")
+            selectable_entries = _auto_selectable_entries(registry)
+            if len(selectable_entries) == 1:
+                entry = selectable_entries[0]
+                ip = entry.host
+                registry_user = entry.user
+                label = f"{entry.name} ({ip})" if entry.name else ip
+                info(f"Using server: {label}")
+
+            elif len(selectable_entries) > 1:
+                err_console.print("\n  Multiple servers. Use [bold]--server NAME[/bold]:\n")
+                for entry in selectable_entries:
+                    label = entry.name or entry.host
+                    err_console.print(f"    [info]{label:<15s}[/info]  {entry.host}  ({entry.user})")
+                err_console.print()
+                fail(
+                    "Specify a server with --server",
+                    hint="Example: meridian <command> --server NAME",
+                    hint_type="user",
+                )
+
+            else:
+                fail("No servers configured", hint="Deploy a server first: meridian deploy IP", hint_type="user")
 
     # Resolve user: explicit flag > registry > default root
     resolved_user = user or registry_user or "root"
@@ -197,10 +273,7 @@ def resolve_server(
         )
 
     # Determine creds_dir
-    if local_mode:
-        creds_dir = SERVER_CREDS_DIR
-    else:
-        creds_dir = CREDS_BASE / sanitize_ip_for_path(ip)
+    creds_dir = creds_dir_for(ip, local_mode=local_mode)
 
     conn = ServerConnection(ip=ip, user=resolved_user, local_mode=local_mode)
 
@@ -237,17 +310,11 @@ def ensure_server_connection(resolved: ResolvedServer) -> ResolvedServer:
     """
     if not resolved.local_mode:
         if resolved.conn.detect_local_mode():
-            if not resolved.conn.needs_sudo:
-                # Root on server — read /etc/meridian/ directly
-                new_creds_dir = SERVER_CREDS_DIR
-            else:
-                # Non-root on server — use user-local creds dir
-                new_creds_dir = CREDS_BASE / sanitize_ip_for_path(resolved.ip)
             resolved = ResolvedServer(
                 ip=resolved.ip,
                 user=resolved.user,
                 local_mode=True,
-                creds_dir=new_creds_dir,
+                creds_dir=creds_dir_for(resolved.ip, local_mode=True),
                 conn=resolved.conn,
             )
     try:
@@ -257,15 +324,21 @@ def ensure_server_connection(resolved: ResolvedServer) -> ResolvedServer:
     return resolved
 
 
-def fetch_credentials(resolved: ResolvedServer) -> bool:
-    """Fetch credentials from server if not available locally."""
+def fetch_credentials(resolved: ResolvedServer, *, force: bool = False) -> bool:
+    """Fetch credentials from server.
+
+    When ``force`` is False, an existing local ``proxy.yml`` short-circuits.
+    Write commands should pass ``force=True`` so the server remains the source
+    of truth before local mutation.
+    """
     proxy_file = resolved.creds_dir / "proxy.yml"
-    try:
-        if proxy_file.is_file():
-            _check_version_mismatch(resolved.ip, proxy_file)
-            return True
-    except (PermissionError, OSError):
-        pass
+    if not force:
+        try:
+            if proxy_file.is_file():
+                _check_version_mismatch(resolved.ip, proxy_file)
+                return True
+        except (PermissionError, OSError):
+            pass
     try:
         resolved.creds_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     except PermissionError:

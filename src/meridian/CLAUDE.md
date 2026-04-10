@@ -16,6 +16,7 @@
 
 - **Credential lockout prevention** — save locally BEFORE changing remote password. If API fails, user has recovery data.
 - **Forward-compatible YAML** — `_extra` dict means newer server versions don't corrupt older CLI reads.
+- **Falsiness matters in `_extra`** — preserved forward-compat fields may legitimately be `false`, `0`, or `[]`. Only strip known empty-string placeholders; never drop unknown fields just because they are falsy.
 - **Single QR warning** — warns once per session if `qrencode` missing, then silently degrades. No spam.
 
 ## Pitfalls
@@ -23,6 +24,7 @@
 - **3x-ui API**: login is form-urlencoded (not JSON). `settings`/`streamSettings` must be JSON **strings** (Go quirk). Remove clients by UUID, not email.
 - **Shell injection**: ALL `conn.run()` interpolated values MUST use `shlex.quote()`.
 - **XHTTP dual mode**: no `xtls-rprx-vision` flow (must be empty string). Runs either with Reality (direct) or with `security: none` behind nginx TLS reverse proxy — two distinct stream settings paths.
+- **`xray vlessenc` output changed**: newer Xray prints both X25519 and ML-KEM-768 sections with quoted `"decryption"`/`"encryption"` lines. Meridian's `--pq` path must pick the ML-KEM-768 pair, not the first section.
 - **Local mode**: detection is file-based only — `/etc/meridian/proxy.yml` readable (root) or `/etc/meridian/` dir exists (non-root). Never use IP matching (`curl ifconfig.me`) — it false-positives when the user is connected via TUN mode (VPN) since their outbound IP matches the server.
 - **Camouflage target**: never recommend apple.com (ASN mismatch with VPS providers).
 - **WARP egress**: Cloudflare WARP client for server outbound routing. SOCKS5 on `127.0.0.1:40000`. CLI syntax varies between warp-cli versions (old: `set-mode proxy` vs new: `mode proxy`).

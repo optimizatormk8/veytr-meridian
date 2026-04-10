@@ -334,11 +334,12 @@ class TestSaveConnectionHtml:
         assert "<!DOCTYPE html>" in content or "<html" in content
         assert "</html>" in content
 
-    def test_html_includes_ping_url(self, tmp_path: Path) -> None:
-        """Generated HTML should include a ping URL for troubleshooting."""
+    def test_html_uses_self_contained_troubleshooting_text(self, tmp_path: Path) -> None:
+        """Generated HTML should not depend on an external ping service."""
         urls = [ProtocolURL(key="reality", label="Primary", url="vless://uuid@1.2.3.4:443")]
         dest = tmp_path / "alice.html"
         with patch("meridian.render.generate_qr_base64", return_value=""):
             save_connection_html(urls, dest, "1.2.3.4")
         content = dest.read_text()
-        assert "getmeridian.org/ping" in content
+        assert "getmeridian.org/ping" not in content
+        assert "Check automatic time sync" in content

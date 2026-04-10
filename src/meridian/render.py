@@ -632,7 +632,6 @@ def _generate_minimal_html(
     """Generate a minimal HTML page when the Jinja2 template is not available."""
     safe_name = html_mod.escape(client_name)
     safe_ip = html_mod.escape(server_ip)
-    safe_domain = html_mod.escape(domain)
     safe_now = html_mod.escape(now)
 
     cards = ""
@@ -648,10 +647,6 @@ def _generate_minimal_html(
         cards += '<div class="card"><h2 style="color:#e5a44e">Backup (direct)</h2></div>'
 
     cards += "".join(_html_card(purl.label, purl.url, qr_map.get(purl.key, "")) for purl in protocol_urls if purl.url)
-
-    ping_url = f"https://getmeridian.org/ping?ip={html_mod.escape(server_ip)}"
-    if domain:
-        ping_url += f"&domain={safe_domain}"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -685,7 +680,10 @@ border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:12px}}
 <div class="card">
 <h2>Not connecting?</h2>
 <p style="font-size:.82rem;color:#8b90a8">
-Test server reachability: <a href="{ping_url}" target="_blank" style="color:#e5a44e">Run ping test</a>
+Make sure your device clock is set automatically, then try another connection card above.
+</p>
+<p style="font-size:.82rem;color:#8b90a8">
+If nothing works, ask the server owner to run <code>meridian test {safe_ip}</code>.
 </p>
 </div>
 <div class="foot">

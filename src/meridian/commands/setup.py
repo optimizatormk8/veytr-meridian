@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import subprocess
 from pathlib import Path
 
 from meridian.commands.resolve import (
@@ -15,18 +16,97 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import (
-    CREDS_BASE,
     DEFAULT_PANEL_PORT,
     DEFAULT_SNI,
-    SERVER_CREDS_DIR,
     SERVERS_FILE,
+    creds_dir_for,
     is_ip,
-    sanitize_ip_for_path,
 )
 from meridian.console import choose, confirm, err_console, fail, info, line, ok, prompt, warn
 from meridian.credentials import ServerCredentials
 from meridian.servers import ServerEntry, ServerRegistry
-from meridian.ssh import ServerConnection
+from meridian.ssh import SSH_OPTS, ServerConnection, scp_host
+
+
+def _remote_meridian_state_exists(resolved: ResolvedServer) -> bool | None:
+    """Check whether the server already has Meridian credentials.
+
+    Returns True when `/etc/meridian/proxy.yml` exists and is non-empty, False
+    when it is absent, and None when the check itself is inconclusive.
+    """
+    check = resolved.conn.run("test -s /etc/meridian/proxy.yml", timeout=10)
+    if check.returncode == 0:
+        return True
+    if check.returncode == 1:
+        return False
+    return None
+
+
+def _refresh_credentials_before_deploy(resolved: ResolvedServer) -> None:
+    """Refresh credentials before deploy, but only fail closed on redeploy.
+
+    Fresh deploys legitimately have nothing to fetch yet. Redeploys must not
+    continue when the forced refresh fails, whether the existing state is
+    detected locally or directly on the server.
+    """
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    had_local_cache = proxy_file.exists()
+    if fetch_credentials(resolved, force=True):
+        return
+    if had_local_cache:
+        fail(
+            "Could not refresh credentials before deploy",
+            hint="Check SSH/SCP and retry. Meridian will not redeploy using a stale local cache.",
+            hint_type="system",
+        )
+    remote_state = _remote_meridian_state_exists(resolved)
+    if remote_state is False:
+        return
+    if remote_state is True:
+        fail(
+            "Could not refresh credentials before deploy",
+            hint=(
+                "This server already has Meridian state, but its credentials could not be fetched. "
+                "Check SSH/SCP and retry."
+            ),
+            hint_type="system",
+        )
+    fail(
+        "Could not determine whether Meridian is already deployed on the server",
+        hint="Check SSH/SCP and retry. Meridian will not redeploy when remote state is unknown.",
+        hint_type="system",
+    )
+
+
+def _sync_credentials_to_server(resolved: ResolvedServer) -> bool:
+    """Push local proxy.yml to the server's /etc/meridian/.
+
+    Server-side credentials are needed for cron scripts (update-stats.py) and
+    for fail-closed refresh in client mutation commands.
+    """
+    if getattr(resolved, "local_mode", False):
+        return True
+
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    if not proxy_file.exists():
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                "scp",
+                *SSH_OPTS,
+                str(proxy_file),
+                f"{resolved.user}@{scp_host(resolved.ip)}:/etc/meridian/proxy.yml",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            stdin=subprocess.DEVNULL,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
 
 
 def run(
@@ -116,7 +196,7 @@ def run(
 
     resolved = ensure_server_connection(resolved)
     _check_ports(resolved.conn, resolved.ip, yes)
-    fetch_credentials(resolved)
+    _refresh_credentials_before_deploy(resolved)
 
     # Migrate v1 credentials to v2
     proxy_file = resolved.creds_dir / "proxy.yml"
@@ -167,6 +247,12 @@ def run(
         creds.save(proxy_file)
 
     _run_provisioner(resolved, domain, sni, client_name, harden, pq=pq, warp=warp, geo_block=geo_block)
+    if not _sync_credentials_to_server(resolved):
+        warn("Could not sync credentials to server — client commands may need a redeploy")
+    try:
+        _regenerate_connection_pages_after_deploy(resolved)
+    except Exception as exc:
+        warn(f"Could not refresh connection pages after deploy: {exc}")
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
@@ -282,10 +368,7 @@ def _interactive_wizard(
 
         # Check for previously scanned SNI
         saved_scanned_sni = ""
-        if is_local:
-            creds_dir = SERVER_CREDS_DIR
-        else:
-            creds_dir = CREDS_BASE / sanitize_ip_for_path(server_ip)
+        creds_dir = creds_dir_for(server_ip, local_mode=is_local)
         if (creds_dir / "proxy.yml").exists():
             saved_creds = ServerCredentials.load(creds_dir / "proxy.yml")
             saved_scanned_sni = saved_creds.server.scanned_sni or ""
@@ -366,10 +449,7 @@ def _interactive_wizard(
     # Suggest domain from saved credentials
     suggested_domain = domain
     if not suggested_domain:
-        if is_local:
-            domain_creds_dir = SERVER_CREDS_DIR
-        else:
-            domain_creds_dir = CREDS_BASE / sanitize_ip_for_path(server_ip)
+        domain_creds_dir = creds_dir_for(server_ip, local_mode=is_local)
         if (domain_creds_dir / "proxy.yml").exists():
             saved_creds = ServerCredentials.load(domain_creds_dir / "proxy.yml")
             suggested_domain = saved_creds.server.domain or ""
@@ -545,9 +625,11 @@ def _interactive_wizard(
     if warp:
         warp_line = "\nWARP:       Outgoing traffic via Cloudflare"
 
-    geo_block_line = ""
-    if not geo_block:
-        geo_block_line = "\nGeo-block:  Disabled (Russian sites accessible)"
+    geo_block_line = (
+        "\nGeo-block:  Enabled (.ru / Russian IP traffic blocked)"
+        if geo_block
+        else "\nGeo-block:  Disabled (Russian sites accessible)"
+    )
 
     icon_display = icon if icon and not icon.startswith("data:") else ""
     branding_line = ""
@@ -724,17 +806,34 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
     err_console.print("  [ok]3.[/ok] Test that the proxy works:")
     server_ip = resolved.ip
     err_console.print(f"     [info]meridian test {server_ip}[/info]")
-    ping_url = f"https://getmeridian.org/ping?ip={server_ip}"
-    if domain:
-        ping_url += f"&domain={domain}"
-    err_console.print(f"     [dim]Or from browser: {ping_url}[/dim]\n")
+    err_console.print("     [dim]Run it after deploy/redeploy to verify the live server state.[/dim]\n")
 
-    err_console.print("  [ok]4.[/ok] Share access with friends:")
+    if proxy_file.exists():
+        if creds.server.geo_block:
+            err_console.print(
+                "  [dim]Geo-blocking is ON: .ru domains and Russian IPs are blocked through the proxy.[/dim]"
+            )
+            err_console.print("  [dim]Re-deploy with --no-geo-block if you need those sites through Meridian.[/dim]\n")
+        else:
+            err_console.print("  [dim]Geo-blocking is OFF: all destinations are reachable through the proxy.[/dim]\n")
+
+    next_step = 4
+    if domain:
+        err_console.print("  [ok]4.[/ok] Cloudflare setup:")
+        err_console.print(f"     [dim]A record {domain} -> {server_ip}[/dim]")
+        err_console.print("     [dim]Keep it DNS only (grey cloud) during deploy/redeploy[/dim]")
+        err_console.print("     [dim]After deploy succeeds: switch to Proxied (orange cloud)[/dim]")
+        err_console.print("     [dim]Set SSL/TLS to Full (Strict) and enable WebSockets[/dim]\n")
+        err_console.print("     [dim]Disable features that inject scripts or rewrite HTML on this hostname[/dim]")
+        err_console.print("     [dim](for example Website Analytics / RUM), or the connection page can break[/dim]\n")
+        next_step = 5
+
+    err_console.print(f"  [ok]{next_step}.[/ok] Share access with friends:")
     err_console.print("     [info]meridian client add alice[/info]")
     err_console.print("     [info]meridian client list[/info]\n")
 
     server_ip = resolved.ip
-    err_console.print("  [ok]5.[/ok] Add a relay for resilience (optional):")
+    err_console.print(f"  [ok]{next_step + 1}.[/ok] Add a relay for resilience (optional):")
     err_console.print(f"     [info]meridian relay deploy RELAY_IP --exit {server_ip}[/info]")
     err_console.print("     [dim]Routes through a domestic IP when the exit gets blocked[/dim]\n")
 
@@ -748,6 +847,21 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
         err_console.print(f"  [dim]  {creds.panel.username} / {creds.panel.password}[/dim]")
 
     err_console.print("\n  [dim]Feedback & issues: https://github.com/uburuntu/meridian/issues[/dim]\n")
+
+
+def _regenerate_connection_pages_after_deploy(resolved: ResolvedServer) -> None:
+    """Refresh local and hosted client handoff pages after deploy/redeploy."""
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    if not proxy_file.exists():
+        return
+
+    creds = ServerCredentials.load(proxy_file)
+    if not creds.clients:
+        return
+
+    from meridian.commands.relay import _regenerate_client_pages
+
+    _regenerate_client_pages(resolved, creds)
 
 
 def _check_ports(conn: ServerConnection, ip: str, yes: bool) -> None:

@@ -13,6 +13,7 @@ MIN_DISK_SPACE_MB = 2048
 # Packages required by the deployment stack
 REQUIRED_PACKAGES = [
     "curl",
+    "cron",
     "socat",
     "wget",
     "unzip",
@@ -39,6 +40,55 @@ _BBR_SETTINGS = {
     "net.core.default_qdisc": "fq",
     "net.ipv4.tcp_congestion_control": "bbr",
 }
+
+_SSH_HARDENING_DROPIN_PATH = "/etc/ssh/sshd_config.d/99-meridian.conf"
+_SSH_HARDENING_DROPIN = """\
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+DebianBanner no
+"""
+
+
+def _parse_ssh_ports(output: str) -> list[int]:
+    """Parse one or more SSH ports from command output."""
+    ports: list[int] = []
+    seen: set[int] = set()
+
+    for line in output.splitlines():
+        for token in line.replace(",", " ").split():
+            if not token.isdigit():
+                continue
+            port = int(token)
+            if not (1 <= port <= 65535) or port in seen:
+                continue
+            seen.add(port)
+            ports.append(port)
+            break
+
+    return ports
+
+
+def detect_ssh_ports(conn: ServerConnection) -> list[int]:
+    """Detect effective sshd listen ports, falling back to 22."""
+    commands = [
+        r"""sshd -T 2>/dev/null | awk '$1 == "port" {print $2}'""",
+        (
+            r"""grep -hEi '^[[:space:]]*Port[[:space:]]+[0-9]+' """
+            r"""/etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null """
+            r"""| awk '{print $2}'"""
+        ),
+    ]
+
+    for command in commands:
+        result = conn.run(command, timeout=15)
+        if result.returncode != 0:
+            continue
+        ports = _parse_ssh_ports(result.stdout)
+        if ports:
+            return ports
+
+    return [22]
 
 
 class CheckDiskSpace:
@@ -178,69 +228,27 @@ class SetTimezone:
 
 
 class HardenSSH:
-    """Disable SSH password authentication and restart sshd."""
+    """Install an authoritative sshd drop-in and restart sshd."""
 
     name = "Harden SSH configuration"
 
     def run(self, conn: ServerConnection, ctx: ProvisionContext) -> StepResult:
         changed = False
-
-        # Disable PasswordAuthentication
-        check_pa = conn.run("grep -qE '^PasswordAuthentication no$' /etc/ssh/sshd_config", timeout=15)
-        if check_pa.returncode != 0:
-            result = conn.run(
-                "sed -i 's/^#\\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config",
-                timeout=15,
+        check = conn.run(f"cat {_SSH_HARDENING_DROPIN_PATH} 2>/dev/null", timeout=15)
+        if check.returncode != 0 or check.stdout.strip() != _SSH_HARDENING_DROPIN.strip():
+            write_cmd = (
+                "mkdir -p /etc/ssh/sshd_config.d && "
+                f"cat > {_SSH_HARDENING_DROPIN_PATH} << 'MERIDIAN_EOF'\n{_SSH_HARDENING_DROPIN}MERIDIAN_EOF"
             )
+            result = conn.run(write_cmd, timeout=15)
             if result.returncode != 0:
                 return StepResult(
                     name=self.name,
                     status="failed",
-                    detail=f"failed to set PasswordAuthentication: {result.stderr.strip()[:200]}",
+                    detail=f"failed to write sshd hardening drop-in: {result.stderr.strip()[:200]}",
                 )
+            conn.run(f"chmod 644 {_SSH_HARDENING_DROPIN_PATH}", timeout=15)
             changed = True
-
-        # Disable KbdInteractiveAuthentication (challenge-response)
-        check_kbd = conn.run("grep -qE '^KbdInteractiveAuthentication no$' /etc/ssh/sshd_config", timeout=15)
-        if check_kbd.returncode != 0:
-            # Replace either ChallengeResponseAuthentication or KbdInteractiveAuthentication
-            kbd_sed = (
-                "sed -i "
-                "'s/^#\\?ChallengeResponseAuthentication.*"
-                "\\|^#\\?KbdInteractiveAuthentication.*"
-                "/KbdInteractiveAuthentication no/' "
-                "/etc/ssh/sshd_config"
-            )
-            result = conn.run(kbd_sed, timeout=15)
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"failed to set KbdInteractiveAuthentication: {result.stderr.strip()[:200]}",
-                )
-            changed = True
-
-        # Strip OS version from SSH banner (DebianBanner appends distro info)
-        check_banner = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=15)
-        if check_banner.returncode != 0:
-            result = conn.run(
-                "sed -i 's/^#\\?DebianBanner.*/DebianBanner no/' /etc/ssh/sshd_config",
-                timeout=15,
-            )
-            if result.returncode != 0:
-                return StepResult(
-                    name=self.name,
-                    status="failed",
-                    detail=f"failed to set DebianBanner: {result.stderr.strip()[:200]}",
-                )
-            # If sed matched nothing (no existing line), append it
-            verify = conn.run("grep -qE '^DebianBanner no$' /etc/ssh/sshd_config", timeout=15)
-            if verify.returncode != 0:
-                conn.run("printf '\\nDebianBanner no\\n' >> /etc/ssh/sshd_config", timeout=15)
-            changed = True
-
-        if not changed:
-            return StepResult(name=self.name, status="ok", detail="already hardened")
 
         # Validate config before restarting
         validate = conn.run("sshd -t", timeout=15)
@@ -250,6 +258,19 @@ class HardenSSH:
                 status="failed",
                 detail=f"sshd config validation failed: {validate.stderr.strip()[:200]}",
             )
+
+        # Validate effective settings too — cloud-init drop-ins can override the main file.
+        for setting in ("passwordauthentication no", "kbdinteractiveauthentication no", "debianbanner no"):
+            effective = conn.run(f"sshd -T | grep -q '^{setting}$'", timeout=15)
+            if effective.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"effective sshd setting mismatch: expected '{setting}'",
+                )
+
+        if not changed:
+            return StepResult(name=self.name, status="ok", detail="already hardened")
 
         # Restart sshd (service is named "sshd" on some distros, "ssh" on others)
         restart = conn.run("systemctl restart sshd 2>/dev/null || systemctl restart ssh", timeout=15)
@@ -385,16 +406,17 @@ class ConfigureFirewall:
         ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
-        # Allow SSH (port 22)
-        result = conn.run("ufw allow 22/tcp", timeout=15)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"failed to allow SSH: {result.stderr.strip()[:200]}",
-            )
-        if "Skipping" not in result.stdout:
-            changed = True
+        # Allow the live sshd port(s) instead of assuming 22.
+        for ssh_port in detect_ssh_ports(conn):
+            result = conn.run(f"ufw allow {ssh_port}/tcp", timeout=15)
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"failed to allow SSH port {ssh_port}: {result.stderr.strip()[:200]}",
+                )
+            if "Skipping" not in result.stdout:
+                changed = True
 
         # Allow HTTPS (port 443)
         result = conn.run("ufw allow 443/tcp", timeout=15)
@@ -424,24 +446,9 @@ class ConfigureFirewall:
             if result.returncode == 0 and "Skipping" not in result.stdout and "Could not" not in result.stdout:
                 changed = True
 
-        # Clean up stale rules: delete any port that isn't in the allowed set.
-        # Previous deploys or other tooling (3x-ui, Realm relays) may have
-        # opened random high ports that are no longer needed.
-        allowed_ports = {"22", "443"}
-        if ctx.needs_web_server:
-            allowed_ports.add("80")
-        result = conn.run("ufw status", timeout=15)
-        if result.returncode == 0:
-            import re
-
-            for line in result.stdout.splitlines():
-                # Match lines like "8443/tcp    ALLOW IN    Anywhere"
-                m = re.match(r"(\d+)/tcp\s+ALLOW", line.strip())
-                if m and m.group(1) not in allowed_ports:
-                    port = m.group(1)
-                    conn.run(f"ufw delete allow {port}/tcp", timeout=15)
-                    conn.run(f"ufw delete allow {port}/tcp", timeout=15)  # v6 rule
-                    changed = True
+        # Do not delete arbitrary user-managed rules. Meridian only owns the
+        # standard public ports it opens itself (22/80/443), so cleanup is
+        # limited to the stale port-80 rule above when web serving is disabled.
 
         # Set default policies and enable
         result = conn.run("ufw default deny incoming", timeout=15)

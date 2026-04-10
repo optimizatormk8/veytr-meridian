@@ -16,7 +16,7 @@ meridian deploy 1.2.3.4
 The wizard guides you through configuration. Or specify everything upfront:
 
 ```
-meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
+meridian deploy 1.2.3.4 --sni www.microsoft.com --client-name alice --yes
 ```
 
 ## All flags
@@ -34,6 +34,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
 | `--server NAME` | | Target server (name or IP) |
 | `--yes` | | Skip confirmation prompts |
 | `--warp / --no-warp` | disabled | Route outgoing traffic through Cloudflare WARP |
+| `--geo-block / --no-geo-block` | enabled | Block `.ru` domains and Russian IPs through the proxy |
 | `--pq / --no-pq` | disabled | Post-quantum encryption — ML-KEM-768 hybrid (experimental) |
 
 ## Branding
@@ -113,7 +114,7 @@ meridian deploy local
 This skips SSH entirely and runs all commands locally. The `local` keyword works with all commands:
 
 ```
-meridian client add alice local
+meridian client add alice --server local
 meridian preflight local
 meridian scan local
 ```
@@ -139,6 +140,26 @@ The interactive wizard also offers this option.
 - You want maximum speed — WARP adds one extra hop (VPS → Cloudflare → destination)
 
 **How it works technically:** Meridian installs the `cloudflare-warp` client on the server in SOCKS5 proxy mode (listening on `127.0.0.1:40000`). Xray uses this as its default outbound — all proxy egress goes through Cloudflare. Incoming connections (SSH, nginx, Xray inbound) are completely unaffected. WARP is free and doesn't require a Cloudflare account.
+
+## Geo-blocking
+
+By default, Meridian blocks `.ru` domains and Russian IP ranges through the proxy:
+
+```bash
+meridian deploy 1.2.3.4 --no-geo-block
+```
+
+This is intentional. It keeps Russian destinations off the proxy path, which reduces the chance of your VPS IP appearing in Russian-service logs and later getting blocked.
+
+Leave it enabled if:
+- Russian sites already work normally without the VPN
+- You want the safer default for a shared server
+
+Disable it if:
+- You need `.ru` sites to open through Meridian
+- You want all traffic to go through the VPN with no exceptions
+
+The interactive wizard asks about this explicitly. The equivalent Xray rules are `geosite:category-ru` and `geoip:ru`.
 
 ## Adding a relay node
 

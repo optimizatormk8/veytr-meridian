@@ -121,6 +121,96 @@ class TestServerCredentials:
         assert data["panel"]["username"] == "new"
         assert data["future_field"] == "keep_me"
 
+    def test_save_preserves_unknown_nested_fields(self, tmp_path: Path) -> None:
+        path = tmp_path / "proxy.yml"
+        path.write_text(
+            "version: 2\n"
+            "panel:\n"
+            "  username: old\n"
+            "  future_panel_flag: keep_panel\n"
+            "server:\n"
+            "  ip: 1.2.3.4\n"
+            "  future_server_flag: keep_server\n"
+            "protocols:\n"
+            "  reality:\n"
+            "    uuid: old-uuid\n"
+            "    future_reality_flag: keep_reality\n"
+            "clients:\n"
+            "  - name: alice\n"
+            "    reality_uuid: old-uuid\n"
+            "    future_client_flag: keep_client\n"
+            "relays:\n"
+            "  - ip: 198.51.100.2\n"
+            "    future_relay_flag: keep_relay\n"
+            "branding:\n"
+            "  server_name: Test\n"
+            "  future_branding_flag: keep_branding\n"
+        )
+
+        creds = ServerCredentials.load(path)
+        creds.panel.username = "new"
+        creds.reality.uuid = "new-uuid"
+        creds.clients[0].name = "alice-renamed"
+        creds.relays[0].name = "relay-1"
+        creds.branding.color = "ocean"
+        creds.save(path)
+
+        import yaml
+
+        data = yaml.safe_load(path.read_text())
+        assert data["panel"]["future_panel_flag"] == "keep_panel"
+        assert data["server"]["future_server_flag"] == "keep_server"
+        assert data["protocols"]["reality"]["future_reality_flag"] == "keep_reality"
+        assert data["clients"][0]["future_client_flag"] == "keep_client"
+        assert data["relays"][0]["future_relay_flag"] == "keep_relay"
+        assert data["branding"]["future_branding_flag"] == "keep_branding"
+
+    def test_save_preserves_falsy_unknown_branding_fields(self, tmp_path: Path) -> None:
+        path = tmp_path / "proxy.yml"
+        path.write_text(
+            "version: 2\n"
+            "branding:\n"
+            "  server_name: Test\n"
+            "  future_branding_bool: false\n"
+            "  future_branding_zero: 0\n"
+            "  future_branding_list: []\n"
+        )
+
+        creds = ServerCredentials.load(path)
+        creds.branding.color = "ocean"
+        creds.save(path)
+
+        import yaml
+
+        data = yaml.safe_load(path.read_text())
+        assert data["branding"]["future_branding_bool"] is False
+        assert data["branding"]["future_branding_zero"] == 0
+        assert data["branding"]["future_branding_list"] == []
+
+    def test_save_preserves_unknown_protocol_blocks(self, tmp_path: Path) -> None:
+        path = tmp_path / "proxy.yml"
+        path.write_text(
+            "version: 2\n"
+            "panel:\n"
+            "  username: admin\n"
+            "protocols:\n"
+            "  reality:\n"
+            "    uuid: known-uuid\n"
+            "  futureproto:\n"
+            "    token: keep_me\n"
+            "    enabled: true\n"
+        )
+
+        creds = ServerCredentials.load(path)
+        creds.panel.password = "secret"
+        creds.save(path)
+
+        import yaml
+
+        data = yaml.safe_load(path.read_text())
+        assert data["protocols"]["futureproto"]["token"] == "keep_me"
+        assert data["protocols"]["futureproto"]["enabled"] is True
+
     def test_save_none_not_written(self, tmp_path: Path) -> None:
         """None values should not appear in the output."""
         path = tmp_path / "proxy.yml"

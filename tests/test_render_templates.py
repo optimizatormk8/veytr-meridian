@@ -196,6 +196,14 @@ def test_templates_discovered() -> None:
     assert len(_TEMPLATES) >= 1, f"Expected at least 1 template under {_TEMPLATES_DIR}, found {len(_TEMPLATES)}"
 
 
+def test_connection_info_template_has_no_external_ping_dependency() -> None:
+    env = _make_env(_TEMPLATES_DIR)
+    template = env.get_template("connection-info.html.j2")
+    result = template.render(**MOCK_VARS)
+    assert "getmeridian.org/ping" not in result
+    assert "meridian test" in result
+
+
 # ---------------------------------------------------------------------------
 # Content-level tests — verify rendered HTML contains the right data
 # ---------------------------------------------------------------------------
