@@ -49,6 +49,47 @@ DebianBanner no
 """
 
 
+def _parse_ssh_ports(output: str) -> list[int]:
+    """Parse one or more SSH ports from command output."""
+    ports: list[int] = []
+    seen: set[int] = set()
+
+    for line in output.splitlines():
+        for token in line.replace(",", " ").split():
+            if not token.isdigit():
+                continue
+            port = int(token)
+            if not (1 <= port <= 65535) or port in seen:
+                continue
+            seen.add(port)
+            ports.append(port)
+            break
+
+    return ports
+
+
+def detect_ssh_ports(conn: ServerConnection) -> list[int]:
+    """Detect effective sshd listen ports, falling back to 22."""
+    commands = [
+        r"""sshd -T 2>/dev/null | awk '$1 == "port" {print $2}'""",
+        (
+            r"""grep -hEi '^[[:space:]]*Port[[:space:]]+[0-9]+' """
+            r"""/etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null """
+            r"""| awk '{print $2}'"""
+        ),
+    ]
+
+    for command in commands:
+        result = conn.run(command, timeout=15)
+        if result.returncode != 0:
+            continue
+        ports = _parse_ssh_ports(result.stdout)
+        if ports:
+            return ports
+
+    return [22]
+
+
 class CheckDiskSpace:
     """Verify sufficient disk space before deployment."""
 
@@ -364,16 +405,17 @@ class ConfigureFirewall:
         ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
-        # Allow SSH (port 22)
-        result = conn.run("ufw allow 22/tcp", timeout=15)
-        if result.returncode != 0:
-            return StepResult(
-                name=self.name,
-                status="failed",
-                detail=f"failed to allow SSH: {result.stderr.strip()[:200]}",
-            )
-        if "Skipping" not in result.stdout:
-            changed = True
+        # Allow the live sshd port(s) instead of assuming 22.
+        for ssh_port in detect_ssh_ports(conn):
+            result = conn.run(f"ufw allow {ssh_port}/tcp", timeout=15)
+            if result.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"failed to allow SSH port {ssh_port}: {result.stderr.strip()[:200]}",
+                )
+            if "Skipping" not in result.stdout:
+                changed = True
 
         # Allow HTTPS (port 443)
         result = conn.run("ufw allow 443/tcp", timeout=15)

@@ -320,6 +320,35 @@ class TestConfigureFirewall:
 
         mock_conn.assert_called_with_pattern("ufw allow 80/tcp")
 
+    def test_allows_detected_custom_ssh_port(self, mock_conn: MockConnection, base_ctx):
+        """The firewall must follow the live sshd port instead of hardcoding 22."""
+        mock_conn.when("which ufw", rc=0)
+        mock_conn.when("sshd -T", stdout="2222\n")
+        mock_conn.when("ufw status", stdout="Status: active")
+        mock_conn.when("ufw allow", stdout="Skipping adding existing rule")
+        mock_conn.when("ufw delete", rc=0, stdout="Skipping")
+        mock_conn.when("ufw default", rc=0)
+        mock_conn.when("ufw reload", rc=0)
+
+        ConfigureFirewall().run(mock_conn, base_ctx)
+
+        mock_conn.assert_called_with_pattern("ufw allow 2222/tcp")
+        mock_conn.assert_not_called_with_pattern("ufw allow 22/tcp")
+
+    def test_falls_back_to_port_22_when_detection_fails(self, mock_conn: MockConnection, base_ctx):
+        mock_conn.when("which ufw", rc=0)
+        mock_conn.when("sshd -T", rc=1)
+        mock_conn.when("grep -hEi", rc=1)
+        mock_conn.when("ufw status", stdout="Status: active")
+        mock_conn.when("ufw allow", stdout="Skipping adding existing rule")
+        mock_conn.when("ufw delete", rc=0, stdout="Skipping")
+        mock_conn.when("ufw default", rc=0)
+        mock_conn.when("ufw reload", rc=0)
+
+        ConfigureFirewall().run(mock_conn, base_ctx)
+
+        mock_conn.assert_called_with_pattern("ufw allow 22/tcp")
+
     def test_preserves_user_managed_tcp_rules(self, mock_conn: MockConnection, base_ctx):
         """Custom non-Meridian ports must not be deleted during cleanup."""
         mock_conn.when("which ufw", rc=0)

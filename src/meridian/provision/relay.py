@@ -18,6 +18,7 @@ from meridian.config import (
     RELAY_CONFIG_PATH,
     RELAY_SERVICE_NAME,
 )
+from meridian.provision.common import detect_ssh_ports
 from meridian.provision.steps import StepResult
 from meridian.ssh import ServerConnection
 
@@ -100,12 +101,13 @@ class ConfigureRelayFirewall:
         ufw_status = conn.run("ufw status", timeout=15)
         ufw_active = ufw_status.returncode == 0 and "Status: active" in ufw_status.stdout
 
-        # Allow SSH
-        result = conn.run("ufw allow 22/tcp", timeout=15)
-        if result.returncode != 0:
-            return StepResult(name=self.name, status="failed", detail="failed to allow SSH")
-        if "Skipping" not in result.stdout:
-            changed = True
+        # Allow the live sshd port(s) instead of assuming 22.
+        for ssh_port in detect_ssh_ports(conn):
+            result = conn.run(f"ufw allow {ssh_port}/tcp", timeout=15)
+            if result.returncode != 0:
+                return StepResult(name=self.name, status="failed", detail=f"failed to allow SSH port {ssh_port}")
+            if "Skipping" not in result.stdout:
+                changed = True
 
         # Allow relay port
         result = conn.run(f"ufw allow {ctx.listen_port}/tcp", timeout=15)
