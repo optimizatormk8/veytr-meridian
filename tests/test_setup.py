@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -97,6 +98,29 @@ class TestRunWithExplicitIP:
         """--server with unknown name and non-IP string should fail."""
         with pytest.raises(typer.Exit):
             run(requested_server="nonexistent", yes=True)
+
+    def test_force_refreshes_credentials_before_deploy(self, tmp_home: Path) -> None:
+        """Deploy must refresh from the server before trusting cached local creds."""
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=object(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=True) as mock_fetch,
+            patch("meridian.commands.setup._run_provisioner"),
+            patch("meridian.commands.setup._print_success"),
+            patch("meridian.commands.setup._offer_relay"),
+        ):
+            run(ip="1.2.3.4", yes=True)
+
+        mock_fetch.assert_called_once_with(resolved, force=True)
 
 
 class TestIsIPv4:

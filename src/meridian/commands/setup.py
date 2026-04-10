@@ -116,7 +116,7 @@ def run(
 
     resolved = ensure_server_connection(resolved)
     _check_ports(resolved.conn, resolved.ip, yes)
-    fetch_credentials(resolved)
+    fetch_credentials(resolved, force=True)
 
     # Migrate v1 credentials to v2
     proxy_file = resolved.creds_dir / "proxy.yml"
