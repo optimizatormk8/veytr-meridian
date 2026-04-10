@@ -32,6 +32,7 @@ meridian deploy 1.2.3.4 --sni www.microsoft.com --client-name alice --yes
 | `--server NAME` | | 目标服务器（名称或 IP） |
 | `--yes` | | 跳过确认提示 |
 | `--warp / --no-warp` | 禁用 | 通过 Cloudflare WARP 路由出站流量 |
+| `--geo-block / --no-geo-block` | 启用 | 通过代理阻止 `.ru` 域名和俄罗斯 IP |
 | `--pq / --no-pq` | 禁用 | 后量子加密 — ML-KEM-768 混合（实验性） |
 
 ## 品牌定制
@@ -90,6 +91,26 @@ meridian deploy 1.2.3.4 --user ubuntu
 ```
 
 非 root 用户会自动获得 `sudo`。用户必须有无密码 sudo 访问权限。
+
+## 地理封锁
+
+默认情况下，Meridian 会通过代理阻止 `.ru` 域名和俄罗斯 IP 段：
+
+```bash
+meridian deploy 1.2.3.4 --no-geo-block
+```
+
+这是有意的。这样可以让俄罗斯目的地不经过代理路径，降低您的 VPS IP 出现在俄罗斯服务日志中、随后被封锁的概率。
+
+在以下情况下保持启用：
+- 俄罗斯网站本来就无需 VPN 也能正常访问
+- 您希望共享服务器使用更安全的默认值
+
+在以下情况下关闭：
+- 您需要通过 Meridian 访问 `.ru` 网站
+- 您希望所有流量都毫无例外地经过 VPN
+
+交互式向导会明确询问这一项。对应的 Xray 规则是 `geosite:category-ru` 和 `geoip:ru`。
 
 ## 添加中继节点
 

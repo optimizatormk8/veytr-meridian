@@ -73,6 +73,8 @@ meridian client list                 # see all clients
 meridian client remove alice         # revoke access
 ```
 
+By default, the deploy wizard blocks `.ru` domains and Russian IPs through the proxy to reduce exposure of your VPS IP in Russian-service logs. If you need those sites over Meridian, deploy with `--no-geo-block`.
+
 Each client gets a connection page hosted on the server with QR codes, one-tap deep links, and [live usage stats](https://getmeridian.org/demo). Share the URL directly — no file transfer needed.
 
 ## How deployment works

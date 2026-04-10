@@ -538,9 +538,11 @@ def _interactive_wizard(
     if warp:
         warp_line = "\nWARP:       Outgoing traffic via Cloudflare"
 
-    geo_block_line = ""
-    if not geo_block:
-        geo_block_line = "\nGeo-block:  Disabled (Russian sites accessible)"
+    geo_block_line = (
+        "\nGeo-block:  Enabled (.ru / Russian IP traffic blocked)"
+        if geo_block
+        else "\nGeo-block:  Disabled (Russian sites accessible)"
+    )
 
     icon_display = icon if icon and not icon.startswith("data:") else ""
     branding_line = ""
@@ -718,6 +720,15 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
     server_ip = resolved.ip
     err_console.print(f"     [info]meridian test {server_ip}[/info]")
     err_console.print("     [dim]Run it after deploy/redeploy to verify the live server state.[/dim]\n")
+
+    if proxy_file.exists():
+        if creds.server.geo_block:
+            err_console.print(
+                "  [dim]Geo-blocking is ON: .ru domains and Russian IPs are blocked through the proxy.[/dim]"
+            )
+            err_console.print("  [dim]Re-deploy with --no-geo-block if you need those sites through Meridian.[/dim]\n")
+        else:
+            err_console.print("  [dim]Geo-blocking is OFF: all destinations are reachable through the proxy.[/dim]\n")
 
     next_step = 4
     if domain:

@@ -152,11 +152,12 @@ class TestRunWithExplicitIP:
 
 
 class TestSuccessOutput:
-    def _write_proxy(self, creds_dir: Path, *, domain: str = "") -> None:
+    def _write_proxy(self, creds_dir: Path, *, domain: str = "", geo_block: bool = False) -> None:
         creds = ServerCredentials()
         creds.server.ip = "1.2.3.4"
         creds.server.domain = domain or None
         creds.server.hosted_page = True
+        creds.server.geo_block = geo_block
         creds.panel.info_page_path = "connect"
         creds.panel.url = f"https://{domain or '1.2.3.4'}/panel/"
         creds.panel.username = "admin"
@@ -189,6 +190,20 @@ class TestSuccessOutput:
         out = capsys.readouterr().err
         assert "getmeridian.org/ping" not in out
         assert "Cloudflare setup" not in out
+
+    def test_success_output_mentions_enabled_geo_blocking(
+        self, tmp_home: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        creds_dir = tmp_home / "credentials" / "1.2.3.4"
+        creds_dir.mkdir(parents=True)
+        self._write_proxy(creds_dir, geo_block=True)
+        resolved = SimpleNamespace(ip="1.2.3.4", creds_dir=creds_dir)
+
+        _print_success(resolved, "default", "")
+
+        out = capsys.readouterr().err
+        assert "Geo-blocking is ON" in out
+        assert "--no-geo-block" in out
 
 
 class TestRegenerateConnectionPagesAfterDeploy:

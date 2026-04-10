@@ -33,6 +33,8 @@ meridian deploy 1.2.3.4 --domain proxy.example.com
 
 > **重要：** acme.sh 通过端口 80 上的 HTTP-01 挑战获取证书。如果启用了 Cloudflare 的"始终使用 HTTPS"，会破坏挑战。禁用它或为 `/.well-known/acme-challenge/*` 添加页面规则。
 
+> **还要注意：** 在域名模式下，托管的连接页面和隐藏的 3x-ui 面板路径也使用这个 hostname。把记录切换到橙云后，这些页面也会经过 Cloudflare。请在这个 hostname 上关闭会注入脚本或修改 HTML 的 Cloudflare 功能（例如 Website Analytics / RUM），因为 Meridian 的连接页面刻意使用严格的 self-hosted CSP。如果页面在开启代理后开始失败，先临时切回 DNS only，以确认问题是否来自 Cloudflare 这一侧。
+
 ## 连接链接
 
 使用域名模式，用户获得三个连接选项：
