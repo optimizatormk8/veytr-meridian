@@ -517,11 +517,12 @@ class TestRelayCLI:
         assert "Exit server" in result.output
 
 
-class TestRelayRemoveWarnAndContinue:
-    def test_remove_warns_on_sync_failure_but_completes(self, sample_proxy_with_relays: Path) -> None:
+class TestRelayRemoveSync:
+    def test_remove_sync_failure_restores_local_state_and_fails(self, sample_proxy_with_relays: Path) -> None:
         from meridian.commands.relay import run_remove
 
         creds_dir = sample_proxy_with_relays.parent
+        original = sample_proxy_with_relays.read_text()
         resolved_exit = MagicMock()
         resolved_exit.ip = "5.6.7.8"
         resolved_exit.user = "root"
@@ -544,12 +545,15 @@ class TestRelayRemoveWarnAndContinue:
             patch("meridian.commands.relay._sync_exit_credentials_to_server", return_value=False),
             patch("meridian.panel.PanelClient", return_value=panel),
         ):
-            run_remove("1.2.3.4", exit_arg="5.6.7.8", yes=True)
+            with pytest.raises(typer.Exit) as exc:
+                run_remove("1.2.3.4", exit_arg="5.6.7.8", yes=True)
 
-        # Relay should be removed from local creds despite sync failure
+        assert exc.value.exit_code == 1
+        # Relay should remain in local creds if sync fails
         creds = ServerCredentials.load(sample_proxy_with_relays)
-        assert all(r.ip != "1.2.3.4" for r in creds.relays)
-        registry.remove.assert_called_once_with("1.2.3.4")
+        assert any(r.ip == "1.2.3.4" for r in creds.relays)
+        assert sample_proxy_with_relays.read_text() == original
+        registry.remove.assert_not_called()
 
     def test_remove_warns_on_panel_failure_but_completes(self, sample_proxy_with_relays: Path) -> None:
         from meridian.commands.relay import run_remove
@@ -575,6 +579,7 @@ class TestRelayRemoveWarnAndContinue:
             patch("meridian.commands.relay.fetch_credentials", return_value=True),
             patch("meridian.commands.relay.ServerRegistry", return_value=registry),
             patch("meridian.commands.relay.ServerConnection", return_value=relay_conn),
+            patch("meridian.commands.relay._remove_relay_nginx", return_value=True),
             patch("meridian.commands.relay._sync_exit_credentials_to_server", return_value=True),
             patch("meridian.panel.PanelClient", return_value=panel),
         ):
@@ -584,6 +589,42 @@ class TestRelayRemoveWarnAndContinue:
         creds = ServerCredentials.load(sample_proxy_with_relays)
         assert all(r.ip != "1.2.3.4" for r in creds.relays)
         registry.remove.assert_called_once_with("1.2.3.4")
+
+    def test_remove_nginx_cleanup_failure_keeps_local_state(self, sample_proxy_with_relays: Path) -> None:
+        from meridian.commands.relay import run_remove
+
+        creds_dir = sample_proxy_with_relays.parent
+        original = sample_proxy_with_relays.read_text()
+        resolved_exit = MagicMock()
+        resolved_exit.ip = "5.6.7.8"
+        resolved_exit.user = "root"
+        resolved_exit.local_mode = False
+        resolved_exit.creds_dir = creds_dir
+        resolved_exit.conn = MagicMock()
+
+        registry = MagicMock()
+        relay_conn = MagicMock()
+        panel = MagicMock()
+        panel.login.return_value = None
+        panel.find_inbound.return_value = MagicMock(id=42)
+        panel.api_post_empty.return_value = None
+
+        with (
+            patch("meridian.commands.relay._resolve_exit", return_value=resolved_exit),
+            patch("meridian.commands.relay.fetch_credentials", return_value=True),
+            patch("meridian.commands.relay.ServerRegistry", return_value=registry),
+            patch("meridian.commands.relay.ServerConnection", return_value=relay_conn),
+            patch("meridian.commands.relay._remove_relay_nginx", return_value=False),
+            patch("meridian.panel.PanelClient", return_value=panel),
+        ):
+            with pytest.raises(typer.Exit) as exc:
+                run_remove("1.2.3.4", exit_arg="5.6.7.8", yes=True)
+
+        assert exc.value.exit_code == 1
+        assert sample_proxy_with_relays.read_text() == original
+        creds = ServerCredentials.load(sample_proxy_with_relays)
+        assert any(r.ip == "1.2.3.4" for r in creds.relays)
+        registry.remove.assert_not_called()
 
 
 class TestRelayStoredUser:

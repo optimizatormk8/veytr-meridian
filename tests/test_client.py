@@ -77,7 +77,7 @@ def _make_mock_panel(inbounds: list[Inbound], uuid_seq: list[str] | None = None)
     return panel
 
 
-def _write_proxy_yml(creds_dir: Path, *, domain: str = "", extra_client: str = "") -> None:
+def _write_proxy_yml(creds_dir: Path, *, domain: str = "", extra_client: str = "", hosted_page: bool = False) -> None:
     """Write a minimal v2 proxy.yml to creds_dir."""
     clients_section = ""
     if extra_client:
@@ -102,6 +102,7 @@ panel:
 server:
   ip: 1.2.3.4
   sni: www.microsoft.com
+  hosted_page: {"true" if hosted_page else "false"}
 {domain_line}protocols:
   reality:
     uuid: existing-uuid
@@ -424,6 +425,74 @@ class TestRunRemove:
                 run_remove("ghost")
         assert exc.value.exit_code == 1
         mock_panel.remove_client.assert_not_called()
+
+    def test_remove_stale_local_client_reconciles_when_panel_already_missing(
+        self, tmp_home: Path, creds_dir: Path
+    ) -> None:
+        """A stale local client entry should be removable even if the panel no longer has it."""
+        _write_proxy_yml(creds_dir, extra_client="alice")
+
+        inbounds = [
+            _make_inbound(id=1, remark="VLESS-Reality", port=443, clients=[]),
+        ]
+        mock_panel = _make_mock_panel(inbounds)
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+        ):
+            run_remove("alice")
+
+        assert "alice" not in (creds_dir / "proxy.yml").read_text()
+
+    def test_remove_sync_failure_restores_local_credentials_and_fails(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, extra_client="alice")
+        original = (creds_dir / "proxy.yml").read_text()
+
+        inbounds = [
+            _make_reality_inbound("alice"),
+        ]
+        mock_panel = _make_mock_panel(inbounds)
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=False),
+        ):
+            with pytest.raises(typer.Exit) as exc:
+                run_remove("alice")
+        assert exc.value.exit_code == 1
+        assert (creds_dir / "proxy.yml").read_text() == original
+
+    def test_remove_hosted_page_uses_uuid_before_forgetting_client(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, extra_client="alice", hosted_page=True)
+
+        inbounds = [
+            _make_reality_inbound("alice"),
+        ]
+        mock_panel = _make_mock_panel(inbounds)
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+        ):
+            run_remove("alice")
+
+        mock_resolved.conn.run.assert_any_call("rm -rf /var/www/private/existing-uuid", timeout=10)
 
     def test_remove_no_reality_inbound_fails(self, tmp_home: Path, creds_dir: Path) -> None:
         """No Reality inbound on the server — should fail."""

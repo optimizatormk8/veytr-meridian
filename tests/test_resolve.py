@@ -16,7 +16,7 @@ from meridian.commands.resolve import (
     resolve_server,
 )
 from meridian.config import SERVER_CREDS_DIR
-from meridian.servers import ServerEntry, ServerRegistry
+from meridian.servers import SERVER_ROLE_RELAY, ServerEntry, ServerRegistry
 
 
 class TestExplicitIP:
@@ -119,6 +119,26 @@ class TestSingleServerAutoSelect:
         creds_dir = tmp_home / "credentials" / "10.20.30.40"
         creds_dir.mkdir(parents=True)
         (creds_dir / "proxy.yml").write_text("version: 2\nserver:\n  ip: 10.20.30.40\n")
+        for relay_ip in ("203.0.113.10", "203.0.113.11"):
+            relay_dir = tmp_home / "credentials" / relay_ip
+            relay_dir.mkdir(parents=True)
+            (relay_dir / "relay.yml").write_text("role: relay\n")
+
+        result = resolve_server(reg)
+        assert result.ip == "10.20.30.40"
+        assert result.user == "root"
+
+    def test_auto_select_uses_role_tagged_exit_on_fresh_machine(
+        self, servers_file: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "meridian.commands.resolve._detect_local_mode_from_creds",
+            lambda: None,
+        )
+        reg = ServerRegistry(servers_file)
+        reg.add(ServerEntry("10.20.30.40", "root", "exit"))
+        reg.add(ServerEntry("203.0.113.10", "root", "relay-a", SERVER_ROLE_RELAY))
+        reg.add(ServerEntry("203.0.113.11", "root", "relay-b", SERVER_ROLE_RELAY))
 
         result = resolve_server(reg)
         assert result.ip == "10.20.30.40"
@@ -136,6 +156,26 @@ class TestMultipleServers:
         reg = ServerRegistry(servers_file)
         reg.add(ServerEntry("1.2.3.4", "root", "server1"))
         reg.add(ServerEntry("5.6.7.8", "root", "server2"))
+        with pytest.raises(typer.Exit) as exc_info:
+            resolve_server(reg)
+        assert exc_info.value.exit_code == 1
+
+    def test_multiple_real_exits_do_not_auto_select_when_only_one_is_cached(
+        self, tmp_home: Path, servers_file: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "meridian.commands.resolve._detect_local_mode_from_creds",
+            lambda: None,
+        )
+        reg = ServerRegistry(servers_file)
+        reg.add(ServerEntry("198.51.100.10", "root", "exit-a"))
+        reg.add(ServerEntry("198.51.100.11", "root", "exit-b"))
+        reg.add(ServerEntry("203.0.113.10", "root", "relay-a", SERVER_ROLE_RELAY))
+
+        cached = tmp_home / "credentials" / "198.51.100.10"
+        cached.mkdir(parents=True)
+        (cached / "proxy.yml").write_text("version: 2\nserver:\n  ip: 198.51.100.10\n")
+
         with pytest.raises(typer.Exit) as exc_info:
             resolve_server(reg)
         assert exc_info.value.exit_code == 1

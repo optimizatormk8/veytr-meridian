@@ -188,19 +188,16 @@ def _deploy_client_page(
 
 def _remove_client_page(
     resolved: ResolvedServer,
-    creds: ServerCredentials,
-    client_name: str,
+    reality_uuid: str,
 ) -> None:
     """Remove a client's server-hosted connection page."""
     import shlex
 
-    # Find the client's reality_uuid from credentials
-    client_entry = next((c for c in creds.clients if c.name == client_name), None)
-    if not client_entry or not client_entry.reality_uuid:
+    if not reality_uuid:
         return
 
     conn = resolved.conn
-    q_uuid = shlex.quote(client_entry.reality_uuid)
+    q_uuid = shlex.quote(reality_uuid)
     conn.run(f"rm -rf /var/www/private/{q_uuid}", timeout=10)
 
 
@@ -577,6 +574,7 @@ def run_remove(
 
     creds = _load_creds(resolved.creds_dir)
     info(f"Removing client '{name}'...")
+    tracked_client = next((c for c in creds.clients if c.name == name), None)
 
     panel = _make_panel(creds, resolved.conn)
     with panel:
@@ -597,13 +595,21 @@ def run_remove(
         # Find client by email in Reality inbound
         client_email = f"{reality_proto.email_prefix}{name}"
         client_found = False
+        removed_reality_uuid = tracked_client.reality_uuid if tracked_client else ""
         for client in reality_inbound.clients:
             if client.get("email") == client_email:
                 client_found = True
+                removed_reality_uuid = client.get("id", "") or removed_reality_uuid
                 break
 
         if not client_found:
-            fail(f"Client '{name}' not found", hint="Check client name with: meridian client list", hint_type="user")
+            if tracked_client is None:
+                fail(
+                    f"Client '{name}' not found",
+                    hint="Check client name with: meridian client list",
+                    hint_type="user",
+                )
+            warn(f"Client '{name}' is already absent from the panel — syncing credentials only")
 
         # Remove from each active protocol's inbound
         for proto in PROTOCOLS.values():
@@ -621,7 +627,8 @@ def run_remove(
                         except PanelError as e:
                             warn(f"Failed to remove from {proto.remark}: {e}")
 
-        ok(f"Client '{name}' removed from panel")
+        if client_found:
+            ok(f"Client '{name}' removed from panel")
 
         # Remove from relay-specific inbounds (per-relay SNI)
         for relay in creds.relays:
@@ -646,9 +653,14 @@ def run_remove(
 
         # Update credentials file
         creds.clients = [c for c in creds.clients if c.name != name]
-        creds.save(resolved.creds_dir / "proxy.yml")
-        if not _sync_credentials_to_server(resolved):
-            warn("Could not sync credentials to server")
+        _save_credentials_with_sync(
+            resolved,
+            creds,
+            recovery_hint=(
+                f"The client may already be removed on the panel. Once SSH/SCP works, rerun: "
+                f"meridian client remove {name} --server {resolved.ip}"
+            ),
+        )
 
         # Delete local output files
         for pattern in [
@@ -658,8 +670,8 @@ def run_remove(
                 f.unlink(missing_ok=True)
 
         # Remove server-hosted connection page (if enabled)
-        if creds.server.hosted_page:
-            _remove_client_page(resolved, creds, name)
+        if creds.server.hosted_page and removed_reality_uuid:
+            _remove_client_page(resolved, removed_reality_uuid)
 
         err_console.print(f"\n  Client '{name}' has been removed from all active inbounds.\n")
 

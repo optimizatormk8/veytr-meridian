@@ -10,7 +10,7 @@ from pathlib import Path
 from meridian.config import SERVER_CREDS_DIR, creds_dir_for, is_ip
 from meridian.console import err_console, fail, info, warn
 from meridian.credentials import ServerCredentials
-from meridian.servers import ServerRegistry
+from meridian.servers import SERVER_ROLE_RELAY, ServerEntry, ServerRegistry
 from meridian.ssh import ServerConnection, SSHError
 
 LOCAL_KEYWORDS = ("local", "locally")
@@ -113,16 +113,55 @@ def _find_proxy_file(host: str) -> Path | None:
     return None
 
 
-def _auto_selectable_entries(registry: ServerRegistry) -> list:
+def _find_relay_file(host: str) -> Path | None:
+    """Find locally cached relay metadata for a host, if present."""
+    from meridian import config as cfg
+
+    relay = cfg.CREDS_BASE / cfg.sanitize_ip_for_path(host) / "relay.yml"
+    if relay.is_file():
+        return relay
+    return None
+
+
+def _cached_relay_hosts(entries: list[ServerEntry]) -> set[str]:
+    """Infer legacy relay entries from locally cached exit credentials."""
+    relay_hosts: set[str] = set()
+    for entry in entries:
+        proxy_file = _find_proxy_file(entry.host)
+        if proxy_file is None:
+            continue
+        try:
+            creds = ServerCredentials.load(proxy_file)
+        except (PermissionError, OSError):
+            continue
+        relay_hosts.update(relay.ip for relay in creds.relays if relay.ip)
+    return relay_hosts
+
+
+def _is_relay_entry(entry: ServerEntry, cached_relay_hosts: set[str]) -> bool:
+    """Determine whether a registry entry is a relay rather than an exit."""
+    if entry.role == SERVER_ROLE_RELAY:
+        return True
+    if _find_relay_file(entry.host) is not None:
+        return True
+    return entry.host in cached_relay_hosts
+
+
+def _auto_selectable_entries(registry: ServerRegistry) -> list[ServerEntry]:
     """Return the best registry subset for implicit server selection.
 
-    Relay nodes are stored in the same registry as exit servers, but they do
-    not have exit-server credentials. When at least one credential-backed exit
-    exists locally, implicit selection should consider only those entries.
+    Relay nodes share the registry with exit servers. New relay entries are
+    tagged explicitly; older ones are inferred from local relay metadata or
+    from cached exit credentials that mention them.
     """
     entries = registry.list()
-    exit_entries = [entry for entry in entries if _find_proxy_file(entry.host) is not None]
-    return exit_entries or entries
+    cached_relay_hosts = _cached_relay_hosts(entries)
+    exit_entries = [entry for entry in entries if not _is_relay_entry(entry, cached_relay_hosts)]
+    if exit_entries:
+        return exit_entries
+    if cached_relay_hosts or any(entry.role == SERVER_ROLE_RELAY or _find_relay_file(entry.host) for entry in entries):
+        return []
+    return entries
 
 
 def resolve_server(

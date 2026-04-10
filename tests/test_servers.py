@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from meridian.servers import ServerEntry, ServerRegistry
+from meridian.servers import SERVER_ROLE_RELAY, ServerEntry, ServerRegistry
 
 
 class TestServerEntry:
@@ -22,6 +22,20 @@ class TestServerEntry:
         assert entry.user == "ubuntu"
         assert entry.name == ""
 
+    def test_from_line_with_role(self) -> None:
+        entry = ServerEntry.from_line("1.2.3.4 root relay-a relay")
+        assert entry is not None
+        assert entry.host == "1.2.3.4"
+        assert entry.user == "root"
+        assert entry.name == "relay-a"
+        assert entry.role == SERVER_ROLE_RELAY
+
+    def test_from_line_with_role_and_empty_name(self) -> None:
+        entry = ServerEntry.from_line("1.2.3.4 root - relay")
+        assert entry is not None
+        assert entry.name == ""
+        assert entry.role == SERVER_ROLE_RELAY
+
     def test_from_line_comment(self) -> None:
         assert ServerEntry.from_line("# comment") is None
 
@@ -35,6 +49,8 @@ class TestServerEntry:
     def test_str(self) -> None:
         assert str(ServerEntry("1.2.3.4", "root", "test")) == "1.2.3.4 root test"
         assert str(ServerEntry("1.2.3.4", "root")) == "1.2.3.4 root"
+        assert str(ServerEntry("1.2.3.4", "root", "relay-a", SERVER_ROLE_RELAY)) == "1.2.3.4 root relay-a relay"
+        assert str(ServerEntry("1.2.3.4", "root", role=SERVER_ROLE_RELAY)) == "1.2.3.4 root - relay"
 
 
 class TestServerRegistry:

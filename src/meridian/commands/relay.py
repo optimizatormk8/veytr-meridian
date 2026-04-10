@@ -28,7 +28,7 @@ from meridian.config import (
 )
 from meridian.console import confirm, err_console, fail, info, line, ok, warn
 from meridian.credentials import RelayEntry, ServerCredentials
-from meridian.servers import ServerEntry, ServerRegistry
+from meridian.servers import SERVER_ROLE_RELAY, ServerEntry, ServerRegistry
 from meridian.ssh import SSH_OPTS, ServerConnection, SSHError, scp_host
 
 # ---------------------------------------------------------------------------
@@ -769,7 +769,8 @@ def run_deploy(
     _save_relay_local(relay_ip, resolved_exit.ip, 443, listen_port)
 
     # Register relay in server registry
-    registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name))
+    if relay_ip != resolved_exit.ip:
+        registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name, role=SERVER_ROLE_RELAY))
 
     # Regenerate connection pages for all existing clients
     if exit_creds.clients:
@@ -977,12 +978,23 @@ def run_remove(
             warn(f"Could not remove relay inbound: {e}")
 
         info("Removing relay nginx config...")
-        _remove_relay_nginx(resolved_exit.conn, relay_entry)
+        if not _remove_relay_nginx(resolved_exit.conn, relay_entry):
+            fail(
+                "Relay nginx routing cleanup failed on the exit server",
+                hint="Meridian did not forget the relay locally. Fix nginx on the exit and retry.",
+                hint_type="system",
+            )
 
     # Remove relay from exit credentials
     exit_creds.relays = [r for r in exit_creds.relays if r.ip != relay_ip]
-    exit_creds.save(resolved_exit.creds_dir / "proxy.yml")
-    _sync_exit_credentials_to_server(resolved_exit)
+    _save_exit_credentials_with_sync(
+        resolved_exit,
+        exit_creds,
+        recovery_hint=(
+            f"The relay may already be partially removed remotely. Once SSH/SCP works, rerun: "
+            f"meridian relay remove {relay_ip} --exit {resolved_exit.ip}"
+        ),
+    )
     ok(f"Relay {relay_ip} removed from exit configuration")
 
     # Clean up local relay credentials
@@ -992,7 +1004,8 @@ def run_remove(
         relay_file.unlink()
 
     # Remove from server registry
-    registry.remove(relay_ip)
+    if relay_ip != resolved_exit.ip:
+        registry.remove(relay_ip)
 
     # Regenerate connection pages
     if exit_creds.clients:

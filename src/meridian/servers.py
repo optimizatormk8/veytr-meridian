@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+SERVER_ROLE_EXIT = "exit"
+SERVER_ROLE_RELAY = "relay"
+_SERVER_ROLES = {SERVER_ROLE_EXIT, SERVER_ROLE_RELAY}
+
 
 @dataclass
 class ServerEntry:
@@ -13,11 +17,18 @@ class ServerEntry:
     host: str
     user: str = "root"
     name: str = ""
+    role: str = SERVER_ROLE_EXIT
 
     def __str__(self) -> str:
         parts = [self.host, self.user]
-        if self.name:
-            parts.append(self.name)
+        if self.role == SERVER_ROLE_EXIT:
+            if self.name:
+                parts.append(self.name)
+            return " ".join(parts)
+
+        # Relay entries need an explicit role marker so fresh machines can
+        # distinguish them from exit servers without relying on local cache.
+        parts.extend([self.name or "-", self.role])
         return " ".join(parts)
 
     @classmethod
@@ -29,6 +40,9 @@ class ServerEntry:
         parts = stripped.split()
         if len(parts) < 2:
             return None
+        if len(parts) >= 4 and parts[3] in _SERVER_ROLES:
+            name = "" if parts[2] == "-" else parts[2]
+            return cls(host=parts[0], user=parts[1], name=name, role=parts[3])
         return cls(host=parts[0], user=parts[1], name=parts[2] if len(parts) > 2 else "")
 
 
