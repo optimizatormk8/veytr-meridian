@@ -32,8 +32,8 @@ var T = {
     clock: 'Синхронизация часов',
     'clock.desc': 'Часы устройства должны быть точными с отклонением не более 30 секунд. Откройте Настройки > Дата и время > включите «Автоматически».',
     ping: 'Не подключается?',
-    'ping.desc': 'Проверьте, доступен ли сервер с вашего устройства:',
-    'ping.link': 'Запустить тест',
+    'ping.desc': 'Проверьте автоматическую синхронизацию времени и попробуйте другой вариант подключения выше.',
+    'ping.link': 'Попросите владельца сервера запустить meridian test',
     stats: 'Использование', 'stats.upload': 'Загрузка', 'stats.download': 'Скачивание',
     'install.title': 'Установите приложение',
     'install.btn': 'Установить',
@@ -91,8 +91,8 @@ var T = {
     clock: 'همگام\u200Cسازی ساعت',
     'clock.desc': 'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > \u00ABتنظیم خودکار\u00BB بروید.',
     ping: '\u0645\u062A\u0635\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u06CC\u062F\u061F',
-    'ping.desc': 'بررسی کنید آیا سرور از دستگاه شما قابل دسترسی است:',
-    'ping.link': 'اجرای تست پینگ',
+    'ping.desc': 'همگام‌سازی خودکار ساعت را بررسی کنید و یکی از گزینه‌های اتصال بالا را امتحان کنید.',
+    'ping.link': 'از صاحب سرور بخواهید meridian test را اجرا کند',
     stats: 'مصرف', 'stats.upload': 'آپلود', 'stats.download': 'دانلود',
     'install.title': 'برنامه را نصب کنید',
     'install.btn': 'نصب',
@@ -150,8 +150,8 @@ var T = {
     clock: '时钟同步',
     'clock.desc': '设备时钟必须精确到 30 秒以内。前往设置 > 日期与时间 > 启用"自动设置"。',
     ping: '无法连接？',
-    'ping.desc': '测试服务器是否可从您的设备访问：',
-    'ping.link': '运行Ping测试',
+    'ping.desc': '请确认设备已开启自动校时，然后尝试上面的其他连接方式。',
+    'ping.link': '请让服务器所有者运行 meridian test',
     stats: '用量', 'stats.upload': '上传', 'stats.download': '下载',
     'install.title': '安装应用',
     'install.btn': '安装',
@@ -591,13 +591,11 @@ function renderPage(config) {
     html += '</details>';
   }
 
-  /* Ping test */
-  var pingUrl = 'https://getmeridian.org/ping?ip=' + encodeURIComponent(config.server_ip);
-  if (config.domain) pingUrl += '&domain=' + encodeURIComponent(config.domain);
+  /* Troubleshooting */
   html += '<div class="warn" style="border-color:var(--amber-br);background:var(--amber-bg)">';
   html += '<h3 data-t="ping">Not connecting?</h3>';
-  html += '<p><span data-t="ping.desc">Test if the server is reachable from your device:</span> ';
-  html += '<a href="' + escapeHtml(pingUrl) + '" target="_blank" style="color:var(--amber)" data-t="ping.link">Run ping test</a></p>';
+  html += '<p data-t="ping.desc">Check automatic time sync on your device, then try another connection option above.</p>';
+  html += '<p data-t="ping.link">Ask the server owner to run meridian test.</p>';
   html += '</div>';
 
   /* Stats (bottom — informational) */

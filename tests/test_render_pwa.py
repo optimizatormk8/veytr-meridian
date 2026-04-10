@@ -417,3 +417,7 @@ class TestPWATemplateSource:
     def test_app_js_prefers_canonical_subscription_url(self) -> None:
         app_js = Path("src/meridian/templates/pwa/app.js").read_text()
         assert "config.subscription_url" in app_js
+
+    def test_app_js_has_no_external_ping_dependency(self) -> None:
+        app_js = Path("src/meridian/templates/pwa/app.js").read_text()
+        assert "getmeridian.org/ping" not in app_js
