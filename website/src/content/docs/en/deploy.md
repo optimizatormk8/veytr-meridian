@@ -113,7 +113,7 @@ meridian deploy local
 This skips SSH entirely and runs all commands locally. The `local` keyword works with all commands:
 
 ```
-meridian client add alice local
+meridian client add alice --server local
 meridian preflight local
 meridian scan local
 ```

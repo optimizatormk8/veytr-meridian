@@ -112,7 +112,7 @@ meridian deploy local
 SSH пропускается, все команды выполняются локально. Ключевое слово `local` работает со всеми командами:
 
 ```
-meridian client add alice local
+meridian client add alice --server local
 meridian preflight local
 meridian scan local
 ```
