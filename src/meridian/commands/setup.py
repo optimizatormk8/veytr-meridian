@@ -43,39 +43,57 @@ def _remote_meridian_state_exists(resolved: ResolvedServer) -> bool | None:
 
 
 def _refresh_credentials_before_deploy(resolved: ResolvedServer) -> None:
-    """Refresh credentials before deploy, but only fail closed on redeploy.
+    """Refresh credentials before deploy.
 
-    Fresh deploys legitimately have nothing to fetch yet. Redeploys must not
-    continue when the forced refresh fails, whether the existing state is
-    detected locally or directly on the server.
+    Fresh deploys legitimately have nothing to fetch yet. Redeploys try to
+    refresh from the server but gracefully fall back to the local cache when
+    the server has no credentials (older deploys that pre-date server-side
+    credential sync).
     """
     proxy_file = resolved.creds_dir / "proxy.yml"
     had_local_cache = proxy_file.exists()
     if fetch_credentials(resolved, force=True):
         return
     if had_local_cache:
-        fail(
-            "Could not refresh credentials before deploy",
-            hint="Check SSH/SCP and retry. Meridian will not redeploy using a stale local cache.",
-            hint_type="system",
-        )
+        # Local cache exists but SCP refresh failed. Check why.
+        remote_state = _remote_meridian_state_exists(resolved)
+        if remote_state is False:
+            # Server has no credentials (pre-sync deploy). Local cache is the
+            # source of truth — proceed and sync will create the server copy.
+            warn("Server has no cached credentials — using local copy (will sync after deploy)")
+            return
+        if remote_state is True:
+            fail(
+                "Server credentials exist but could not be fetched",
+                hint=(
+                    "SCP failed even though the server has /etc/meridian/proxy.yml. "
+                    "Run: meridian doctor --user {user}\n"
+                    "Check SSH key permissions and scp access.".format(user=resolved.user)
+                ),
+                hint_type="system",
+            )
+        # Inconclusive — SSH works (we checked ports) but can't determine
+        # remote state. Warn and proceed with the local cache.
+        warn("Could not verify server credentials — proceeding with local cache")
+        return
+    # No local cache — check if server has state from a different machine
     remote_state = _remote_meridian_state_exists(resolved)
     if remote_state is False:
-        return
+        return  # Fresh deploy, nothing anywhere
     if remote_state is True:
         fail(
-            "Could not refresh credentials before deploy",
+            "Server already has Meridian state, but credentials could not be fetched",
             hint=(
-                "This server already has Meridian state, but its credentials could not be fetched. "
-                "Check SSH/SCP and retry."
+                "This server was deployed from another machine. Fetch credentials first:\n"
+                "  scp {user}@{ip}:/etc/meridian/proxy.yml {creds_dir}/proxy.yml\n"
+                "Then re-run deploy.".format(
+                    user=resolved.user, ip=resolved.ip, creds_dir=resolved.creds_dir
+                )
             ),
             hint_type="system",
         )
-    fail(
-        "Could not determine whether Meridian is already deployed on the server",
-        hint="Check SSH/SCP and retry. Meridian will not redeploy when remote state is unknown.",
-        hint_type="system",
-    )
+    # No local cache AND can't determine remote state — allow fresh deploy
+    return
 
 
 def _sync_credentials_to_server(resolved: ResolvedServer) -> bool:

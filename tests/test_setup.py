@@ -123,11 +123,12 @@ class TestRunWithExplicitIP:
 
         mock_fetch.assert_called_once_with(resolved, force=True)
 
-    def test_deploy_fails_when_refresh_fails_with_cached_credentials(self, tmp_home: Path) -> None:
+    def test_deploy_proceeds_when_refresh_fails_with_cache_but_no_remote_state(self, tmp_home: Path) -> None:
+        """Redeploy should proceed with local cache when server has no credentials (pre-sync deploy)."""
         resolved = SimpleNamespace(
             ip="1.2.3.4",
             user="root",
-            conn=object(),
+            conn=Mock(),
             creds_dir=tmp_home / "credentials" / "1.2.3.4",
         )
         resolved.creds_dir.mkdir(parents=True)
@@ -135,6 +136,43 @@ class TestRunWithExplicitIP:
         creds.panel.username = "admin"
         creds.panel.password = "secret"
         creds.save(resolved.creds_dir / "proxy.yml")
+
+        # Server has no /etc/meridian/proxy.yml (rc=1 from test -s)
+        resolved.conn.run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="",
+        )
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=False),
+            patch("meridian.commands.setup._run_provisioner") as mock_provision,
+            patch("meridian.commands.setup._print_success"),
+            patch("meridian.commands.setup._offer_relay"),
+        ):
+            run(ip="1.2.3.4", yes=True)
+
+        mock_provision.assert_called_once()
+
+    def test_deploy_fails_when_refresh_fails_with_cache_and_remote_state_exists(self, tmp_home: Path) -> None:
+        """Redeploy must fail when server has credentials but SCP can't fetch them."""
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=Mock(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        creds = ServerCredentials()
+        creds.panel.username = "admin"
+        creds.panel.password = "secret"
+        creds.save(resolved.creds_dir / "proxy.yml")
+
+        # Server HAS /etc/meridian/proxy.yml (rc=0 from test -s)
+        resolved.conn.run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr="",
+        )
 
         with (
             patch("meridian.commands.setup.resolve_server", return_value=resolved),
@@ -203,7 +241,8 @@ class TestRunWithExplicitIP:
 
         mock_provision.assert_not_called()
 
-    def test_deploy_fails_when_remote_state_check_is_inconclusive(self, tmp_home: Path) -> None:
+    def test_deploy_proceeds_when_remote_state_check_is_inconclusive_and_no_cache(self, tmp_home: Path) -> None:
+        """Fresh deploy should proceed even when remote state check is inconclusive."""
         resolved = SimpleNamespace(
             ip="1.2.3.4",
             user="root",
@@ -224,11 +263,12 @@ class TestRunWithExplicitIP:
             patch("meridian.commands.setup._check_ports"),
             patch("meridian.commands.setup.fetch_credentials", return_value=False),
             patch("meridian.commands.setup._run_provisioner") as mock_provision,
+            patch("meridian.commands.setup._print_success"),
+            patch("meridian.commands.setup._offer_relay"),
         ):
-            with pytest.raises(typer.Exit):
-                run(ip="1.2.3.4", yes=True)
+            run(ip="1.2.3.4", yes=True)
 
-        mock_provision.assert_not_called()
+        mock_provision.assert_called_once()
 
     def test_regenerates_pages_after_deploy(self, tmp_home: Path) -> None:
         resolved = SimpleNamespace(
