@@ -632,7 +632,6 @@ def _generate_minimal_html(
     """Generate a minimal HTML page when the Jinja2 template is not available."""
     safe_name = html_mod.escape(client_name)
     safe_ip = html_mod.escape(server_ip)
-    safe_domain = html_mod.escape(domain)
     safe_now = html_mod.escape(now)
 
     cards = ""

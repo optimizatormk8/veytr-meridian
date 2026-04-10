@@ -587,7 +587,9 @@ class TestValidateClientName:
         assert exc.value.exit_code == 1
         assert (creds_dir / "proxy.yml").read_text() == original
 
-    def test_show_recovery_sync_failure_restores_local_credentials_and_fails(self, tmp_home: Path, creds_dir: Path) -> None:
+    def test_show_recovery_sync_failure_restores_local_credentials_and_fails(
+        self, tmp_home: Path, creds_dir: Path
+    ) -> None:
         _write_proxy_yml(creds_dir)
         original = (creds_dir / "proxy.yml").read_text()
         mock_resolved = _make_mock_resolved(creds_dir)
