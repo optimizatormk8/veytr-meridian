@@ -35,10 +35,12 @@ RUN install -m 0755 -d /etc/apt/keyrings && \
 # ---------------------------------------------------------------------------
 # acme.sh stub (real acme.sh needs cron which Docker doesn't have;
 # the stub makes InstallNginx skip installation and returns rc=2
-# "cert already valid" so the step proceeds with the self-signed cert)
+# "cert already valid" so the step proceeds with the self-signed cert.
+# --install-cronjob returns 0 so InstallNginx cron check passes.)
 # ---------------------------------------------------------------------------
 RUN mkdir -p /root/.acme.sh && \
-    printf '#!/bin/sh\nexit 2\n' > /root/.acme.sh/acme.sh && \
+    printf '#!/bin/sh\ncase "$1" in --install-cronjob|--install-cert|--info) exit 0;; *) exit 2;; esac\n' \
+      > /root/.acme.sh/acme.sh && \
     chmod +x /root/.acme.sh/acme.sh
 
 # ---------------------------------------------------------------------------
