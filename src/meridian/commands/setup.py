@@ -167,6 +167,7 @@ def run(
         creds.save(proxy_file)
 
     _run_provisioner(resolved, domain, sni, client_name, harden, pq=pq, warp=warp, geo_block=geo_block)
+    _regenerate_connection_pages_after_deploy(resolved)
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
@@ -724,17 +725,23 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
     err_console.print("  [ok]3.[/ok] Test that the proxy works:")
     server_ip = resolved.ip
     err_console.print(f"     [info]meridian test {server_ip}[/info]")
-    ping_url = f"https://getmeridian.org/ping?ip={server_ip}"
-    if domain:
-        ping_url += f"&domain={domain}"
-    err_console.print(f"     [dim]Or from browser: {ping_url}[/dim]\n")
+    err_console.print("     [dim]Run it after deploy/redeploy to verify the live server state.[/dim]\n")
 
-    err_console.print("  [ok]4.[/ok] Share access with friends:")
+    next_step = 4
+    if domain:
+        err_console.print("  [ok]4.[/ok] Cloudflare setup:")
+        err_console.print(f"     [dim]A record {domain} -> {server_ip}[/dim]")
+        err_console.print("     [dim]Keep it DNS only (grey cloud) during deploy/redeploy[/dim]")
+        err_console.print("     [dim]After deploy succeeds: switch to Proxied (orange cloud)[/dim]")
+        err_console.print("     [dim]Set SSL/TLS to Full (Strict) and enable WebSockets[/dim]\n")
+        next_step = 5
+
+    err_console.print(f"  [ok]{next_step}.[/ok] Share access with friends:")
     err_console.print("     [info]meridian client add alice[/info]")
     err_console.print("     [info]meridian client list[/info]\n")
 
     server_ip = resolved.ip
-    err_console.print("  [ok]5.[/ok] Add a relay for resilience (optional):")
+    err_console.print(f"  [ok]{next_step + 1}.[/ok] Add a relay for resilience (optional):")
     err_console.print(f"     [info]meridian relay deploy RELAY_IP --exit {server_ip}[/info]")
     err_console.print("     [dim]Routes through a domestic IP when the exit gets blocked[/dim]\n")
 
@@ -748,6 +755,21 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
         err_console.print(f"  [dim]  {creds.panel.username} / {creds.panel.password}[/dim]")
 
     err_console.print("\n  [dim]Feedback & issues: https://github.com/uburuntu/meridian/issues[/dim]\n")
+
+
+def _regenerate_connection_pages_after_deploy(resolved: ResolvedServer) -> None:
+    """Refresh local and hosted client handoff pages after deploy/redeploy."""
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    if not proxy_file.exists():
+        return
+
+    creds = ServerCredentials.load(proxy_file)
+    if not creds.clients:
+        return
+
+    from meridian.commands.relay import _regenerate_client_pages
+
+    _regenerate_client_pages(resolved, creds)
 
 
 def _check_ports(conn: ServerConnection, ip: str, yes: bool) -> None:

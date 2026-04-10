@@ -11,8 +11,9 @@ import pytest
 import typer
 
 from meridian.commands.resolve import detect_public_ip
-from meridian.commands.setup import run
+from meridian.commands.setup import _print_success, _regenerate_connection_pages_after_deploy, run
 from meridian.config import is_ipv4
+from meridian.credentials import ClientEntry, ServerCredentials
 
 
 class TestDetectPublicIP:
@@ -121,6 +122,89 @@ class TestRunWithExplicitIP:
             run(ip="1.2.3.4", yes=True)
 
         mock_fetch.assert_called_once_with(resolved, force=True)
+
+    def test_regenerates_pages_after_deploy(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=object(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        creds = ServerCredentials()
+        creds.server.ip = "1.2.3.4"
+        creds.clients = [ClientEntry(name="default", reality_uuid="r-uuid", wss_uuid="w-uuid")]
+        creds.save(resolved.creds_dir / "proxy.yml")
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=True),
+            patch("meridian.commands.setup._run_provisioner"),
+            patch("meridian.commands.setup._regenerate_connection_pages_after_deploy") as mock_regen,
+            patch("meridian.commands.setup._print_success"),
+            patch("meridian.commands.setup._offer_relay"),
+        ):
+            run(ip="1.2.3.4", yes=True)
+
+        mock_regen.assert_called_once_with(resolved)
+
+
+class TestSuccessOutput:
+    def _write_proxy(self, creds_dir: Path, *, domain: str = "") -> None:
+        creds = ServerCredentials()
+        creds.server.ip = "1.2.3.4"
+        creds.server.domain = domain or None
+        creds.server.hosted_page = True
+        creds.panel.info_page_path = "connect"
+        creds.panel.url = f"https://{domain or '1.2.3.4'}/panel/"
+        creds.panel.username = "admin"
+        creds.panel.password = "secret"
+        creds.reality.uuid = "r-uuid"
+        creds.save(creds_dir / "proxy.yml")
+
+    def test_domain_success_includes_cloudflare_steps(self, tmp_home: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        creds_dir = tmp_home / "credentials" / "1.2.3.4"
+        creds_dir.mkdir(parents=True)
+        self._write_proxy(creds_dir, domain="example.com")
+        resolved = SimpleNamespace(ip="1.2.3.4", creds_dir=creds_dir)
+
+        _print_success(resolved, "default", "example.com")
+
+        out = capsys.readouterr().err
+        assert "Cloudflare setup" in out
+        assert "DNS only" in out
+        assert "Full (Strict)" in out
+        assert "getmeridian.org/ping" not in out
+
+    def test_ip_mode_success_omits_external_ping_hint(self, tmp_home: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        creds_dir = tmp_home / "credentials" / "1.2.3.4"
+        creds_dir.mkdir(parents=True)
+        self._write_proxy(creds_dir)
+        resolved = SimpleNamespace(ip="1.2.3.4", creds_dir=creds_dir)
+
+        _print_success(resolved, "default", "")
+
+        out = capsys.readouterr().err
+        assert "getmeridian.org/ping" not in out
+        assert "Cloudflare setup" not in out
+
+
+class TestRegenerateConnectionPagesAfterDeploy:
+    def test_calls_regenerator_for_saved_clients(self, tmp_home: Path) -> None:
+        creds_dir = tmp_home / "credentials" / "1.2.3.4"
+        creds_dir.mkdir(parents=True)
+        resolved = SimpleNamespace(ip="1.2.3.4", creds_dir=creds_dir, conn=object())
+        creds = ServerCredentials()
+        creds.server.ip = "1.2.3.4"
+        creds.clients = [ClientEntry(name="alice", reality_uuid="r-uuid", wss_uuid="w-uuid")]
+        creds.save(creds_dir / "proxy.yml")
+
+        with patch("meridian.commands.relay._regenerate_client_pages") as mock_regen:
+            _regenerate_connection_pages_after_deploy(resolved)
+
+        mock_regen.assert_called_once()
 
 
 class TestIsIPv4:
