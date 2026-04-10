@@ -34,5 +34,6 @@
 - **Local mode has two entry points** — `local` keyword and root auto-detect. They converge on `local_mode=True` but differ on `creds_dir`.
 - **Registry mixes exits and relays** — relay nodes are stored in `~/.meridian/servers` too. New relay entries carry an explicit role tag; legacy ones still need inference from local relay metadata or cached exit creds. Never let implicit auto-select depend only on whichever exit happens to have a local `proxy.yml`.
 - **Write commands must fail closed on refresh/sync** — if a command mutates credentials, a stale local cache cannot be trusted and a failed post-save sync must abort before success output or handoff artifact generation.
+- **`deploy` refresh is asymmetric** — first deploy may legitimately have nothing to fetch, but redeploy must abort if forced refresh fails and Meridian state already exists either locally or on the server. Never treat “no local cache” as proof of a fresh machine.
 - **`console.fail()` always exits** — raises `typer.Exit(1)`. Only call from command entry points, never library code.
 - **`dev` subcommand is hidden** — not shown in `--help`. Intentional — developer tools only.

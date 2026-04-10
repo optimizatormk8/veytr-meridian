@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 import typer
@@ -123,6 +123,113 @@ class TestRunWithExplicitIP:
 
         mock_fetch.assert_called_once_with(resolved, force=True)
 
+    def test_deploy_fails_when_refresh_fails_with_cached_credentials(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=object(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        creds = ServerCredentials()
+        creds.panel.username = "admin"
+        creds.panel.password = "secret"
+        creds.save(resolved.creds_dir / "proxy.yml")
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=False),
+            patch("meridian.commands.setup._run_provisioner") as mock_provision,
+        ):
+            with pytest.raises(typer.Exit):
+                run(ip="1.2.3.4", yes=True)
+
+        mock_provision.assert_not_called()
+
+    def test_deploy_allows_refresh_failure_on_fresh_server(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=Mock(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        resolved.conn.run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="",
+        )
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=False),
+            patch("meridian.commands.setup._run_provisioner") as mock_provision,
+            patch("meridian.commands.setup._print_success"),
+            patch("meridian.commands.setup._offer_relay"),
+        ):
+            run(ip="1.2.3.4", yes=True)
+
+        mock_provision.assert_called_once()
+
+    def test_deploy_fails_when_refresh_fails_without_cache_but_remote_state_exists(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=Mock(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        resolved.conn.run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=False),
+            patch("meridian.commands.setup._run_provisioner") as mock_provision,
+        ):
+            with pytest.raises(typer.Exit):
+                run(ip="1.2.3.4", yes=True)
+
+        mock_provision.assert_not_called()
+
+    def test_deploy_fails_when_remote_state_check_is_inconclusive(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=Mock(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        resolved.conn.run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=124,
+            stdout="",
+            stderr="timed out",
+        )
+
+        with (
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=False),
+            patch("meridian.commands.setup._run_provisioner") as mock_provision,
+        ):
+            with pytest.raises(typer.Exit):
+                run(ip="1.2.3.4", yes=True)
+
+        mock_provision.assert_not_called()
+
     def test_regenerates_pages_after_deploy(self, tmp_home: Path) -> None:
         resolved = SimpleNamespace(
             ip="1.2.3.4",
@@ -149,6 +256,37 @@ class TestRunWithExplicitIP:
             run(ip="1.2.3.4", yes=True)
 
         mock_regen.assert_called_once_with(resolved)
+
+    def test_regeneration_failure_warns_and_deploy_still_succeeds(self, tmp_home: Path) -> None:
+        resolved = SimpleNamespace(
+            ip="1.2.3.4",
+            user="root",
+            conn=object(),
+            creds_dir=tmp_home / "credentials" / "1.2.3.4",
+        )
+        resolved.creds_dir.mkdir(parents=True)
+        mock_registry = Mock()
+
+        with (
+            patch("meridian.commands.setup.ServerRegistry", return_value=mock_registry),
+            patch("meridian.commands.setup.resolve_server", return_value=resolved),
+            patch("meridian.commands.setup.ensure_server_connection", return_value=resolved),
+            patch("meridian.commands.setup._check_ports"),
+            patch("meridian.commands.setup.fetch_credentials", return_value=True),
+            patch("meridian.commands.setup._run_provisioner"),
+            patch(
+                "meridian.commands.setup._regenerate_connection_pages_after_deploy",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch("meridian.commands.setup.warn") as mock_warn,
+            patch("meridian.commands.setup._print_success") as mock_success,
+            patch("meridian.commands.setup._offer_relay"),
+        ):
+            run(ip="1.2.3.4", yes=True)
+
+        mock_registry.add.assert_called_once()
+        mock_success.assert_called_once()
+        mock_warn.assert_any_call("Could not refresh connection pages after deploy: boom")
 
 
 class TestSuccessOutput:
@@ -177,6 +315,7 @@ class TestSuccessOutput:
         assert "Cloudflare setup" in out
         assert "DNS only" in out
         assert "Full (Strict)" in out
+        assert "Website Analytics / RUM" in out
         assert "getmeridian.org/ping" not in out
 
     def test_ip_mode_success_omits_external_ping_hint(self, tmp_home: Path, capsys: pytest.CaptureFixture[str]) -> None:

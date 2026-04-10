@@ -46,6 +46,16 @@ class TestInstallPackages:
         assert result.status == "changed"
         mock_conn.assert_called_with_pattern("apt-get install")
 
+    def test_installs_cron_for_acme_and_watchdog_jobs(self, mock_conn: MockConnection, base_ctx):
+        """Cron is required for cert renewal, stats refresh, and the watchdog."""
+        installed = [pkg for pkg in REQUIRED_PACKAGES if pkg != "cron"]
+        mock_conn.when("dpkg-query", stdout="\n".join(installed) + "\n")
+
+        result = InstallPackages().run(mock_conn, base_ctx)
+
+        assert result.status == "changed"
+        mock_conn.assert_called_with_pattern("apt-get install -y -qq cron")
+
     def test_apt_fails_returns_failed(self, mock_conn: MockConnection, base_ctx):
         """When apt-get install fails, status is failed."""
         mock_conn.when("dpkg-query", stdout="")

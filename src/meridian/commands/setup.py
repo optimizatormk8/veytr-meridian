@@ -27,6 +27,56 @@ from meridian.servers import ServerEntry, ServerRegistry
 from meridian.ssh import ServerConnection
 
 
+def _remote_meridian_state_exists(resolved: ResolvedServer) -> bool | None:
+    """Check whether the server already has Meridian credentials.
+
+    Returns True when `/etc/meridian/proxy.yml` exists and is non-empty, False
+    when it is absent, and None when the check itself is inconclusive.
+    """
+    check = resolved.conn.run("test -s /etc/meridian/proxy.yml", timeout=10)
+    if check.returncode == 0:
+        return True
+    if check.returncode == 1:
+        return False
+    return None
+
+
+def _refresh_credentials_before_deploy(resolved: ResolvedServer) -> None:
+    """Refresh credentials before deploy, but only fail closed on redeploy.
+
+    Fresh deploys legitimately have nothing to fetch yet. Redeploys must not
+    continue when the forced refresh fails, whether the existing state is
+    detected locally or directly on the server.
+    """
+    proxy_file = resolved.creds_dir / "proxy.yml"
+    had_local_cache = proxy_file.exists()
+    if fetch_credentials(resolved, force=True):
+        return
+    if had_local_cache:
+        fail(
+            "Could not refresh credentials before deploy",
+            hint="Check SSH/SCP and retry. Meridian will not redeploy using a stale local cache.",
+            hint_type="system",
+        )
+    remote_state = _remote_meridian_state_exists(resolved)
+    if remote_state is False:
+        return
+    if remote_state is True:
+        fail(
+            "Could not refresh credentials before deploy",
+            hint=(
+                "This server already has Meridian state, but its credentials could not be fetched. "
+                "Check SSH/SCP and retry."
+            ),
+            hint_type="system",
+        )
+    fail(
+        "Could not determine whether Meridian is already deployed on the server",
+        hint="Check SSH/SCP and retry. Meridian will not redeploy when remote state is unknown.",
+        hint_type="system",
+    )
+
+
 def run(
     ip: str = "",
     domain: str = "",
@@ -114,7 +164,7 @@ def run(
 
     resolved = ensure_server_connection(resolved)
     _check_ports(resolved.conn, resolved.ip, yes)
-    fetch_credentials(resolved, force=True)
+    _refresh_credentials_before_deploy(resolved)
 
     # Migrate v1 credentials to v2
     proxy_file = resolved.creds_dir / "proxy.yml"
@@ -165,7 +215,10 @@ def run(
         creds.save(proxy_file)
 
     _run_provisioner(resolved, domain, sni, client_name, harden, pq=pq, warp=warp, geo_block=geo_block)
-    _regenerate_connection_pages_after_deploy(resolved)
+    try:
+        _regenerate_connection_pages_after_deploy(resolved)
+    except Exception as exc:
+        warn(f"Could not refresh connection pages after deploy: {exc}")
 
     # Register server
     registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
@@ -737,6 +790,8 @@ def _print_success(resolved: ResolvedServer, client_name: str, domain: str) -> N
         err_console.print("     [dim]Keep it DNS only (grey cloud) during deploy/redeploy[/dim]")
         err_console.print("     [dim]After deploy succeeds: switch to Proxied (orange cloud)[/dim]")
         err_console.print("     [dim]Set SSL/TLS to Full (Strict) and enable WebSockets[/dim]\n")
+        err_console.print("     [dim]Disable features that inject scripts or rewrite HTML on this hostname[/dim]")
+        err_console.print("     [dim](for example Website Analytics / RUM), or the connection page can break[/dim]\n")
         next_step = 5
 
     err_console.print(f"  [ok]{next_step}.[/ok] Share access with friends:")

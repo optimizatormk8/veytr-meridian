@@ -14,7 +14,7 @@ meridian deploy 1.2.3.4
 Мастер проведёт вас через конфигурацию. Или укажите всё заранее:
 
 ```
-meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
+meridian deploy 1.2.3.4 --sni www.microsoft.com --client-name alice --yes
 ```
 
 ## Все флаги

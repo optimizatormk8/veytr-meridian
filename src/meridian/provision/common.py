@@ -13,6 +13,7 @@ MIN_DISK_SPACE_MB = 2048
 # Packages required by the deployment stack
 REQUIRED_PACKAGES = [
     "curl",
+    "cron",
     "socat",
     "wget",
     "unzip",

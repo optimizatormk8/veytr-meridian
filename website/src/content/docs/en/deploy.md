@@ -16,7 +16,7 @@ meridian deploy 1.2.3.4
 The wizard guides you through configuration. Or specify everything upfront:
 
 ```
-meridian deploy 1.2.3.4 --sni www.microsoft.com --name alice --yes
+meridian deploy 1.2.3.4 --sni www.microsoft.com --client-name alice --yes
 ```
 
 ## All flags
