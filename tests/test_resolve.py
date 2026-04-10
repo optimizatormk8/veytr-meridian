@@ -104,6 +104,26 @@ class TestSingleServerAutoSelect:
         assert result.ip == "10.20.30.40"
         assert result.user == "root"
 
+    def test_auto_select_ignores_relay_only_registry_entries(
+        self, tmp_home: Path, servers_file: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "meridian.commands.resolve._detect_local_mode_from_creds",
+            lambda: None,
+        )
+        reg = ServerRegistry(servers_file)
+        reg.add(ServerEntry("10.20.30.40", "root", "exit"))
+        reg.add(ServerEntry("203.0.113.10", "root", "relay-a"))
+        reg.add(ServerEntry("203.0.113.11", "root", "relay-b"))
+
+        creds_dir = tmp_home / "credentials" / "10.20.30.40"
+        creds_dir.mkdir(parents=True)
+        (creds_dir / "proxy.yml").write_text("version: 2\nserver:\n  ip: 10.20.30.40\n")
+
+        result = resolve_server(reg)
+        assert result.ip == "10.20.30.40"
+        assert result.user == "root"
+
 
 class TestMultipleServers:
     """Path 5: multiple servers registered, no selection."""

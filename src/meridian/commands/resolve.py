@@ -93,6 +93,38 @@ def _detect_local_mode_from_creds() -> str | None:
         return None
 
 
+def _find_proxy_file(host: str) -> Path | None:
+    """Find locally cached credentials for a host, if present."""
+    from meridian import config as cfg
+
+    remote = cfg.CREDS_BASE / cfg.sanitize_ip_for_path(host) / "proxy.yml"
+    if remote.is_file():
+        return remote
+
+    local = cfg.SERVER_CREDS_DIR / "proxy.yml"
+    try:
+        if local.is_file():
+            creds = ServerCredentials.load(local)
+            if creds.server.ip == host:
+                return local
+    except (PermissionError, OSError):
+        return None
+
+    return None
+
+
+def _auto_selectable_entries(registry: ServerRegistry) -> list:
+    """Return the best registry subset for implicit server selection.
+
+    Relay nodes are stored in the same registry as exit servers, but they do
+    not have exit-server credentials. When at least one credential-backed exit
+    exists locally, implicit selection should consider only those entries.
+    """
+    entries = registry.list()
+    exit_entries = [entry for entry in entries if _find_proxy_file(entry.host) is not None]
+    return exit_entries or entries
+
+
 def resolve_server(
     registry: ServerRegistry,
     requested_server: str = "",
@@ -167,24 +199,29 @@ def resolve_server(
             local_mode = True
 
         # 4. Single server auto-select
-        elif registry.count() == 1:
-            entries = registry.list()
-            entry = entries[0]
-            ip = entry.host
-            registry_user = entry.user
-            label = f"{entry.name} ({ip})" if entry.name else ip
-            info(f"Using server: {label}")
-
-        elif registry.count() > 1:
-            err_console.print("\n  Multiple servers. Use [bold]--server NAME[/bold]:\n")
-            for entry in registry.list():
-                label = entry.name or entry.host
-                err_console.print(f"    [info]{label:<15s}[/info]  {entry.host}  ({entry.user})")
-            err_console.print()
-            fail("Specify a server with --server", hint="Example: meridian <command> --server NAME", hint_type="user")
-
         else:
-            fail("No servers configured", hint="Deploy a server first: meridian deploy IP", hint_type="user")
+            selectable_entries = _auto_selectable_entries(registry)
+            if len(selectable_entries) == 1:
+                entry = selectable_entries[0]
+                ip = entry.host
+                registry_user = entry.user
+                label = f"{entry.name} ({ip})" if entry.name else ip
+                info(f"Using server: {label}")
+
+            elif len(selectable_entries) > 1:
+                err_console.print("\n  Multiple servers. Use [bold]--server NAME[/bold]:\n")
+                for entry in selectable_entries:
+                    label = entry.name or entry.host
+                    err_console.print(f"    [info]{label:<15s}[/info]  {entry.host}  ({entry.user})")
+                err_console.print()
+                fail(
+                    "Specify a server with --server",
+                    hint="Example: meridian <command> --server NAME",
+                    hint_type="user",
+                )
+
+            else:
+                fail("No servers configured", hint="Deploy a server first: meridian deploy IP", hint_type="user")
 
     # Resolve user: explicit flag > registry > default root
     resolved_user = user or registry_user or "root"

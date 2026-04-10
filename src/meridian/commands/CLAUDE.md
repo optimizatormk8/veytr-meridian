@@ -32,6 +32,7 @@
 ## Pitfalls
 
 - **Local mode has two entry points** — `local` keyword and root auto-detect. They converge on `local_mode=True` but differ on `creds_dir`.
+- **Registry mixes exits and relays** — relay nodes are stored in `~/.meridian/servers` too. Implicit auto-select for server-touching commands must prefer entries with exit-server credentials, otherwise one exit + two relays looks like "multiple servers" and breaks `client add/list/show`.
 - **Write commands must fail closed on refresh/sync** — if a command mutates credentials, a stale local cache cannot be trusted and a failed post-save sync must abort before success output or handoff artifact generation.
 - **`console.fail()` always exits** — raises `typer.Exit(1)`. Only call from command entry points, never library code.
 - **`dev` subcommand is hidden** — not shown in `--help`. Intentional — developer tools only.
