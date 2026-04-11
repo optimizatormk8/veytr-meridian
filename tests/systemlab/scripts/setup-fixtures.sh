@@ -3,8 +3,9 @@
 # Run before `docker compose build` if fixtures don't exist.
 set -euo pipefail
 
-DIR="$(cd "$(dirname "$0")/../fixtures" && pwd)"
+DIR="$(dirname "$0")/../fixtures"
 mkdir -p "$DIR"
+DIR="$(cd "$DIR" && pwd)"
 
 # SSH keypair (test-only, never committed)
 if [ ! -f "$DIR/id_ed25519" ]; then
