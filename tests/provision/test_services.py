@@ -838,6 +838,47 @@ class TestConfigureNginx:
         assert result.status == "changed"
         assert "nginx" in result.detail
 
+    def test_bootstrap_cert_uses_ip_subject_alt_name(self, tmp_path: Path):
+        conn = MockConnection()
+        conn.when("test -f /etc/ssl/meridian/fullchain.pem", stdout="", rc=1)
+        conn.when("openssl req -x509", stdout="")
+        conn.when("printf", stdout="")
+        conn.when("grep", stdout="stream {", rc=0)
+        conn.when("rm -f", stdout="")
+        conn.when("nginx -t", stdout="syntax is ok")
+        conn.when("systemctl", stdout="")
+        conn.when("mkdir", stdout="")
+
+        ctx = ProvisionContext(ip="198.51.100.1", creds_dir=str(tmp_path))
+        step = ConfigureNginx(domain="", ip_mode=True, server_ip="198.51.100.1")
+        result = step.run(conn, ctx)
+
+        assert result.status == "changed"
+        bootstrap_calls = [c for c in conn.calls if "openssl req -x509" in c]
+        assert bootstrap_calls
+        assert "subjectAltName=IP:198.51.100.1" in bootstrap_calls[0]
+
+    def test_bootstrap_cert_uses_dns_subject_alt_name(self, tmp_path: Path):
+        conn = MockConnection()
+        conn.when("dig +short", stdout="198.51.100.1")
+        conn.when("test -f /etc/ssl/meridian/fullchain.pem", stdout="", rc=1)
+        conn.when("openssl req -x509", stdout="")
+        conn.when("printf", stdout="")
+        conn.when("grep", stdout="stream {", rc=0)
+        conn.when("rm -f", stdout="")
+        conn.when("nginx -t", stdout="syntax is ok")
+        conn.when("systemctl", stdout="")
+        conn.when("mkdir", stdout="")
+
+        ctx = ProvisionContext(ip="198.51.100.1", domain="example.com", creds_dir=str(tmp_path))
+        step = ConfigureNginx(domain="example.com", ip_mode=False, server_ip="198.51.100.1")
+        result = step.run(conn, ctx)
+
+        assert result.status == "changed"
+        bootstrap_calls = [c for c in conn.calls if "openssl req -x509" in c]
+        assert bootstrap_calls
+        assert "subjectAltName=DNS:example.com" in bootstrap_calls[0]
+
 
 # ---------------------------------------------------------------------------
 # IssueTLSCert step
@@ -922,6 +963,23 @@ class TestIssueTLSCert:
         assert acme_calls
         assert "shortlived" not in acme_calls[0]
         assert "--days" not in acme_calls[0]
+
+    def test_uses_configured_acme_server(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr("meridian.provision.services.ACME_SERVER", "https://acme.test/directory")
+        conn = MockConnection()
+        conn.when("acme.sh --info", stdout="", rc=1)
+        conn.when("acme.sh --issue", stdout="", rc=2)
+        conn.when("acme.sh --install-cert", stdout="")
+        conn.when("systemctl", stdout="")
+
+        ctx = ProvisionContext(ip="198.51.100.1", creds_dir=str(tmp_path))
+        step = IssueTLSCert(domain="", ip_mode=True, server_ip="198.51.100.1")
+        result = step.run(conn, ctx)
+
+        assert result.status == "changed"
+        acme_calls = [c for c in conn.calls if "acme.sh --issue" in c]
+        assert acme_calls
+        assert "https://acme.test/directory" in acme_calls[0]
 
     def test_ip_mode_force_renews_stale_acme_schedule(self, tmp_path: Path):
         conn = MockConnection()

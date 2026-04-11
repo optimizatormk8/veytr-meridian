@@ -1,10 +1,20 @@
 # tests
 
 ```bash
-make test                              # pytest only
+make test                              # pytest only (855 tests, ~40s)
+make system-lab                        # multi-node Docker lab (~3 min)
 uv run pytest tests/ -v --tb=short     # verbose
 uv run pytest tests/ -k "test_name"    # by pattern
 ```
+
+## Test layers
+
+| Layer | What | Where | Speed |
+|-------|------|-------|-------|
+| **Unit** | MockConnection-based provisioner steps, config parsing, credential handling | `tests/` (pytest) | ~40s |
+| **Integration** | Real 3x-ui Docker container, panel API | `tests/test_integration_3xui.py` | ~30s |
+| **E2E** | Single-container deploy lifecycle (mocked systemctl) | `tests/e2e/` | ~10 min |
+| **System lab** | Multi-node deploy + relay via real SSH, real systemd, real Docker | `tests/systemlab/` | ~3 min |
 
 ## Testing philosophy
 

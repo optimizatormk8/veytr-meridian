@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from meridian import __version__
+from meridian.config import DISABLE_UPDATE_CHECK
 from meridian.console import banner
 
 app = typer.Typer(
@@ -50,7 +51,7 @@ def main_callback(
         banner(__version__)
 
     # Auto-update check (skip for meta commands)
-    if ctx.invoked_subcommand not in ("update",):
+    if not DISABLE_UPDATE_CHECK and ctx.invoked_subcommand not in ("update",):
         from meridian.update import check_for_update
 
         check_for_update(__version__)

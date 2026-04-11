@@ -82,3 +82,12 @@ class TestCheckForUpdate:
             check_for_update("1.2.5")
 
         mock_print.assert_not_called()
+
+    def test_disable_update_check_env_flag(self, monkeypatch) -> None:
+        import importlib
+
+        import meridian.config as config
+
+        monkeypatch.setenv("MERIDIAN_DISABLE_UPDATE_CHECK", "1")
+        importlib.reload(config)
+        assert config.DISABLE_UPDATE_CHECK is True

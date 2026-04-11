@@ -1,7 +1,10 @@
-"""Tests for config module — IP validation and path sanitization."""
+"""Tests for config module — IP validation, path sanitization, and env overrides."""
 
 from __future__ import annotations
 
+import importlib
+
+import meridian.config as config
 from meridian.config import is_ip, is_ipv4, sanitize_ip_for_path
 
 
@@ -59,3 +62,15 @@ class TestSanitizeIpForPath:
 
     def test_ipv6_loopback(self) -> None:
         assert sanitize_ip_for_path("::1") == "--1"
+
+
+class TestEnvOverrides:
+    def test_acme_server_override(self, monkeypatch) -> None:
+        monkeypatch.setenv("MERIDIAN_ACME_SERVER", "https://pebble.test/dir")
+        importlib.reload(config)
+        assert config.ACME_SERVER == "https://pebble.test/dir"
+
+    def test_connect_test_url_override(self, monkeypatch) -> None:
+        monkeypatch.setenv("MERIDIAN_CONNECT_TEST_URL", "https://echo.test/ip")
+        importlib.reload(config)
+        assert config.CONNECT_TEST_URL == "https://echo.test/ip"

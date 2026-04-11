@@ -17,6 +17,7 @@ import zipfile
 from pathlib import Path
 
 from meridian.config import (
+    CONNECT_TEST_URL,
     DEFAULT_FINGERPRINT,
     DEFAULT_SNI,
     MERIDIAN_HOME,
@@ -320,7 +321,7 @@ def test_connection(
                 "10",
                 "--max-time",
                 "15",
-                "https://ifconfig.me",
+                CONNECT_TEST_URL,
             ],
             capture_output=True,
             text=True,
