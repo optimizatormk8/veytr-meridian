@@ -262,9 +262,28 @@ class HardenSSH:
             )
 
         # Validate effective settings too — cloud-init drop-ins can override the main file.
-        for setting in ("passwordauthentication no", "kbdinteractiveauthentication no", "debianbanner no"):
+        # DebianBanner is a Debian/Ubuntu-specific directive that some OpenSSH
+        # builds don't recognize — sshd -T silently omits it.  We still write
+        # it (harmless when unsupported), but skip verification when absent.
+        _required = ("passwordauthentication no", "kbdinteractiveauthentication no")
+        _optional = ("debianbanner no",)
+
+        for setting in _required:
             effective = conn.run(f"sshd -T | grep -q '^{setting}$'", timeout=15)
             if effective.returncode != 0:
+                return StepResult(
+                    name=self.name,
+                    status="failed",
+                    detail=f"effective sshd setting mismatch: expected '{setting}'",
+                )
+
+        for setting in _optional:
+            effective = conn.run(f"sshd -T | grep -qi '^{setting.split()[0]}'", timeout=15)
+            if effective.returncode != 0:
+                # sshd doesn't recognize this directive — skip verification
+                continue
+            check = conn.run(f"sshd -T | grep -q '^{setting}$'", timeout=15)
+            if check.returncode != 0:
                 return StepResult(
                     name=self.name,
                     status="failed",

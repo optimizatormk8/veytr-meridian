@@ -195,6 +195,20 @@ class TestHardenSSH:
         assert result.status == "failed"
         assert "effective sshd setting mismatch" in result.detail
 
+    def test_debianbanner_unrecognized_skips_verification(self, mock_conn: MockConnection, base_ctx):
+        """When sshd doesn't recognize DebianBanner, skip its verification (issue #20)."""
+        mock_conn.when("cat /etc/ssh/sshd_config.d/00-meridian.conf", stdout=_SSH_HARDENING_DROPIN.strip())
+        mock_conn.when("sshd -t", rc=0)
+        # Required settings pass
+        mock_conn.when("sshd -T | grep -q '^passwordauthentication no$'", rc=0)
+        mock_conn.when("sshd -T | grep -q '^kbdinteractiveauthentication no$'", rc=0)
+        # sshd doesn't recognize DebianBanner — grep for the key returns nothing
+        mock_conn.when("sshd -T | grep -qi '^debianbanner'", rc=1)
+
+        result = HardenSSH().run(mock_conn, base_ctx)
+
+        assert result.status == "ok"
+
 
 # ---------------------------------------------------------------------------
 # ConfigureFail2ban
