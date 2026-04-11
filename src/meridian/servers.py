@@ -12,23 +12,31 @@ _SERVER_ROLES = {SERVER_ROLE_EXIT, SERVER_ROLE_RELAY}
 
 @dataclass
 class ServerEntry:
-    """A known server: host, SSH user, and display name."""
+    """A known server: host, SSH user, display name, and SSH port."""
 
     host: str
     user: str = "root"
     name: str = ""
     role: str = SERVER_ROLE_EXIT
+    port: int = 22
 
     def __str__(self) -> str:
         parts = [self.host, self.user]
         if self.role == SERVER_ROLE_EXIT:
             if self.name:
                 parts.append(self.name)
+            # Append port only when non-default (backwards-compatible)
+            if self.port != 22:
+                if not self.name:
+                    parts.append("-")
+                parts.append(f"port={self.port}")
             return " ".join(parts)
 
         # Relay entries need an explicit role marker so fresh machines can
         # distinguish them from exit servers without relying on local cache.
         parts.extend([self.name or "-", self.role])
+        if self.port != 22:
+            parts.append(f"port={self.port}")
         return " ".join(parts)
 
     @classmethod
@@ -40,10 +48,24 @@ class ServerEntry:
         parts = stripped.split()
         if len(parts) < 2:
             return None
+
+        # Extract port=N from the end if present
+        port = 22
+        if parts[-1].startswith("port="):
+            try:
+                port = int(parts[-1].split("=", 1)[1])
+            except (ValueError, IndexError):
+                pass
+            parts = parts[:-1]
+
         if len(parts) >= 4 and parts[3] in _SERVER_ROLES:
             name = "" if parts[2] == "-" else parts[2]
-            return cls(host=parts[0], user=parts[1], name=name, role=parts[3])
-        return cls(host=parts[0], user=parts[1], name=parts[2] if len(parts) > 2 else "")
+            return cls(host=parts[0], user=parts[1], name=name, role=parts[3], port=port)
+        name = parts[2] if len(parts) > 2 else ""
+        # Handle the "-" placeholder for name when port was present
+        if name == "-":
+            name = ""
+        return cls(host=parts[0], user=parts[1], name=name, port=port)
 
 
 class ServerRegistry:

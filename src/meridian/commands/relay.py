@@ -385,6 +385,9 @@ def _sync_exit_credentials_to_server(resolved_exit: ResolvedServer) -> bool:
     if resolved_exit.local_mode:
         return True
     dest = f"{resolved_exit.user}@{scp_host(resolved_exit.ip)}"
+    scp_opts = list(SSH_OPTS)
+    if resolved_exit.conn.port != 22:
+        scp_opts.extend(["-P", str(resolved_exit.conn.port)])
     try:
         for path in resolved_exit.creds_dir.iterdir():
             if not path.is_file():
@@ -392,7 +395,7 @@ def _sync_exit_credentials_to_server(resolved_exit: ResolvedServer) -> bool:
             result = subprocess.run(
                 [
                     "scp",
-                    *SSH_OPTS,
+                    *scp_opts,
                     str(path),
                     f"{dest}:/etc/meridian/{path.name}",
                 ],
@@ -526,6 +529,7 @@ def run_deploy(
     listen_port: int = 443,
     yes: bool = False,
     sni: str = "",
+    ssh_port: int = 22,
 ) -> None:
     """Deploy a relay node that forwards traffic to an exit server."""
     # Validate relay IP
@@ -579,7 +583,7 @@ def run_deploy(
 
     # Connect to relay server
     info(f"Connecting to relay server: {relay_ip}")
-    relay_conn = ServerConnection(ip=relay_ip, user=user)
+    relay_conn = ServerConnection(ip=relay_ip, user=user, port=ssh_port)
     try:
         relay_conn.check_ssh()
     except SSHError as exc:
@@ -786,7 +790,7 @@ def run_deploy(
 
     # Register relay in server registry
     if relay_ip != resolved_exit.ip:
-        registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name, role=SERVER_ROLE_RELAY))
+        registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name, role=SERVER_ROLE_RELAY, port=ssh_port))
 
     # Regenerate connection pages for all existing clients
     if exit_creds.clients:

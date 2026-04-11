@@ -143,6 +143,7 @@ def run(
     pq: bool = False,
     warp: bool = False,
     geo_block: bool = True,
+    ssh_port: int = 22,
 ) -> None:
     """Deploy a VLESS+Reality proxy server."""
     # --decoy is deprecated (403/404 is now always the default).
@@ -209,6 +210,7 @@ def run(
         registry,
         explicit_ip=server_ip,
         user=ssh_user,
+        port=ssh_port,
     )
 
     resolved = ensure_server_connection(resolved)
@@ -272,7 +274,7 @@ def run(
         warn(f"Could not refresh connection pages after deploy: {exc}")
 
     # Register server
-    registry.add(ServerEntry(host=resolved.ip, user=resolved.user))
+    registry.add(ServerEntry(host=resolved.ip, user=resolved.user, port=getattr(resolved.conn, "port", 22)))
 
     # Success output
     redeploy_cmd = _build_redeploy_command(
