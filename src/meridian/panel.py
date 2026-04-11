@@ -131,8 +131,13 @@ class PanelClient:
 
         result: list[Inbound] = []
         for obj in data.get("obj", []):
-            settings = json.loads(obj.get("settings", "{}"))
-            stream = json.loads(obj.get("streamSettings", "{}"))
+            try:
+                settings = json.loads(obj.get("settings") or "{}")
+                stream = json.loads(obj.get("streamSettings") or "{}")
+            except (json.JSONDecodeError, TypeError):
+                # Skip inbounds with malformed/empty JSON fields (e.g. manually
+                # created inbounds in 3x-ui that have "" for streamSettings).
+                continue
             result.append(
                 Inbound(
                     id=obj["id"],

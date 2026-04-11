@@ -56,6 +56,7 @@ src/meridian/                      — protocol registry, credentials, SSH, API 
 tests/                             — testing philosophy, MockConnection, fixtures
   provision/                       — mock boundary, idempotency dual-path testing
   e2e/                             — Docker lifecycle, shell-script E2E, PID namespace
+  systemlab/                       — multi-node system lab, Docker topology, CI boundary
 website/                           — Astro rationale, i18n strategy, CLI relationship
   src/components/                  — composition pattern, Accordion CSS lesson
   src/content/docs/                — locale parity, frontmatter schema, machine-readable

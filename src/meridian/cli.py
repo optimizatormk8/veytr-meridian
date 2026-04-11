@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from meridian import __version__
+from meridian.config import DISABLE_UPDATE_CHECK
 from meridian.console import banner
 
 app = typer.Typer(
@@ -50,7 +51,7 @@ def main_callback(
         banner(__version__)
 
     # Auto-update check (skip for meta commands)
-    if ctx.invoked_subcommand not in ("update",):
+    if not DISABLE_UPDATE_CHECK and ctx.invoked_subcommand not in ("update",):
         from meridian.update import check_for_update
 
         check_for_update(__version__)
@@ -111,6 +112,7 @@ def deploy_cmd(
         "--geo-block/--no-geo-block",
         help="Block Russian domains and IPs (geosite:category-ru + geoip:ru)",
     ),
+    ssh_port: int = typer.Option(22, "--ssh-port", help="SSH port (if non-standard)"),
 ) -> None:
     """Deploy a VLESS+Reality proxy server. Interactive wizard if no IP provided.
 
@@ -138,6 +140,7 @@ def deploy_cmd(
         pq=pq,
         warp=warp,
         geo_block=geo_block,
+        ssh_port=ssh_port,
     )
 
 
@@ -363,6 +366,7 @@ def relay_deploy_cmd(
     port: int = typer.Option(443, "--port", "-p", help="Relay listen port"),
     sni: str = typer.Option("", "--sni", help="Reality SNI target for relay (auto-scanned if omitted)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
+    ssh_port: int = typer.Option(22, "--ssh-port", help="SSH port on the relay server"),
 ) -> None:
     """Deploy a TCP relay that forwards to an exit server.
 
@@ -373,7 +377,7 @@ def relay_deploy_cmd(
     """
     from meridian.commands.relay import run_deploy
 
-    run_deploy(relay_ip, exit, user, name, port, yes, sni=sni)
+    run_deploy(relay_ip, exit, user, name, port, yes, sni=sni, ssh_port=ssh_port)
 
 
 @relay_app.command("list")

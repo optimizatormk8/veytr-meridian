@@ -41,11 +41,13 @@ def scp_host(ip: str) -> str:
     return ip
 
 
-def _host_key_known(ip: str) -> bool:
+def _host_key_known(ip: str, port: int = 22) -> bool:
     """Check if the host key for this IP is already in known_hosts."""
+    # ssh-keygen -F uses [host]:port notation for non-default ports
+    lookup = f"[{ip}]:{port}" if port != 22 else ip
     try:
         result = subprocess.run(
-            ["ssh-keygen", "-F", ip],
+            ["ssh-keygen", "-F", lookup],
             capture_output=True,
             text=True,
             timeout=5,
@@ -56,16 +58,20 @@ def _host_key_known(ip: str) -> bool:
         return False
 
 
-def _verify_host_key(ip: str) -> bool:
+def _verify_host_key(ip: str, port: int = 22) -> bool:
     """Scan, display, and prompt user to verify the SSH host key.
 
     Returns True if the user accepts (key added to known_hosts), False otherwise.
     Uses ssh-keyscan to fetch the key and ssh-keygen to compute the fingerprint.
     """
     # Scan the host key
+    keyscan_cmd = ["ssh-keyscan", "-T", "5"]
+    if port != 22:
+        keyscan_cmd.extend(["-p", str(port)])
+    keyscan_cmd.append(ip)
     try:
         result = subprocess.run(
-            ["ssh-keyscan", "-T", "5", ip],
+            keyscan_cmd,
             capture_output=True,
             text=True,
             timeout=10,
@@ -160,15 +166,27 @@ class ServerConnection:
     Passwordless sudo is required (standard on AWS/GCP/Azure/DO).
     """
 
-    def __init__(self, ip: str, user: str = "root", local_mode: bool = False) -> None:
+    def __init__(self, ip: str, user: str = "root", local_mode: bool = False, port: int = 22) -> None:
         self.ip = ip
         self.user = user
+        self.port = port
         self.local_mode = local_mode
         self.needs_sudo = False  # on-server non-root — run commands via sudo
 
     @property
     def _ssh_opts(self) -> list[str]:
-        return SSH_OPTS
+        opts = list(SSH_OPTS)
+        if self.port != 22:
+            opts.extend(["-p", str(self.port)])
+        return opts
+
+    @property
+    def _scp_opts(self) -> list[str]:
+        """SSH options for SCP commands (uses -P for port, not -p)."""
+        opts = list(SSH_OPTS)
+        if self.port != 22:
+            opts.extend(["-P", str(self.port)])
+        return opts
 
     @property
     def _scp_host(self) -> str:
@@ -242,11 +260,11 @@ class ServerConnection:
         """
         if self.local_mode:
             return
-        info(f"Checking SSH connectivity to {self.user}@{self.ip}")
+        info(f"Checking SSH connectivity to {self.user}@{self.ip}" + (f":{self.port}" if self.port != 22 else ""))
 
         # Verify host key on first connection
-        if not _host_key_known(self.ip):
-            if not _verify_host_key(self.ip):
+        if not _host_key_known(self.ip, self.port):
+            if not _verify_host_key(self.ip, self.port):
                 raise SSHError(
                     f"Host key for {self.ip} not accepted",
                     hint="Verify the fingerprint matches your VPS provider's console.",
@@ -328,7 +346,7 @@ class ServerConnection:
             result = subprocess.run(
                 [
                     "scp",
-                    *self._ssh_opts,
+                    *self._scp_opts,
                     f"{self.user}@{self._scp_host}:/etc/meridian/proxy.yml",
                     str(local_creds_dir / "proxy.yml"),
                 ],

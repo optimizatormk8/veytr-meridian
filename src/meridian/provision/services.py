@@ -13,7 +13,7 @@ import textwrap
 import time
 from typing import TypeVar
 
-from meridian.config import DEFAULT_FINGERPRINT
+from meridian.config import ACME_SERVER, DEFAULT_FINGERPRINT
 from meridian.provision.steps import ProvisionContext, StepResult
 from meridian.ssh import ServerConnection
 
@@ -809,10 +809,13 @@ class ConfigureNginx:
         if check.returncode != 0:
             cert_host = server_ip if self.ip_mode else self.domain
             q_subj = shlex.quote(f"/CN={cert_host}")
+            san_ext = shlex.quote(f"subjectAltName=DNS:{cert_host}")
+            if self.ip_mode:
+                san_ext = shlex.quote(f"subjectAltName=IP:{cert_host}")
             result = conn.run(
                 f"openssl req -x509 -newkey rsa:2048 -keyout /etc/ssl/meridian/key.pem "
                 f"-out /etc/ssl/meridian/fullchain.pem -days 1 -nodes "
-                f"-subj {q_subj}",
+                f"-subj {q_subj} -addext {san_ext}",
                 timeout=15,
             )
             if result.returncode != 0:
@@ -1008,7 +1011,7 @@ class IssueTLSCert:
 
         result = conn.run(
             f"/root/.acme.sh/acme.sh --issue -d {q_cert_host} "
-            f"--webroot /var/www/acme --server letsencrypt"
+            f"--webroot /var/www/acme --server {shlex.quote(ACME_SERVER)}"
             f"{profile_flag}{renew_days_flag}{force_flag} 2>&1",
             timeout=180,
         )

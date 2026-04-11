@@ -20,6 +20,7 @@ from meridian.commands.resolve import (
 )
 from meridian.config import (
     CREDS_BASE,
+    DEFAULT_SNI,
     RELAY_SERVICE_NAME,
     SERVER_CREDS_DIR,
     SERVERS_FILE,
@@ -277,7 +278,14 @@ def _resolve_exit(
         resolved = resolve_server(registry, requested_server=exit_arg, user=user)
 
     resolved = ensure_server_connection(resolved)
-    fetch_credentials(resolved, force=force_refresh)
+    if force_refresh and not fetch_credentials(resolved, force=True):
+        fail(
+            f"Could not refresh credentials from exit server {resolved.ip}",
+            hint="Check SSH/SCP connectivity. Relay commands require fresh exit credentials.",
+            hint_type="system",
+        )
+    elif not force_refresh:
+        fetch_credentials(resolved, force=False)
 
     # Verify exit is deployed
     proxy_file = resolved.creds_dir / "proxy.yml"
@@ -376,22 +384,30 @@ def _sync_exit_credentials_to_server(resolved_exit: ResolvedServer) -> bool:
     """Sync exit server credentials back to /etc/meridian/ after relay changes."""
     if resolved_exit.local_mode:
         return True
+    dest = f"{resolved_exit.user}@{scp_host(resolved_exit.ip)}"
+    scp_opts = list(SSH_OPTS)
+    if resolved_exit.conn.port != 22:
+        scp_opts.extend(["-P", str(resolved_exit.conn.port)])
     try:
-        result = subprocess.run(
-            [
-                "scp",
-                *SSH_OPTS,
-                "-r",
-                f"{resolved_exit.creds_dir}/",
-                f"{resolved_exit.user}@{scp_host(resolved_exit.ip)}:/etc/meridian/",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            stdin=subprocess.DEVNULL,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+        for path in resolved_exit.creds_dir.iterdir():
+            if not path.is_file():
+                continue
+            result = subprocess.run(
+                [
+                    "scp",
+                    *scp_opts,
+                    str(path),
+                    f"{dest}:/etc/meridian/{path.name}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                stdin=subprocess.DEVNULL,
+            )
+            if result.returncode != 0:
+                return False
+        return True
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return False
 
 
@@ -513,6 +529,7 @@ def run_deploy(
     listen_port: int = 443,
     yes: bool = False,
     sni: str = "",
+    ssh_port: int = 22,
 ) -> None:
     """Deploy a relay node that forwards traffic to an exit server."""
     # Validate relay IP
@@ -566,7 +583,7 @@ def run_deploy(
 
     # Connect to relay server
     info(f"Connecting to relay server: {relay_ip}")
-    relay_conn = ServerConnection(ip=relay_ip, user=user)
+    relay_conn = ServerConnection(ip=relay_ip, user=user, port=ssh_port)
     try:
         relay_conn.check_ssh()
     except SSHError as exc:
@@ -718,8 +735,11 @@ def run_deploy(
     err_console.print()
     ok("Relay deployed successfully")
 
-    # Create relay-specific Xray inbound on exit server (for per-relay SNI)
-    if relay_sni:
+    # Create relay-specific Xray inbound on exit server (for per-relay SNI).
+    # When relay uses the same SNI as exit, no separate inbound or nginx
+    # routing is needed — the existing xray_reality inbound handles it.
+    exit_sni = exit_creds.server.sni or DEFAULT_SNI
+    if relay_sni and relay_sni != exit_sni:
         info("Creating relay-specific Xray inbound on exit server...")
         inbound_ok = _create_relay_inbound(
             resolved_exit.conn,
@@ -770,7 +790,7 @@ def run_deploy(
 
     # Register relay in server registry
     if relay_ip != resolved_exit.ip:
-        registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name, role=SERVER_ROLE_RELAY))
+        registry.add(ServerEntry(host=relay_ip, user=user, name=relay_name, role=SERVER_ROLE_RELAY, port=ssh_port))
 
     # Regenerate connection pages for all existing clients
     if exit_creds.clients:

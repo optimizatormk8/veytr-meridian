@@ -207,6 +207,28 @@ jobs:
           docker rm -f 3x-ui 2>/dev/null || true
           docker compose -f tests/e2e/docker-compose.e2e.yml down -v
 
+  system-lab:
+    name: System Lab
+    runs-on: ubuntu-latest
+    needs: [python-test, python-lint]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Generate test fixtures
+        run: bash tests/systemlab/scripts/setup-fixtures.sh
+
+      - name: Run system lab
+        run: docker compose -f tests/systemlab/compose.yml up --build --abort-on-container-exit --exit-code-from controller
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f tests/systemlab/compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f tests/systemlab/compose.yml down -v
+
   website:
     name: Website Build
     runs-on: ubuntu-latest

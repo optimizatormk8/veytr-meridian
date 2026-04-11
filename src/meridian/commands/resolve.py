@@ -169,6 +169,7 @@ def resolve_server(
     requested_server: str = "",
     explicit_ip: str = "",
     user: str = "",
+    port: int = 0,
 ) -> ResolvedServer:
     """Resolve which server to target.
 
@@ -178,9 +179,12 @@ def resolve_server(
 
     If user is empty, it's auto-resolved from the server registry.
     If user is explicitly set, it overrides the registry value.
+    If port is 0, it's auto-resolved from the server registry (default 22).
+    If port is explicitly set (non-zero), it overrides the registry value.
     """
     ip = ""
     registry_user = ""
+    registry_port = 22
     local_mode = False
 
     # 1. Explicit IP argument or 'local' keyword takes highest priority
@@ -202,6 +206,7 @@ def resolve_server(
             entry = registry.find(explicit_ip)
             if entry:
                 registry_user = entry.user
+                registry_port = entry.port
 
     # 2. --server flag (resolve via registry, or 'local' keyword)
     elif requested_server:
@@ -221,6 +226,7 @@ def resolve_server(
             if entry:
                 ip = entry.host
                 registry_user = entry.user
+                registry_port = entry.port
             elif is_ip(requested_server):
                 ip = requested_server
             else:
@@ -244,6 +250,7 @@ def resolve_server(
                 entry = selectable_entries[0]
                 ip = entry.host
                 registry_user = entry.user
+                registry_port = entry.port
                 label = f"{entry.name} ({ip})" if entry.name else ip
                 info(f"Using server: {label}")
 
@@ -272,10 +279,13 @@ def resolve_server(
             hint_type="user",
         )
 
+    # Resolve port: explicit flag > registry > default 22
+    resolved_port = port if port else registry_port
+
     # Determine creds_dir
     creds_dir = creds_dir_for(ip, local_mode=local_mode)
 
-    conn = ServerConnection(ip=ip, user=resolved_user, local_mode=local_mode)
+    conn = ServerConnection(ip=ip, user=resolved_user, local_mode=local_mode, port=resolved_port)
 
     return ResolvedServer(
         ip=ip,

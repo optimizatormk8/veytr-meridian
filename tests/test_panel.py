@@ -144,6 +144,51 @@ class TestListInbounds:
         with pytest.raises(PanelError, match="List inbounds failed"):
             panel.list_inbounds()
 
+    def test_list_skips_malformed_stream_settings(self) -> None:
+        """Manually-created inbounds may have empty string for streamSettings (#16)."""
+        response = {
+            "success": True,
+            "obj": [
+                {
+                    "id": 1,
+                    "remark": "good-inbound",
+                    "protocol": "vless",
+                    "port": 443,
+                    "settings": json.dumps({"clients": [{"id": "uuid-1"}]}),
+                    "streamSettings": json.dumps({"network": "tcp", "security": "reality"}),
+                },
+                {
+                    "id": 2,
+                    "remark": "empty-string-fields",
+                    "protocol": "vless",
+                    "port": 8443,
+                    "settings": "",
+                    "streamSettings": "",
+                },
+                {
+                    "id": 3,
+                    "remark": "bad-invalid-json",
+                    "protocol": "vless",
+                    "port": 9443,
+                    "settings": "{invalid",
+                    "streamSettings": "not-json",
+                },
+            ],
+        }
+        conn = _make_conn(stdout=json.dumps(response))
+        panel = _make_panel(conn)
+        inbounds = panel.list_inbounds()
+
+        # Empty strings are treated as empty dicts (no crash);
+        # truly invalid JSON is skipped entirely.
+        assert len(inbounds) == 2
+        assert inbounds[0].id == 1
+        assert inbounds[0].remark == "good-inbound"
+        # Empty-string inbound gets default empty values
+        assert inbounds[1].id == 2
+        assert inbounds[1].clients == []
+        assert inbounds[1].stream_settings == {}
+
 
 class TestFindInbound:
     def test_find_existing(self) -> None:

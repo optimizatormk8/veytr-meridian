@@ -14,6 +14,14 @@ SERVER_CREDS_DIR = Path("/etc/meridian")
 DEFAULT_SNI = "www.microsoft.com"
 DEFAULT_FINGERPRINT = "chrome"
 DEFAULT_PANEL_PORT = 2053
+ACME_SERVER = os.environ.get("MERIDIAN_ACME_SERVER", "letsencrypt").strip() or "letsencrypt"
+CONNECT_TEST_URL = os.environ.get("MERIDIAN_CONNECT_TEST_URL", "https://ifconfig.me").strip() or "https://ifconfig.me"
+DISABLE_UPDATE_CHECK = os.environ.get("MERIDIAN_DISABLE_UPDATE_CHECK", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 PYPI_PACKAGE = "meridian-vpn"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{PYPI_PACKAGE}/json"
