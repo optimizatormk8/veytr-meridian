@@ -4,6 +4,20 @@ All notable changes to Meridian are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.17.0] - 2026-04-11
+
+### Added
+- **Multi-node system lab** — Docker Compose-based test harness deploys Meridian across separate exit and relay containers via real SSH, verifying Reality tunnel connectivity (direct + via relay). Catches port mismatches, SNI routing errors, and relay forwarding bugs that mocked tests cannot. Run with `make system-lab`
+- **Configurable ACME server** — `MERIDIAN_ACME_SERVER` env var overrides the certificate authority (default: letsencrypt). Enables future local CA testing with Pebble
+- **Configurable connectivity test URL** — `MERIDIAN_CONNECT_TEST_URL` env var overrides the IP check endpoint (default: ifconfig.me)
+- **Disable update check** — `MERIDIAN_DISABLE_UPDATE_CHECK=1` skips PyPI version check for CI/automation
+- **Bootstrap TLS cert includes SAN** — self-signed bootstrap certificates now include `subjectAltName` (IP or DNS), improving client compatibility
+
+### Fixed
+- **BBR no longer blocks deploy on containers** — `sysctl` failures due to missing kernel tunables (containers, old kernels) return a warning instead of failing the entire deploy. Other sysctl errors still fail
+- **SSH drop-in priority** — `00-meridian.conf` ensures Meridian's sshd hardening takes precedence over cloud-init overrides
+- **SCP directory copy** — fixed `-r` flag compatibility with OpenSSH ≥ 9.0 (SFTP protocol default)
+
 ## [3.16.1] - 2026-04-10
 
 ### Fixed
