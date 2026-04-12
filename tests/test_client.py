@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
-from meridian.commands.client import run_add, run_list, run_remove, run_show
+from meridian.commands.client import run_add, run_issue, run_list, run_remove, run_show
 from meridian.panel import Inbound, PanelError
 
 # ---------------------------------------------------------------------------
@@ -98,6 +98,7 @@ panel:
   username: admin
   password: secret
   web_base_path: abc123
+  info_page_path: info456
   port: 2053
 server:
   ip: 1.2.3.4
@@ -356,6 +357,163 @@ class TestRunShow:
         """Invalid name should fail at validation."""
         with pytest.raises(typer.Exit) as exc:
             run_show("bad name!")
+        assert exc.value.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# run_issue tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunIssue:
+    def test_issue_creates_client_and_returns_json(
+        self,
+        tmp_home: Path,
+        creds_dir: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        _write_proxy_yml(creds_dir, hosted_page=True)
+
+        inbounds = [
+            _make_inbound(id=1, remark="VLESS-Reality", port=443, clients=[]),
+            _make_inbound(id=2, remark="VLESS-Reality-XHTTP", port=34567, clients=[]),
+        ]
+        mock_panel = _make_mock_panel(inbounds, uuid_seq=["issue-uuid-1"])
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+            patch("meridian.commands.client.save_connection_html"),
+            patch("meridian.commands.client._deploy_client_page", return_value="https://example.com/info456/issue-uuid-1/"),
+        ):
+            result = run_issue("tg_123", json_output=True)
+
+        payload = capsys.readouterr().out.strip()
+        assert '"status": "created"' in payload
+        assert '"client_name": "tg_123"' in payload
+        assert result.status == "created"
+        assert result.hosted_page_url == "https://example.com/info456/issue-uuid-1/"
+        assert mock_panel.add_client.call_count == 2
+
+    def test_issue_repeat_click_returns_existing_client(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, extra_client="tg_123", hosted_page=True)
+
+        inbounds = [
+            _make_inbound(
+                id=1,
+                remark="VLESS-Reality",
+                port=443,
+                clients=[{"id": "existing-uuid", "email": "reality-tg_123", "flow": "xtls-rprx-vision"}],
+            ),
+            _make_inbound(
+                id=2,
+                remark="VLESS-Reality-XHTTP",
+                port=34567,
+                clients=[{"id": "existing-uuid", "email": "xhttp-tg_123", "flow": ""}],
+            ),
+        ]
+        mock_panel = _make_mock_panel(inbounds)
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+            patch("meridian.commands.client.save_connection_html"),
+            patch("meridian.commands.client._deploy_client_page", return_value="https://example.com/info456/existing-uuid/"),
+        ):
+            result = run_issue("tg_123", json_output=False)
+
+        assert result.status == "existing"
+        assert result.reality_uuid == "existing-uuid"
+        mock_panel.add_client.assert_not_called()
+
+    def test_issue_recovers_missing_local_client_from_panel(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, hosted_page=True)
+
+        inbounds = [
+            _make_inbound(
+                id=1,
+                remark="VLESS-Reality",
+                port=443,
+                clients=[{"id": "panel-uuid", "email": "reality-tg_123", "flow": "xtls-rprx-vision"}],
+            ),
+        ]
+        mock_panel = _make_mock_panel(inbounds)
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+            patch("meridian.commands.client.save_connection_html"),
+            patch("meridian.commands.client._deploy_client_page", return_value="https://example.com/info456/panel-uuid/"),
+        ):
+            result = run_issue("tg_123", json_output=False)
+
+        assert result.status == "existing"
+        proxy_content = (creds_dir / "proxy.yml").read_text()
+        assert "tg_123" in proxy_content
+        assert "panel-uuid" in proxy_content
+
+    def test_issue_recreates_client_when_local_entry_is_stale(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, extra_client="tg_123", hosted_page=True)
+
+        inbounds = [
+            _make_inbound(id=1, remark="VLESS-Reality", port=443, clients=[]),
+            _make_inbound(id=2, remark="VLESS-Reality-XHTTP", port=34567, clients=[]),
+        ]
+        mock_panel = _make_mock_panel(inbounds, uuid_seq=["new-issued-uuid"])
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+            patch("meridian.commands.client.save_connection_html"),
+            patch("meridian.commands.client._deploy_client_page", return_value="https://example.com/info456/new-issued-uuid/"),
+        ):
+            result = run_issue("tg_123", json_output=False)
+
+        assert result.status == "created"
+        proxy_content = (creds_dir / "proxy.yml").read_text()
+        assert "name: tg_123" in proxy_content
+        assert "reality_uuid: new-issued-uuid" in proxy_content
+
+    def test_issue_fails_without_hosted_page(self, tmp_home: Path, creds_dir: Path) -> None:
+        _write_proxy_yml(creds_dir, hosted_page=False)
+
+        inbounds = [
+            _make_inbound(id=1, remark="VLESS-Reality", port=443, clients=[]),
+        ]
+        mock_panel = _make_mock_panel(inbounds, uuid_seq=["issue-uuid-1"])
+        mock_resolved = _make_mock_resolved(creds_dir)
+
+        with (
+            patch("meridian.commands.client.ServerRegistry"),
+            patch("meridian.commands.client.resolve_server", return_value=mock_resolved),
+            patch("meridian.commands.client.ensure_server_connection", return_value=mock_resolved),
+            patch("meridian.commands.client.fetch_credentials", return_value=True),
+            patch("meridian.commands.client._make_panel", return_value=mock_panel),
+            patch("meridian.commands.client._sync_credentials_to_server", return_value=True),
+            patch("meridian.commands.client.save_connection_html"),
+        ):
+            with pytest.raises(typer.Exit) as exc:
+                run_issue("tg_123", json_output=True)
         assert exc.value.exit_code == 1
 
 

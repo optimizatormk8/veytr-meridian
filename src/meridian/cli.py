@@ -183,6 +183,23 @@ def client_show_cmd(
     run_show(name, user, server)
 
 
+@client_app.command("issue")
+def client_issue_cmd(
+    name: str = typer.Argument(..., help="Client name"),
+    server: str = typer.Option("", "--server", help="Target server (name or IP)"),
+    user: str = typer.Option("", "--user", "-u", help="SSH user"),
+    json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON to stdout"),
+) -> None:
+    """Idempotently issue access for bots and self-service flows.
+
+    If the client already exists, returns the existing hosted page link
+    instead of failing on a duplicate.
+    """
+    from meridian.commands.client import run_issue
+
+    run_issue(name, user, server, json_output=json_output)
+
+
 @client_app.command("list")
 def client_list_cmd(
     server: str = typer.Option("", "--server", help="Target server (name or IP)"),

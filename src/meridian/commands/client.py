@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,6 +31,30 @@ if TYPE_CHECKING:
     from meridian.commands.resolve import ResolvedServer
     from meridian.models import ProtocolURL, RelayURLSet
     from meridian.ssh import ServerConnection
+
+
+@dataclass(frozen=True)
+class IssueAccessResult:
+    """Machine-readable result for bot-driven client issuance."""
+
+    client_name: str
+    status: str
+    reality_uuid: str
+    wss_uuid: str
+    hosted_page_url: str
+    server_ip: str
+
+    def as_dict(self) -> dict[str, str | bool]:
+        return {
+            "client_name": self.client_name,
+            "status": self.status,
+            "created": self.status == "created",
+            "reality_uuid": self.reality_uuid,
+            "wss_uuid": self.wss_uuid,
+            "hosted_page_url": self.hosted_page_url,
+            "server_ip": self.server_ip,
+        }
+
 
 # -- Helpers --
 
@@ -199,6 +225,310 @@ def _remove_client_page(
     conn = resolved.conn
     q_uuid = shlex.quote(reality_uuid)
     conn.run(f"rm -rf /var/www/private/{q_uuid}", timeout=10)
+
+
+def _find_client_uuid(inbound: Inbound | None, email: str) -> str:
+    """Return the UUID for a client email inside an inbound, if present."""
+    if inbound is None:
+        return ""
+    for client in inbound.clients:
+        if client.get("email") == email:
+            return client.get("id", "") or ""
+    return ""
+
+
+def _upsert_client_entry(
+    creds: ServerCredentials,
+    *,
+    name: str,
+    reality_uuid: str,
+    wss_uuid: str,
+) -> bool:
+    """Insert or update a client entry in credentials.
+
+    Returns True when credentials changed.
+    """
+    for idx, entry in enumerate(creds.clients):
+        if entry.name != name:
+            continue
+        updated = ClientEntry(
+            name=name,
+            added=entry.added,
+            reality_uuid=reality_uuid,
+            wss_uuid=wss_uuid,
+        )
+        if entry == updated:
+            return False
+        creds.clients[idx] = updated
+        return True
+
+    creds.clients.append(
+        ClientEntry(
+            name=name,
+            added=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            reality_uuid=reality_uuid,
+            wss_uuid=wss_uuid,
+        )
+    )
+    return True
+
+
+def _require_hosted_page(
+    resolved: ResolvedServer,
+    creds: ServerCredentials,
+    protocol_urls: list[ProtocolURL],
+    client_name: str,
+    reality_uuid: str,
+    *,
+    relay_entries: list[RelayURLSet] | None = None,
+) -> str:
+    """Deploy and return the hosted connection page URL, or fail clearly."""
+    if not creds.server.hosted_page or not creds.panel.info_page_path:
+        fail(
+            "Server-hosted connection page is not enabled",
+            hint="Re-run meridian deploy on this server before using bot issuance.",
+            hint_type="system",
+        )
+
+    hosted_page_url = _deploy_client_page(
+        resolved,
+        creds,
+        protocol_urls,
+        client_name,
+        reality_uuid,
+        relay_entries=relay_entries,
+    )
+    if hosted_page_url:
+        return hosted_page_url
+
+    fail(
+        "Could not publish the hosted connection page",
+        hint=(
+            f"The client exists, but the page upload failed. Fix SSH/SCP and retry: "
+            f"meridian client issue {client_name} --server {resolved.ip}"
+        ),
+        hint_type="system",
+    )
+
+
+def _list_inbounds_or_fail(panel: PanelClient) -> list[Inbound]:
+    """Fetch panel inbounds or exit with a system error."""
+    try:
+        return panel.list_inbounds()
+    except PanelError as e:
+        fail(f"Could not retrieve server configuration: {e}", hint_type="system")
+
+
+def _reality_inbound_or_fail(inbounds: list[Inbound]) -> Inbound:
+    """Return the canonical Reality inbound."""
+    reality_proto = get_protocol("reality")
+    if reality_proto is None:
+        raise ValueError("Reality protocol not registered -- this is a bug")
+    reality_inbound = reality_proto.find_inbound(inbounds)
+    if reality_inbound is None:
+        fail(
+            "Server is not set up yet",
+            hint="Deploy first: meridian deploy",
+            hint_type="system",
+        )
+    return reality_inbound
+
+
+def _add_client_to_active_inbounds(
+    *,
+    name: str,
+    creds: ServerCredentials,
+    panel: PanelClient,
+    inbounds: list[Inbound],
+) -> tuple[str, str]:
+    """Create a client across all active inbounds and return UUIDs."""
+    reality_uuid = ""
+    wss_uuid = ""
+    domain = creds.server.domain or ""
+
+    active: list[tuple[Protocol, Inbound, str]] = []
+    uuids: dict[str, str] = {}
+
+    for proto in PROTOCOLS.values():
+        ib = proto.find_inbound(inbounds)
+        if ib is None:
+            continue
+        if proto.requires_domain and not domain:
+            continue
+
+        if proto.shares_uuid_with and proto.shares_uuid_with in uuids:
+            uuid = uuids[proto.shares_uuid_with]
+        elif proto.key in uuids:
+            uuid = uuids[proto.key]
+        else:
+            try:
+                uuid = panel.generate_uuid()
+            except PanelError as e:
+                fail(f"Failed to generate UUID for {proto.key}: {e}", hint_type="system")
+            uuids[proto.key] = uuid
+
+        if proto.key == "reality":
+            reality_uuid = uuid
+        elif proto.key == "wss":
+            wss_uuid = uuid
+
+        active.append((proto, ib, uuid))
+
+    if not reality_uuid:
+        fail("No Reality inbound found on the server", hint_type="system")
+
+    for proto, ib, uuid in active:
+        email = f"{proto.email_prefix}{name}"
+        client_settings = proto.client_settings(uuid, email)
+        try:
+            panel.add_client(ib.id, client_settings)
+        except PanelError as e:
+            fail(f"Failed to add client to {proto.remark}: {e}", hint_type="system")
+
+    for relay in creds.relays:
+        if not relay.sni:
+            continue
+        from meridian.commands.relay import _relay_inbound_remark, _relay_label
+
+        remark = _relay_inbound_remark(relay)
+        relay_ib = panel.find_inbound(remark)
+        if relay_ib is None:
+            continue
+        relay_email = f"relay-{_relay_label(relay)}-{name}"
+        relay_client = {
+            "clients": [
+                {
+                    "id": reality_uuid,
+                    "flow": "xtls-rprx-vision",
+                    "email": relay_email,
+                    "limitIp": 2,
+                    "totalGB": 0,
+                    "expiryTime": 0,
+                    "enable": True,
+                    "tgId": "",
+                    "subId": "",
+                    "reset": 0,
+                }
+            ],
+        }
+        try:
+            panel.add_client(relay_ib.id, relay_client)
+        except PanelError:
+            warn(f"Could not add client to relay inbound {remark}")
+
+    return reality_uuid, wss_uuid
+
+
+def _issue_access(
+    name: str,
+    *,
+    user: str = "root",
+    requested_server: str = "",
+) -> IssueAccessResult:
+    """Create or recover a client and return a hosted page URL.
+
+    This is an idempotent, bot-friendly path:
+    - if the client already exists on the panel, return the existing access
+    - if local credentials are stale, repair them from the panel
+    - if only local state exists but the panel client is gone, recreate it
+    """
+    _validate_client_name(name)
+
+    registry = ServerRegistry(SERVERS_FILE)
+    resolved = resolve_server(registry, requested_server=requested_server, user=user)
+    resolved = ensure_server_connection(resolved)
+    _refresh_credentials_or_fail(resolved, action=f"issuing access for '{name}'")
+
+    creds = _load_creds(resolved.creds_dir)
+    panel = _make_panel(creds, resolved.conn)
+
+    with panel:
+        inbounds = _list_inbounds_or_fail(panel)
+        reality_inbound = _reality_inbound_or_fail(inbounds)
+        reality_proto = get_protocol("reality")
+        if reality_proto is None:
+            raise ValueError("Reality protocol not registered -- this is a bug")
+
+        reality_email = f"{reality_proto.email_prefix}{name}"
+        reality_uuid = _find_client_uuid(reality_inbound, reality_email)
+        wss_uuid = ""
+        status = "existing"
+
+        if reality_uuid:
+            wss_proto = get_protocol("wss")
+            if wss_proto is not None:
+                wss_inbound = wss_proto.find_inbound(inbounds)
+                wss_uuid = _find_client_uuid(wss_inbound, f"{wss_proto.email_prefix}{name}")
+        else:
+            info(f"Issuing access for '{name}'...")
+            reality_uuid, wss_uuid = _add_client_to_active_inbounds(
+                name=name,
+                creds=creds,
+                panel=panel,
+                inbounds=inbounds,
+            )
+            status = "created"
+            ok(f"Client '{name}' added to panel")
+
+        changed = _upsert_client_entry(
+            creds,
+            name=name,
+            reality_uuid=reality_uuid,
+            wss_uuid=wss_uuid,
+        )
+        if changed:
+            _save_credentials_with_sync(
+                resolved,
+                creds,
+                recovery_hint=(
+                    f"The client exists on the panel. Once SSH/SCP works, run: "
+                    f"meridian client issue {name} --server {resolved.ip}"
+                ),
+            )
+
+        protocol_urls = build_protocol_urls(
+            name=name,
+            reality_uuid=reality_uuid,
+            wss_uuid=wss_uuid,
+            creds=creds,
+            server_name=creds.branding.server_name,
+        )
+
+        relay_url_sets = build_all_relay_urls(
+            name,
+            reality_uuid,
+            wss_uuid,
+            creds,
+            server_name=creds.branding.server_name,
+        )
+
+        server_ip = creds.server.ip or resolved.ip
+        file_prefix = f"{resolved.ip}-{name}"
+        save_connection_html(
+            protocol_urls,
+            resolved.creds_dir / f"{file_prefix}-connection-info.html",
+            server_ip,
+            domain=creds.server.domain or "",
+            relay_entries=relay_url_sets or None,
+        )
+
+        hosted_page_url = _require_hosted_page(
+            resolved,
+            creds,
+            protocol_urls,
+            name,
+            reality_uuid,
+            relay_entries=relay_url_sets or None,
+        )
+
+    return IssueAccessResult(
+        client_name=name,
+        status=status,
+        reality_uuid=reality_uuid,
+        wss_uuid=wss_uuid,
+        hosted_page_url=hosted_page_url,
+        server_ip=server_ip,
+    )
 
 
 # -- Client Add --
@@ -401,6 +731,33 @@ def run_add(
 
         err_console.print(f"  [dim]Test reachability: meridian test {resolved.ip}[/dim]")
         err_console.print("  [dim]View all clients:  meridian client list[/dim]\n")
+
+
+def run_issue(
+    name: str,
+    user: str = "root",
+    requested_server: str = "",
+    *,
+    json_output: bool = False,
+) -> IssueAccessResult:
+    """Idempotently issue client access and return the hosted page URL."""
+    result = _issue_access(name, user=user, requested_server=requested_server)
+    if json_output:
+        print(json.dumps(result.as_dict(), ensure_ascii=False))
+        return result
+
+    err_console.print()
+    err_console.print(f'  [bold green]✓[/bold green] [bold]Access ready for "{name}"[/bold]')
+    err_console.print()
+    err_console.print("  [bold]Share this link:[/bold]")
+    err_console.print(f"  [ok]{result.hosted_page_url}[/ok]")
+    err_console.print()
+    err_console.print(f"  [dim]Status: {result.status}[/dim]")
+    err_console.print(f"  [dim]Reality UUID: {result.reality_uuid}[/dim]")
+    if result.wss_uuid:
+        err_console.print(f"  [dim]WSS UUID: {result.wss_uuid}[/dim]")
+    err_console.print()
+    return result
 
 
 # -- Client Show --
