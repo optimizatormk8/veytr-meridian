@@ -118,6 +118,7 @@ summary::marker{display:none;content:none}
   border-radius:var(--r2);padding:20px;margin-bottom:14px;
   position:relative;box-shadow:var(--shadow-sm);
 }
+.section-title{font-size:.82rem;font-weight:600;margin-bottom:4px}
 .card-label{
   display:inline-flex;align-items:center;gap:6px;
   font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
@@ -253,6 +254,21 @@ summary::marker{display:none;content:none}
 .app.detected{border-color:var(--accent);background:var(--accent-bg)}
 .app span{font-size:.66rem;color:var(--tx3);font-weight:400}
 .app-icon{width:32px;height:32px;border-radius:22%;object-fit:contain}
+
+/* ===================================================================
+ * DONATE
+ * =================================================================== */
+.donate-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.donate-link{
+  display:flex;align-items:center;justify-content:center;min-height:44px;
+  padding:12px 10px;border-radius:var(--r);text-decoration:none;
+  font-size:.8rem;font-weight:600;transition:border-color .06s,filter .06s,transform .06s;
+  background:var(--bg2);border:1px solid var(--br);color:var(--tx);
+}
+.donate-link:hover{border-color:var(--tx3);filter:brightness(1.03)}
+.donate-link:active{transform:scale(.98)}
+.donate-link-primary{background:var(--accent-bg);border-color:var(--accent-br);color:var(--accent)}
+.donate-link-secondary{background:var(--amber-bg);border-color:var(--amber-br);color:var(--amber)}
 
 /* ===================================================================
  * QUICK SETUP STEPS

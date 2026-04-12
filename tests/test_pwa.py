@@ -83,6 +83,12 @@ class TestLoadPWAStaticAssets:
         assets = load_pwa_static_assets()
         assert len(assets["app.js"]) > 100
 
+    def test_app_js_contains_donate_links(self) -> None:
+        assets = load_pwa_static_assets()
+        app_js = assets["app.js"].decode("utf-8")
+        assert "https://pay.cloudtips.ru/p/6da6815e" in app_js
+        assert "https://yoomoney.ru/to/4100119511645511" in app_js
+
     def test_sw_js_has_cache_version(self) -> None:
         assets = load_pwa_static_assets()
         sw = assets["sw.js"].decode("utf-8")

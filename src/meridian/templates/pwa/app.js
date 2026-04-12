@@ -29,6 +29,10 @@ var T = {
     step2: 'Нажмите «Открыть в приложении» — подключение импортируется автоматически',
     step3: 'Или отсканируйте QR-код с другого устройства',
     step4: 'Активируйте подключение в приложении',
+    donate: 'Поддержать сервер',
+    'donate.desc': 'Если этот сервер вам помогает, вы можете поддержать его владельца одной из ссылок ниже.',
+    'donate.cloudtips': 'CloudTips',
+    'donate.yoomoney': 'YooMoney',
     clock: 'Синхронизация часов',
     'clock.desc': 'Часы устройства должны быть точными с отклонением не более 30 секунд. Откройте Настройки > Дата и время > включите «Автоматически».',
     ping: 'Не подключается?',
@@ -88,6 +92,10 @@ var T = {
     step2: '\u00ABباز کردن در برنامه\u00BB را بزنید \u2014 اتصال به\u200Cطور خودکار وارد می\u200Cشود',
     step3: 'یا کد QR را از دستگاه دیگری اسکن کنید',
     step4: 'اتصال را در برنامه فعال کنید',
+    donate: 'حمایت مالی',
+    'donate.desc': 'اگر مایل بودید، می‌توانید با یکی از لینک‌های زیر از صاحب این سرور حمایت کنید.',
+    'donate.cloudtips': 'CloudTips',
+    'donate.yoomoney': 'YooMoney',
     clock: 'همگام\u200Cسازی ساعت',
     'clock.desc': 'ساعت دستگاه باید با دقت ۳۰ ثانیه تنظیم باشد. به تنظیمات > تاریخ و ساعت > \u00ABتنظیم خودکار\u00BB بروید.',
     ping: '\u0645\u062A\u0635\u0644 \u0646\u0645\u06CC\u200C\u0634\u0648\u06CC\u062F\u061F',
@@ -147,6 +155,10 @@ var T = {
     step2: '点击"在应用中打开"——连接自动导入',
     step3: '或从另一台设备扫描二维码',
     step4: '在应用中激活连接',
+    donate: '支持服务器',
+    'donate.desc': '如果这个服务器对你有帮助，可以通过下面的链接支持它的所有者。',
+    'donate.cloudtips': 'CloudTips',
+    'donate.yoomoney': 'YooMoney',
     clock: '时钟同步',
     'clock.desc': '设备时钟必须精确到 30 秒以内。前往设置 > 日期与时间 > 启用"自动设置"。',
     ping: '无法连接？',
@@ -553,6 +565,16 @@ function renderPage(config) {
   html += '</div>';
   html += '</div>';
   html += '</details>';
+
+  /* Donate / support */
+  html += '<div class="card">';
+  html += '<div class="section-title" data-t="donate">Donate</div>';
+  html += '<p class="card-desc" data-t="donate.desc">If this server helps you, you can support its owner using one of the links below.</p>';
+  html += '<div class="donate-grid">';
+  html += '<a class="donate-link donate-link-primary" href="https://pay.cloudtips.ru/p/6da6815e" target="_blank" rel="noopener noreferrer" data-t="donate.cloudtips">CloudTips</a>';
+  html += '<a class="donate-link donate-link-secondary" href="https://yoomoney.ru/to/4100119511645511" target="_blank" rel="noopener noreferrer" data-t="donate.yoomoney">YooMoney</a>';
+  html += '</div>';
+  html += '</div>';
 
   /* ---- Individual protocol cards (collapsed — advanced) ---- */
   var allProtocolCards = '';

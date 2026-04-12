@@ -283,6 +283,13 @@ class TestRenderedHtmlContent:
         assert "198.51.100.50" in html
         assert "ru-moscow" in html
 
+    def test_rendered_html_contains_donate_links(self) -> None:
+        """Connection page template includes both donate links."""
+        urls = _make_protocol_urls()
+        html = render_hosted_html(urls, "198.51.100.1", client_name="alice")
+        assert "https://pay.cloudtips.ru/p/6da6815e" in html
+        assert "https://yoomoney.ru/to/4100119511645511" in html
+
     def test_minimal_html_fallback(self) -> None:
         """_generate_minimal_html produces valid HTML with URL data when template is unavailable."""
         urls = _make_protocol_urls()
@@ -293,6 +300,8 @@ class TestRenderedHtmlContent:
         assert "550e8400-e29b-41d4-a716-446655440000" in html
         assert _TEST_QR_B64 in html
         assert "alice" in html
+        assert "https://pay.cloudtips.ru/p/6da6815e" in html
+        assert "https://yoomoney.ru/to/4100119511645511" in html
 
     def test_minimal_html_via_render_template_none(self) -> None:
         """_render_template falls back to minimal HTML when template_text is None."""

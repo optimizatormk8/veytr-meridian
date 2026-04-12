@@ -668,6 +668,11 @@ h1{{font-size:1.3rem;text-align:center;margin-bottom:4px}}
 font-family:monospace;font-size:.65rem;word-break:break-all;color:#555a72;cursor:pointer}}
 a.btn{{display:block;background:#5b9cf5;color:#fff;text-align:center;padding:13px;
 border-radius:10px;text-decoration:none;font-weight:600;margin-bottom:12px}}
+.donate-actions{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}}
+.donate-link{{display:flex;align-items:center;justify-content:center;min-height:44px;padding:12px 10px;
+background:#12151e;border:1px solid #282d3e;border-radius:10px;text-decoration:none;font-weight:600}}
+.donate-link-primary{{color:#5b9cf5}}
+.donate-link-secondary{{color:#e5a44e}}
 .foot{{text-align:center;color:#555a72;font-size:.7rem;margin-top:24px}}
 .foot a{{color:#8b90a8;text-decoration:none}}
 </style>
@@ -685,6 +690,16 @@ Make sure your device clock is set automatically, then try another connection ca
 <p style="font-size:.82rem;color:#8b90a8">
 If nothing works, ask the server owner to run <code>meridian test {safe_ip}</code>.
 </p>
+</div>
+<div class="card">
+<h2>Donate</h2>
+<p style="font-size:.82rem;color:#8b90a8">
+If this server helps you, you can support its owner using one of the links below.
+</p>
+<div class="donate-actions">
+<a class="donate-link donate-link-primary" href="https://pay.cloudtips.ru/p/6da6815e" target="_blank" rel="noopener noreferrer">CloudTips</a>
+<a class="donate-link donate-link-secondary" href="https://yoomoney.ru/to/4100119511645511" target="_blank" rel="noopener noreferrer">YooMoney</a>
+</div>
 </div>
 <div class="foot">
 <a href="https://getmeridian.org">Powered by Meridian</a> &middot; {safe_now}
