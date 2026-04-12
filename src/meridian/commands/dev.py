@@ -14,6 +14,7 @@ from typing import Any
 
 from meridian.console import info, ok, warn
 from meridian.models import ProtocolURL
+from meridian.protocols import PROTOCOLS
 from meridian.pwa import generate_client_files, load_pwa_static_assets
 from meridian.urls import generate_qr_base64
 
@@ -58,11 +59,13 @@ def _build_demo_urls(
 
     # XHTTP
     if xhttp:
-        xhttp_url = (
-            f"vless://{reality_uuid}@{server_ip}:443"
-            f"?security=tls&encryption=none&sni={server_ip}&fp=chrome"
-            f"&type=xhttp&path=/{DEMO_XHTTP_PATH}"
-            f"#Meridian-XHTTP"
+        xhttp_url = PROTOCOLS["xhttp"].build_url(
+            reality_uuid,
+            "Meridian",
+            ip=server_ip,
+            xhttp_path=DEMO_XHTTP_PATH,
+            domain="",
+            fingerprint="chrome",
         )
         urls.append(
             ProtocolURL(

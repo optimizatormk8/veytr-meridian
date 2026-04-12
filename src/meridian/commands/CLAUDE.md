@@ -37,3 +37,4 @@
 - **`deploy` refresh is asymmetric** — first deploy may legitimately have nothing to fetch, but redeploy must abort if forced refresh fails and Meridian state already exists either locally or on the server. Never treat “no local cache” as proof of a fresh machine.
 - **`console.fail()` always exits** — raises `typer.Exit(1)`. Only call from command entry points, never library code.
 - **`dev` subcommand is hidden** — not shown in `--help`. Intentional — developer tools only.
+- **`meridian test` domain check** — `/` is intentionally `403` (or stock `404` on unknown paths). Treat `403`/`404` as reachability success; only `000`/other codes should fail the check or skip connection tests.

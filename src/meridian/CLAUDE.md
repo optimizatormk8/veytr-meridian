@@ -24,8 +24,10 @@
 - **3x-ui API**: login is form-urlencoded (not JSON). `settings`/`streamSettings` must be JSON **strings** (Go quirk). Remove clients by UUID, not email.
 - **Shell injection**: ALL `conn.run()` interpolated values MUST use `shlex.quote()`.
 - **XHTTP dual mode**: no `xtls-rprx-vision` flow (must be empty string). Runs either with Reality (direct) or with `security: none` behind nginx TLS reverse proxy — two distinct stream settings paths.
+- **XHTTP share links**: include `mode=auto` and `host=` (SNI / HTTP Host) to match nginx-terminated inbound; URL-encode the `#` fragment so spaces/`@` in `name @ server` remarks do not break Hiddify and other strict importers.
 - **`xray vlessenc` output changed**: newer Xray prints both X25519 and ML-KEM-768 sections with quoted `"decryption"`/`"encryption"` lines. Meridian's `--pq` path must pick the ML-KEM-768 pair, not the first section.
 - **Local mode**: detection is file-based only — `/etc/meridian/proxy.yml` readable (root) or `/etc/meridian/` dir exists (non-root). Never use IP matching (`curl ifconfig.me`) — it false-positives when the user is connected via TUN mode (VPN) since their outbound IP matches the server.
+- **`meridian test` exit IP**: dual-stack VPS may prefer IPv6 egress while `proxy.yml` stores IPv4. The probe uses `api4.ipify.org` / `api6.ipify.org` (single-stack DNS) plus `curl -4`/`-6` so Reality checks compare the same address family. Override with `MERIDIAN_CONNECT_TEST_URL`.
 - **Camouflage target**: never recommend apple.com (ASN mismatch with VPS providers).
 - **WARP egress**: Cloudflare WARP client for server outbound routing. SOCKS5 on `127.0.0.1:40000`. CLI syntax varies between warp-cli versions (old: `set-mode proxy` vs new: `mode proxy`).
 - **Post-quantum encryption**: ML-KEM-768 hybrid. When `decryption != "none"`, Xray fallbacks must be omitted — the two features are mutually exclusive in stream settings.

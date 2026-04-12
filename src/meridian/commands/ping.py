@@ -14,6 +14,20 @@ from meridian.servers import ServerRegistry
 from meridian.ssh import tcp_connect
 
 
+def _domain_https_reachable(http_code: str) -> bool:
+    """True if https://domain/ got a normal HTTP response (TLS + nginx reached).
+
+    Meridian intentionally serves nginx's stock 403 on / and 404 on unknown paths
+    (see provision/services.py) — those are success for reachability, not failures.
+    """
+    code = http_code.strip()
+    if not code or code == "000":
+        return False
+    if code[0] in ("2", "3"):
+        return True
+    return code in ("403", "404")
+
+
 def run(
     ip: str = "",
     domain: str = "",
@@ -134,7 +148,7 @@ def run(
             http_result = subprocess.run(
                 [
                     "curl",
-                    "-sSf",
+                    "-sS",
                     "-o",
                     "/dev/null",
                     "-w",
@@ -154,12 +168,15 @@ def run(
         except (subprocess.TimeoutExpired, FileNotFoundError):
             http_code = "000"
 
-        if http_code and http_code[0] in ("2", "3"):
-            ok(f"Domain is responding (HTTP {http_code})")
-        elif http_code == "000":
+        if http_code == "000":
             warn("Domain is not reachable")
             err_console.print("       Check DNS settings and that nginx is running on the server.")
             issues += 1
+        elif _domain_https_reachable(http_code):
+            if http_code in ("403", "404"):
+                ok(f"Domain HTTPS is up (HTTP {http_code} — expected for Meridian /)")
+            else:
+                ok(f"Domain is responding (HTTP {http_code})")
         else:
             warn(f"Domain returned HTTP {http_code}")
             issues += 1

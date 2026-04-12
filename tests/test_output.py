@@ -81,6 +81,8 @@ class TestBuildProtocolURLs:
         assert xhttp.startswith("vless://uuid-1@1.2.3.4:443")
         assert "type=xhttp" in xhttp
         assert "path=%2Fmyxhttp" in xhttp
+        assert "mode=auto" in xhttp
+        assert "host=1.2.3.4" in xhttp
         assert "#alice-XHTTP" in xhttp
         # XHTTP now uses TLS (via nginx), not Reality
         assert "security=tls" in xhttp
@@ -142,7 +144,7 @@ class TestBuildProtocolURLs:
         creds = _make_creds()
         urls = build_protocol_urls("alice", "uuid-1", "", creds, server_name="My VPN")
         reality = _find_url(urls, "reality")
-        assert "#alice @ My VPN" in reality
+        assert "#alice%20%40%20My%20VPN" in reality
 
     def test_server_name_in_all_protocol_fragments(self) -> None:
         """Server name appears in all protocol URL fragments."""
@@ -151,9 +153,9 @@ class TestBuildProtocolURLs:
         reality = _find_url(urls, "reality")
         xhttp = _find_url(urls, "xhttp")
         wss = _find_url(urls, "wss")
-        assert "#alice @ My VPN" in reality
-        assert "#alice @ My VPN-XHTTP" in xhttp
-        assert "#alice @ My VPN-WSS" in wss
+        assert "#alice%20%40%20My%20VPN" in reality
+        assert "#alice%20%40%20My%20VPN-XHTTP" in xhttp
+        assert "#alice%20%40%20My%20VPN-WSS" in wss
 
     def test_no_server_name_omits_at_sign(self) -> None:
         """Without server_name, fragments are just the client name."""

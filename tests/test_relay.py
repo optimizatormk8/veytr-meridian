@@ -290,7 +290,7 @@ class TestBuildRelayUrls:
             server_name="My VPN",
         )
         reality_url = next(u for u in result.urls if u.key == "reality")
-        assert "#alice @ My VPN-via-ru-moscow" in reality_url.url
+        assert "#alice%20%40%20My%20VPN-via-ru-moscow" in reality_url.url
 
 
 # ---------------------------------------------------------------------------

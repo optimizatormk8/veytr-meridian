@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from meridian.credentials import ServerCredentials
 from meridian.xray_client import (
     _find_free_port,
     _parse_dgst,
+    _resolve_connect_probe_url,
     build_reality_config,
     build_test_configs,
     build_wss_config,
     build_xhttp_config,
+    connect_probe_curl_argv,
 )
 
 # ---------------------------------------------------------------------------
@@ -37,6 +41,59 @@ class TestParseDgst:
     def test_hash_with_whitespace_is_stripped(self) -> None:
         content = "SHA2-256=  abc123  \n"
         assert _parse_dgst(content) == "abc123"
+
+
+# ---------------------------------------------------------------------------
+# _resolve_connect_probe_url
+# ---------------------------------------------------------------------------
+
+
+class TestResolveConnectProbeUrl:
+    def test_ipv4_match_uses_api4(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MERIDIAN_CONNECT_TEST_URL", raising=False)
+        assert _resolve_connect_probe_url(True, "198.51.100.1") == "https://api4.ipify.org"
+
+    def test_ipv6_match_uses_api6(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MERIDIAN_CONNECT_TEST_URL", raising=False)
+        assert _resolve_connect_probe_url(True, "2001:db8::1") == "https://api6.ipify.org"
+
+    def test_env_override_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MERIDIAN_CONNECT_TEST_URL", "https://example.com/ip")
+        assert _resolve_connect_probe_url(True, "198.51.100.1") == "https://example.com/ip"
+
+    def test_no_match_uses_default_constant(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("MERIDIAN_CONNECT_TEST_URL", raising=False)
+        from meridian.config import CONNECT_TEST_URL
+
+        assert _resolve_connect_probe_url(False, "198.51.100.1") == CONNECT_TEST_URL
+
+
+# ---------------------------------------------------------------------------
+# connect_probe_curl_argv
+# ---------------------------------------------------------------------------
+
+
+class TestConnectProbeCurlArgv:
+    def test_ipv4_server_forces_curl_ipv4_when_matching(self) -> None:
+        argv = connect_probe_curl_argv(1080, True, "198.51.100.7", "https://ifconfig.me")
+        assert "-4" in argv
+        assert "-6" not in argv
+        assert argv[-1] == "https://ifconfig.me"
+
+    def test_ipv6_server_forces_curl_ipv6_when_matching(self) -> None:
+        argv = connect_probe_curl_argv(1080, True, "2001:db8::1", "https://ifconfig.me")
+        assert "-6" in argv
+        assert "-4" not in argv
+
+    def test_no_family_flag_when_not_matching(self) -> None:
+        argv = connect_probe_curl_argv(1080, False, "198.51.100.7", "https://ifconfig.me")
+        assert "-4" not in argv
+        assert "-6" not in argv
+
+    def test_invalid_server_ip_skips_family_flag(self) -> None:
+        argv = connect_probe_curl_argv(1080, True, "not-an-ip", "https://ifconfig.me")
+        assert "-4" not in argv
+        assert "-6" not in argv
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +235,7 @@ class TestBuildXhttpConfig:
         stream = config["outbounds"][0]["streamSettings"]
         assert stream["network"] == "xhttp"
         assert stream["xhttpSettings"]["path"] == "/myxhttppath"
+        assert stream["xhttpSettings"]["mode"] == "auto"
 
     def test_host_used_as_address_and_sni(self) -> None:
         config = build_xhttp_config(

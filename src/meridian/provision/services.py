@@ -14,6 +14,7 @@ import time
 from typing import TypeVar
 
 from meridian.config import ACME_SERVER, DEFAULT_FINGERPRINT
+from meridian.protocols import PROTOCOLS
 from meridian.provision.steps import ProvisionContext, StepResult
 from meridian.ssh import ServerConnection
 
@@ -1179,12 +1180,13 @@ class DeployConnectionPage:
 
         xhttp_url = ""
         if xhttp_enabled and xhttp_path:
-            # Use domain if available, otherwise IP
-            xhttp_host = domain or self.server_ip
-            xhttp_url = (
-                f"vless://{reality_uuid}@{xhttp_host}:443"
-                f"?encryption=none&security=tls&sni={xhttp_host}&fp={self.fingerprint}"
-                f"&type=xhttp&path=%2F{xhttp_path}#VLESS-XHTTP"
+            xhttp_url = PROTOCOLS["xhttp"].build_url(
+                reality_uuid,
+                "VLESS",
+                ip=self.server_ip,
+                xhttp_path=xhttp_path,
+                domain=domain,
+                fingerprint=self.fingerprint,
             )
 
         # Generate QR codes as base64 PNG (pure Python, no qrencode binary needed)

@@ -14,6 +14,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import quote
 
 from meridian.config import DEFAULT_FINGERPRINT, DEFAULT_SNI
 from meridian.credentials import ServerCredentials
@@ -25,6 +26,13 @@ def _bracket_ipv6(ip: str) -> str:
     if ":" in ip and not ip.startswith("["):
         return f"[{ip}]"
     return ip
+
+
+def _xhttp_host_query_value(sni_host: str) -> str:
+    """Host header / query value: strip brackets from bracketed IPv6 for HTTP semantics."""
+    if sni_host.startswith("[") and sni_host.endswith("]"):
+        return sni_host[1:-1]
+    return sni_host
 
 
 @dataclass(frozen=True)
@@ -165,7 +173,9 @@ class Protocol(ABC):
     def _build_fragment(self, name: str, server_name: str = "", extra_suffix: str = "") -> str:
         """Build the URL fragment (after #) for a connection URL."""
         base = f"{name} @ {server_name}" if server_name else name
-        return f"#{base}{extra_suffix}{self.url_suffix}"
+        remark = f"{base}{extra_suffix}{self.url_suffix}"
+        # Percent-encode: spaces and @ in remarks break strict importers (e.g. Hiddify).
+        return f"#{quote(remark, safe='-_.~')}"
 
     def _resolve_uuid(self, reality_uuid: str, wss_uuid: str) -> str:
         """Pick the correct UUID for this protocol.
@@ -327,10 +337,11 @@ class XHTTPProtocol(Protocol):
         sni_host = domain or _bracket_ipv6(ip)
         connect_host = kwargs.get("connect_host", sni_host)
         fragment = self._build_fragment(name, kwargs.get("server_name", ""), extra_suffix)
+        host_q = quote(_xhttp_host_query_value(sni_host), safe="")
         return (
             f"vless://{uuid}@{connect_host}:{port}"
             f"?encryption=none&security=tls&sni={sni_host}&fp={fingerprint}"
-            f"&type=xhttp&path=%2F{xhttp_path}{fragment}"
+            f"&type=xhttp&path=%2F{xhttp_path}&mode=auto&host={host_q}{fragment}"
         )
 
     def build_url_from_creds(

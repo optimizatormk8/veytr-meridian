@@ -171,6 +171,8 @@ class TestXHTTPBuildURL:
         assert "security=tls" in url
         assert "type=xhttp" in url
         assert "path=%2Fmyxhttppath" in url
+        assert "mode=auto" in url
+        assert "host=1.2.3.4" in url
         assert url.endswith("#bob-XHTTP")
         # XHTTP must NOT have flow parameter
         assert "flow=" not in url
@@ -196,6 +198,8 @@ class TestXHTTPBuildURL:
         assert "path=%2Fmypath" in url
         assert "sni=example.com" in url
         assert "fp=chrome" in url
+        assert "mode=auto" in url
+        assert "host=example.com" in url
 
     def test_url_without_domain_uses_ip(self) -> None:
         proto = XHTTPProtocol()
@@ -207,6 +211,8 @@ class TestXHTTPBuildURL:
         )
         assert "vless://test-uuid@5.6.7.8:443" in url
         assert "sni=5.6.7.8" in url
+        assert "mode=auto" in url
+        assert "host=5.6.7.8" in url
 
     def test_url_suffix(self) -> None:
         assert XHTTPProtocol().url_suffix == "-XHTTP"
@@ -464,7 +470,7 @@ class TestBuildUrlFromCreds:
     def test_reality_with_server_name(self) -> None:
         creds = _make_test_creds()
         url = RealityProtocol().build_url_from_creds("r-uuid", "", creds, "alice", server_name="My VPN")
-        assert url.endswith("#alice @ My VPN")
+        assert url.endswith("#alice%20%40%20My%20VPN")
 
     def test_xhttp_builds_url(self) -> None:
         creds = _make_test_creds(xhttp_path="xp123")
@@ -526,7 +532,7 @@ class TestBuildRelayUrl:
         url = RealityProtocol().build_relay_url(
             "r-uuid", "", creds, "alice", "198.51.100.50", relay_name="moscow", server_name="My VPN"
         )
-        assert "#alice @ My VPN-via-moscow" in url
+        assert "#alice%20%40%20My%20VPN-via-moscow" in url
 
     def test_xhttp_relay_url(self) -> None:
         creds = _make_test_creds(xhttp_path="xp123")
@@ -534,12 +540,16 @@ class TestBuildRelayUrl:
         assert "vless://r-uuid@198.51.100.50:8443" in url
         assert "sni=198.51.100.1" in url  # exit IP as SNI (no domain)
         assert "type=xhttp" in url
+        assert "mode=auto" in url
+        assert "host=198.51.100.1" in url
         assert "#bob-via-moscow-XHTTP" in url
 
     def test_xhttp_relay_with_domain(self) -> None:
         creds = _make_test_creds(domain="example.com", xhttp_path="xp123")
         url = XHTTPProtocol().build_relay_url("r-uuid", "", creds, "bob", "198.51.100.50", relay_name="moscow")
         assert "sni=example.com" in url
+        assert "mode=auto" in url
+        assert "host=example.com" in url
 
     def test_xhttp_relay_returns_empty_without_path(self) -> None:
         creds = _make_test_creds()
@@ -592,6 +602,8 @@ class TestIPv6URLConstruction:
         )
         assert "vless://test-uuid@[2001:db8::1]:443" in url
         assert "sni=[2001:db8::1]" in url
+        assert "mode=auto" in url
+        assert "host=2001%3Adb8%3A%3A1" in url
 
     def test_xhttp_ipv6_with_domain_uses_domain(self) -> None:
         proto = XHTTPProtocol()
@@ -604,6 +616,7 @@ class TestIPv6URLConstruction:
         )
         assert "vless://test-uuid@example.com:443" in url
         assert "sni=example.com" in url
+        assert "host=example.com" in url
         # IPv6 should NOT appear when domain is set
         assert "[2001:db8::1]" not in url
 

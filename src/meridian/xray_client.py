@@ -6,6 +6,7 @@ connections work end-to-end through SOCKS5.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import platform
@@ -24,6 +25,7 @@ from meridian.config import (
     XRAY_ASSET_MAP,
     XRAY_GITHUB_URL,
     XRAY_VERSION,
+    is_ipv4,
 )
 from meridian.credentials import ServerCredentials
 
@@ -200,7 +202,7 @@ def build_xhttp_config(
                         "serverName": host,
                         "fingerprint": fingerprint,
                     },
-                    "xhttpSettings": {"path": f"/{xhttp_path}"},
+                    "xhttpSettings": {"path": f"/{xhttp_path}", "mode": "auto"},
                 },
             }
         ],
@@ -264,6 +266,59 @@ def _find_free_port() -> int:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_connect_probe_url(expect_ip_match: bool, server_ip: str) -> str:
+    """URL for the SOCKS egress check.
+
+    When matching exit IP to credentials, use ipify's single-stack hosts so the
+    probe uses the same address family as the server (ifconfig.me can return IPv6
+    while proxy.yml stores IPv4). ``MERIDIAN_CONNECT_TEST_URL`` overrides.
+    """
+    override = os.environ.get("MERIDIAN_CONNECT_TEST_URL", "").strip()
+    if override:
+        return override
+    if expect_ip_match and server_ip:
+        if is_ipv4(server_ip):
+            return "https://api4.ipify.org"
+        try:
+            if ipaddress.ip_address(server_ip).version == 6:
+                return "https://api6.ipify.org"
+        except ValueError:
+            pass
+    return CONNECT_TEST_URL
+
+
+def connect_probe_curl_argv(
+    socks_port: int,
+    expect_ip_match: bool,
+    server_ip: str,
+    url: str = CONNECT_TEST_URL,
+) -> list[str]:
+    """curl argv for SOCKS egress check; align IP family with server_ip when matching."""
+    argv: list[str] = [
+        "curl",
+        "-sS",
+        "--socks5",
+        f"127.0.0.1:{socks_port}",
+        "--connect-timeout",
+        "10",
+        "--max-time",
+        "15",
+    ]
+    if expect_ip_match and server_ip:
+        if is_ipv4(server_ip):
+            argv.append("-4")
+        else:
+            try:
+                parsed = ipaddress.ip_address(server_ip)
+            except ValueError:
+                pass
+            else:
+                if parsed.version == 6:
+                    argv.append("-6")
+    argv.append(url)
+    return argv
+
+
 def test_connection(
     xray_bin: Path,
     config: dict,
@@ -310,19 +365,10 @@ def test_connection(
         _wait_for_port(socks_port, timeout=5)
 
         # Test connectivity
+        probe_url = _resolve_connect_probe_url(expect_ip_match, server_ip)
         start = time.monotonic()
         result = subprocess.run(
-            [
-                "curl",
-                "-sS",
-                "--socks5",
-                f"127.0.0.1:{socks_port}",
-                "--connect-timeout",
-                "10",
-                "--max-time",
-                "15",
-                CONNECT_TEST_URL,
-            ],
+            connect_probe_curl_argv(socks_port, expect_ip_match, server_ip, probe_url),
             capture_output=True,
             text=True,
             timeout=20,

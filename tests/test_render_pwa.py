@@ -24,7 +24,11 @@ from meridian.render import (
 REALITY_URL = (
     "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443?security=reality&sni=www.example.com#Test-Reality"
 )
-XHTTP_URL = "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443?security=tls&type=xhttp#Test-XHTTP"
+XHTTP_URL = (
+    "vless://550e8400-e29b-41d4-a716-446655440000@198.51.100.1:443"
+    "?encryption=none&security=tls&sni=198.51.100.1&fp=chrome&type=xhttp"
+    "&path=%2Fxhttp-demo&mode=auto&host=198.51.100.1#Test-XHTTP"
+)
 WSS_URL = "vless://660e8400-e29b-41d4-a716-446655440000@example.com:443?security=tls&type=ws#Test-WSS"
 RELAY_URL = "vless://550e8400-e29b-41d4-a716-446655440000@10.0.0.1:443?security=reality&sni=www.example.com#Test-Relay"
 

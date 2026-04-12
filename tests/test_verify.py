@@ -120,6 +120,7 @@ class TestXHTTPConfig:
         assert stream["security"] == "tls"
         assert stream["tlsSettings"]["serverName"] == "198.51.100.1"
         assert stream["xhttpSettings"]["path"] == "/myxhttp"
+        assert stream["xhttpSettings"]["mode"] == "auto"
         # XHTTP must NOT have flow
         assert "flow" not in outbound["settings"]["vnext"][0]["users"][0]
 
