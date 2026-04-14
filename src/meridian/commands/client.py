@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,7 +23,6 @@ from meridian.panel import PanelClient, PanelError
 from meridian.protocols import PROTOCOLS, Protocol, get_protocol
 from meridian.render import save_connection_html
 from meridian.servers import ServerRegistry
-from meridian.ssh import SSH_OPTS
 from meridian.urls import build_all_relay_urls, build_protocol_urls
 
 if TYPE_CHECKING:
@@ -102,28 +100,21 @@ def _make_panel(creds: ServerCredentials, conn: ServerConnection) -> PanelClient
 
 
 def _sync_credentials_to_server(resolved: ResolvedServer) -> bool:
-    """Sync local credentials back to the server's /etc/meridian/."""
+    """Sync local credentials back to the server's /etc/meridian/.
+
+    Uses conn.write_file() which handles sudo for non-root users — SCP alone
+    can't write to root-owned /etc/meridian/.
+    """
     if resolved.local_mode:
         return True  # Already on the server
 
-    # SCP the credentials directory to the server
-    try:
-        result = subprocess.run(
-            [
-                "scp",
-                *SSH_OPTS,
-                "-r",
-                f"{resolved.creds_dir}/",
-                f"{resolved.user}@{resolved.ip}:/etc/meridian/",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-            stdin=subprocess.DEVNULL,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+    ok = True
+    for path in resolved.creds_dir.iterdir():
+        if not path.is_file():
+            continue
+        if not resolved.conn.write_file(path, f"/etc/meridian/{path.name}"):
+            ok = False
+    return ok
 
 
 def _refresh_credentials_or_fail(resolved: ResolvedServer, *, action: str) -> None:
