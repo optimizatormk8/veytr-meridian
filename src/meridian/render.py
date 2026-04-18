@@ -204,7 +204,9 @@ _PWA_APPS: list[dict[str, Any]] = [
             "iOS": "https://apps.apple.com/app/v2box-v2ray-client/id6446814690",
             "Android": "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box",
         },
-        "deeplink": "v2box://install-sub?url={url_b64}&name={name}",
+        # Plain URL (urlencode), not base64 — matches V2Box / community docs:
+        # v2box://install-sub?url=SUB_URL&name=NAME
+        "deeplink": "v2box://install-sub?url={url}&name={name}",
     },
     {
         "name": "Happ",
