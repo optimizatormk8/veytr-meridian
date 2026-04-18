@@ -73,7 +73,7 @@
       "iOS": "https://apps.apple.com/app/v2box-v2ray-client/id6446814690",
       "Android": "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box"
     },
-    "deeplink": "v2box://install-sub?url={url_b64}&name={name}"
+    "deeplink": "v2box://install-sub?url={url}&name={name}"
   },
   {
     "name": "Happ",

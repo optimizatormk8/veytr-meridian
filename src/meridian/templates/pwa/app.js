@@ -355,6 +355,17 @@ function getSubscriptionUrl(config) {
 }
 
 function buildDeepLink(template, subUrl, name) {
+  /* V2Box: community docs use plain SUB_URL in query (percent-encoded), not base64.
+     Older config.json templates used {url_b64} — ignore template and always build
+     the documented form so import works even without re-rendering config.json. */
+  if (template.indexOf('v2box://install-sub') === 0) {
+    return (
+      'v2box://install-sub?url=' +
+      encodeURIComponent(subUrl) +
+      '&name=' +
+      encodeURIComponent(name || 'Meridian')
+    );
+  }
   return template
     .replace('{url_raw}', subUrl)
     .replace('{url_b64}', btoa(subUrl))
