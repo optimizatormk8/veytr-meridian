@@ -250,6 +250,15 @@ class HardenSSH:
                 )
             conn.run(f"chmod 644 {_SSH_HARDENING_DROPIN_PATH}", timeout=15)
             conn.run(f"rm -f {_SSH_HARDENING_DROPIN_OLD_PATH}", timeout=15)
+            # Neutralize conflicting settings in other drop-ins (e.g., cloud-init)
+            # so our values are authoritative regardless of load order.
+            conn.run(
+                "for f in /etc/ssh/sshd_config.d/*.conf; do "
+                f'[ "$f" = "{_SSH_HARDENING_DROPIN_PATH}" ] && continue; '
+                r"sed -i -E 's/^[[:space:]]*(PasswordAuthentication|KbdInteractiveAuthentication|ChallengeResponseAuthentication)[[:space:]]/#\1 /' "
+                '"$f" 2>/dev/null; done',
+                timeout=15,
+            )
             changed = True
 
         # Validate config before restarting
