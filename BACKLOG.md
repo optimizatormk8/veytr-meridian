@@ -126,7 +126,7 @@ Things that require human action outside the codebase.
 - [ ] **Batch client add** — `meridian client add alice bob charlie`
 - [ ] **Per-client traffic/IP limits** — `--limit-gb`, `--limit-ip` flags
 - [ ] **Self-hosted ping endpoint** — make this the default troubleshooting path from hosted client pages so connection testing still works when `getmeridian.org` is blocked and doesn't leak server metadata externally
-- [ ] **Windows WSL setup guide** — doc page
+- [x] **Windows WSL setup guide** — doc page
 - [ ] **`meridian server status`** — multi-server overview
 - [ ] **`meridian test --via RELAY_IP`** — E2E test through relay
 - [ ] **`meridian client export NAME`** — standalone HTML for offline sharing
